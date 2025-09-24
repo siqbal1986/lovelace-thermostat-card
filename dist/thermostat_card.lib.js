@@ -79,6 +79,7 @@ export default class ThermostatUI {
     this._container.appendChild(this.c_body);
     this._root = root;
     this._buildControls(config.radius);
+    this._root.style.touchAction = 'none';
     this._root.addEventListener('pointerdown', (ev) => this._onPointerDown(ev));
     this._root.addEventListener('pointermove', (ev) => this._onPointerMove(ev));
     this._root.addEventListener('pointerup', (ev) => this._onPointerUp(ev));
@@ -227,6 +228,13 @@ export default class ThermostatUI {
     }
   }
 
+  _clampDialAngle(angle) {
+    if (!this._config) return angle;
+    const minAngle = -this._config.offset_degrees;
+    const maxAngle = this._config.tick_degrees - this._config.offset_degrees;
+    return Math.min(Math.max(angle, minAngle), maxAngle);
+  }
+
   _normalizeAngle(angle) {
     let result = angle;
     while (result <= -180) result += 360;
@@ -284,15 +292,25 @@ export default class ThermostatUI {
     return distLow <= distHigh ? 'low' : 'high';
   }
 
-  _handleDragTemperature(angle, active) {
+  _getActiveTemperature(active, min, max) {
+    if (active === 'low') {
+      return this._toNumber(this._low, min);
+    }
+    if (active === 'high') {
+      return this._toNumber(this._high, max);
+    }
+    return this._toNumber(this._target, min);
+  }
+
+  _applyTemperatureForActive(active, rawValue, minOverride, maxOverride) {
     const config = this._config;
-    if (!config) return;
+    if (!config) return false;
 
-    const min = this._toNumber(this.min_value, 0);
-    const max = this._toNumber(this.max_value, min);
-    if (max <= min) return;
+    const min = minOverride !== undefined ? minOverride : this._toNumber(this.min_value, 0);
+    const max = maxOverride !== undefined ? maxOverride : this._toNumber(this.max_value, min);
+    if (max <= min) return false;
 
-    let newTemp = this._applyStep(this._angleToTemperature(angle));
+    const newTemp = this._applyStep(rawValue);
     const idleZone = this._toNumber(config.idle_zone, 0);
     let changed = false;
 
@@ -317,6 +335,14 @@ export default class ThermostatUI {
           this._updateText('high', this._high);
           changed = true;
         }
+      } else {
+        const restricted = SvgUtil.restrictToRange(newTemp, min, max);
+        const currentTarget = this._toNumber(this._target, min);
+        if (Math.abs(restricted - currentTarget) > 0.0001) {
+          this._target = restricted;
+          this._updateText('target', this._target);
+          changed = true;
+        }
       }
     } else {
       const restricted = SvgUtil.restrictToRange(newTemp, min, max);
@@ -331,6 +357,8 @@ export default class ThermostatUI {
     if (changed) {
       this._updateTickDisplay();
     }
+
+    return changed;
   }
 
   _getPointerAngle(event) {
@@ -365,10 +393,19 @@ export default class ThermostatUI {
     const angleInfo = this._getPointerAngle(event);
     if (!angleInfo) return;
 
+    const active = this._determineActiveSetpoint(angleInfo.clamped);
+    const startTemperature = this._getActiveTemperature(active, min, max);
+    const startAngle = this._temperatureToAngle(startTemperature);
+
     this._dragState = {
       pointerId: event.pointerId,
-      lastAngle: angleInfo.clamped,
-      active: this._determineActiveSetpoint(angleInfo.clamped)
+      pointerDownAngle: angleInfo.clamped,
+      startAngle,
+      startRing: this._ringRotation,
+      active,
+      min,
+      max,
+      moved: false,
     };
 
     if (this._root.setPointerCapture) {
@@ -386,15 +423,20 @@ export default class ThermostatUI {
     if (!this._dragState || this._dragState.pointerId !== event.pointerId) return;
     const angleInfo = this._getPointerAngle(event);
     if (!angleInfo) return;
-    const delta = this._angleDifference(angleInfo.clamped, this._dragState.lastAngle);
-    this._setRingRotation(this._ringRotation + delta);
-    this._dragState.lastAngle = angleInfo.clamped;
-    if (Math.abs(delta) > 0.0001) {
-      this._dragState.moved = true;
+
+    const dragState = this._dragState;
+    const deltaFromPointer = this._angleDifference(angleInfo.clamped, dragState.pointerDownAngle);
+    const effectiveAngle = this._clampDialAngle(dragState.startAngle + deltaFromPointer);
+    const rawTemperature = this._angleToTemperature(effectiveAngle);
+    const changed = this._applyTemperatureForActive(dragState.active, rawTemperature, dragState.min, dragState.max);
+
+    this._setRingRotation(dragState.startRing + deltaFromPointer);
+
+    if (Math.abs(deltaFromPointer) > 0.0001 || changed) {
+      dragState.moved = true;
+      this._scheduleControlUpdate();
+      event.preventDefault();
     }
-    this._handleDragTemperature(angleInfo.clamped, this._dragState.active);
-    this._scheduleControlUpdate();
-    event.preventDefault();
   }
 
   _onPointerUp(event) {
