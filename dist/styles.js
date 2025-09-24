@@ -187,6 +187,25 @@ export function cssData(user) {
     opacity: 1;
     pointer-events: initial;
   }
+  .dial__ring {
+    pointer-events: none;
+  }
+  .dial__metal-ring {
+    fill: var(--dial-metal-ring-fill, #d6d9df);
+    fill-rule: evenodd;
+    stroke: var(--dial-metal-ring-stroke, rgba(255, 255, 255, 0.7));
+    stroke-width: 1.8px;
+    stroke-linejoin: round;
+    paint-order: stroke fill;
+    filter: var(--dial-metal-ring-filter, drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)));
+    pointer-events: none;
+    opacity: 0.98;
+    transition: stroke-width 0.3s ease, filter 0.3s ease, opacity 0.3s ease;
+  }
+  .dial--edit .dial__metal-ring {
+    stroke-width: 2.2px;
+    opacity: 1;
+  }
   .dial__editableIndicator {
     fill: white;
     fill-rule: evenodd;

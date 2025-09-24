@@ -37,6 +37,11 @@ export default class ThermostatUI {
     this._container = document.createElement('div');
     this._main_icon = document.createElement('div');
     this._modes_dialog = document.createElement('div');
+    this._metalRingIds = {
+      gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'),
+      sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
+      filter: SvgUtil.uniqueId('dial__metal-ring-filter')
+    };
     config.title = config.title === null || config.title === undefined ? 'Title' : config.title
 
     this._ic = document.createElement('div');
@@ -435,12 +440,116 @@ export default class ThermostatUI {
     }
   }
   _buildCore(diameter) {
-    return SvgUtil.createSVGElement('svg', {
+    const ringIds = this._metalRingIds || {
+      gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'),
+      sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
+      filter: SvgUtil.uniqueId('dial__metal-ring-filter')
+    };
+    this._metalRingIds = ringIds;
+    const root = SvgUtil.createSVGElement('svg', {
       width: '100%',
       height: '100%',
       viewBox: '0 0 ' + diameter + ' ' + diameter,
       class: 'dial'
-    })
+    });
+    root.style.setProperty('--dial-metal-ring-fill', `url(#${ringIds.gradient})`);
+    root.style.setProperty('--dial-metal-ring-stroke', `url(#${ringIds.sheen})`);
+    root.style.setProperty('--dial-metal-ring-filter', `url(#${ringIds.filter})`);
+    const defs = SvgUtil.createSVGElement('defs', {});
+    const metalGradient = SvgUtil.createSVGElement('linearGradient', {
+      id: ringIds.gradient,
+      x1: '0%',
+      y1: '0%',
+      x2: '100%',
+      y2: '100%'
+    });
+    const gradientStops = [
+      { offset: '0%', color: '#f7f8fa' },
+      { offset: '30%', color: '#d8dbdf' },
+      { offset: '50%', color: '#a4a8ad' },
+      { offset: '70%', color: '#d4d7db' },
+      { offset: '100%', color: '#f6f7f9' }
+    ];
+    gradientStops.forEach((stop) => {
+      metalGradient.appendChild(SvgUtil.createSVGElement('stop', {
+        offset: stop.offset,
+        'stop-color': stop.color,
+        'stop-opacity': '1'
+      }));
+    });
+    defs.appendChild(metalGradient);
+    const sheenGradient = SvgUtil.createSVGElement('radialGradient', {
+      id: ringIds.sheen,
+      cx: '50%',
+      cy: '40%',
+      r: '75%'
+    });
+    const sheenStops = [
+      { offset: '0%', color: '#ffffff', opacity: '0.9' },
+      { offset: '55%', color: '#f5f5f5', opacity: '0.4' },
+      { offset: '100%', color: '#8a8f96', opacity: '0' }
+    ];
+    sheenStops.forEach((stop) => {
+      sheenGradient.appendChild(SvgUtil.createSVGElement('stop', {
+        offset: stop.offset,
+        'stop-color': stop.color,
+        'stop-opacity': stop.opacity
+      }));
+    });
+    defs.appendChild(sheenGradient);
+    const metalFilter = SvgUtil.createSVGElement('filter', {
+      id: ringIds.filter,
+      x: '-20%',
+      y: '-20%',
+      width: '140%',
+      height: '140%'
+    });
+    const outerShadow = SvgUtil.createSVGElement('feDropShadow', {
+      dx: '0',
+      dy: '2',
+      stdDeviation: '1.6',
+      'flood-color': '#000000',
+      'flood-opacity': '0.35',
+      result: 'outerShadow'
+    });
+    metalFilter.appendChild(outerShadow);
+    const innerShadowBlur = SvgUtil.createSVGElement('feGaussianBlur', {
+      'in': 'SourceAlpha',
+      stdDeviation: '1.2',
+      result: 'innerShadowBlur'
+    });
+    metalFilter.appendChild(innerShadowBlur);
+    const innerShadowOffset = SvgUtil.createSVGElement('feOffset', {
+      'in': 'innerShadowBlur',
+      dx: '0',
+      dy: '-1',
+      result: 'innerShadowOffset'
+    });
+    metalFilter.appendChild(innerShadowOffset);
+    const innerShadowComposite = SvgUtil.createSVGElement('feComposite', {
+      'in': 'innerShadowOffset',
+      in2: 'SourceAlpha',
+      operator: 'arithmetic',
+      k2: '-1',
+      k3: '1',
+      result: 'innerShadow'
+    });
+    metalFilter.appendChild(innerShadowComposite);
+    const innerShadowColor = SvgUtil.createSVGElement('feColorMatrix', {
+      'in': 'innerShadow',
+      type: 'matrix',
+      values: '0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0',
+      result: 'innerShadowColor'
+    });
+    metalFilter.appendChild(innerShadowColor);
+    const merge = SvgUtil.createSVGElement('feMerge', {});
+    merge.appendChild(SvgUtil.createSVGElement('feMergeNode', { 'in': 'outerShadow' }));
+    merge.appendChild(SvgUtil.createSVGElement('feMergeNode', { 'in': 'innerShadowColor' }));
+    merge.appendChild(SvgUtil.createSVGElement('feMergeNode', { 'in': 'SourceGraphic' }));
+    metalFilter.appendChild(merge);
+    defs.appendChild(metalFilter);
+    root.appendChild(defs);
+    return root;
   }
 
   openProp() {
@@ -496,10 +605,20 @@ export default class ThermostatUI {
   }
   // build circle around
   _buildRing(radius) {
-    return SvgUtil.createSVGElement('path', {
+    const ringGroup = SvgUtil.createSVGElement('g', {
+      class: 'dial__ring'
+    });
+    const bezel = SvgUtil.createSVGElement('path', {
+      d: SvgUtil.donutPath(radius, radius, radius - 2, radius - 12),
+      class: 'dial__metal-ring'
+    });
+    const highlight = SvgUtil.createSVGElement('path', {
       d: SvgUtil.donutPath(radius, radius, radius - 4, radius - 8),
-      class: 'dial__editableIndicator',
-    })
+      class: 'dial__editableIndicator'
+    });
+    ringGroup.appendChild(bezel);
+    ringGroup.appendChild(highlight);
+    return ringGroup;
   }
 
   _buildTicks(num_ticks) {
@@ -678,5 +797,8 @@ class SvgUtil {
       Y: Y,
       R: startAngle
     }
+  }
+  static uniqueId(prefix) {
+    return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
   }
 }
