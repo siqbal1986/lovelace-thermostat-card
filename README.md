@@ -22,6 +22,21 @@ A simple thermostat implemented in CSS and SVG based on <a href="https://codepen
 ## Preview
 ![](https://bbs.hassbian.com/data/attachment/forum/202003/14/172544q3ajp7742cbo757h.gif)
 
+## Offline sandbox
+
+An offline test harness is available in [`sandbox/index.html`](./sandbox/index.html). Download or
+clone this repository and open that file directly in any modern browser to experiment with the
+thermostat card without Home Assistant.
+
+The sandbox provides:
+
+- A mocked Home Assistant API with adjustable entity attributes
+- Service-call logging so you can see what the card is sending back to Home Assistant
+- Real-time controls for HVAC mode, target temperatures, presets, and more
+
+Every change you make in the control panel is reflected immediately on the card so you can validate
+its behaviour visually.
+
 ## Update
 ### v1.3.0
 + fix icon

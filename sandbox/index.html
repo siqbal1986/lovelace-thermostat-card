@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Thermostat Card Sandbox</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --background: #0f172a;
+        --panel: #111827;
+        --panel-alt: #1f2937;
+        --accent: #38bdf8;
+        --accent-strong: #0ea5e9;
+        --text: #e2e8f0;
+        --text-muted: #94a3b8;
+        --border: rgba(148, 163, 184, 0.25);
+        font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont,
+          'Helvetica Neue', sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top, rgba(56, 189, 248, 0.15), transparent 55%),
+          var(--background);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        padding: 2.5rem 1.5rem 2rem;
+        gap: 2rem;
+      }
+
+      header {
+        max-width: 1100px;
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0 0 0.5rem;
+        font-size: clamp(1.8rem, 3vw, 2.4rem);
+      }
+
+      header p {
+        margin: 0 auto;
+        max-width: 680px;
+        font-size: 1rem;
+        line-height: 1.5;
+        color: var(--text-muted);
+      }
+
+      main {
+        max-width: 1100px;
+        width: 100%;
+        margin: 0 auto;
+        display: grid;
+        gap: 1.75rem;
+      }
+
+      @media (min-width: 960px) {
+        main {
+          grid-template-columns: 1fr 1fr;
+          align-items: start;
+        }
+      }
+
+      section.card-panel,
+      section.control-panel {
+        background: linear-gradient(160deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9));
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 1.75rem;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.45);
+      }
+
+      section.card-panel h2,
+      section.control-panel h2,
+      section.control-panel h3 {
+        margin: 0 0 1rem;
+        font-size: 1.3rem;
+      }
+
+      .card-wrapper {
+        display: flex;
+        justify-content: center;
+        padding: 1rem 0;
+      }
+
+      thermostat-card {
+        display: block;
+        max-width: 420px;
+        width: min(100%, 420px);
+      }
+
+      ha-card {
+        display: block;
+        background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 65%),
+          var(--panel-alt);
+        border-radius: 28px;
+        overflow: hidden;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        box-shadow: 0 12px 40px rgba(8, 47, 73, 0.55);
+      }
+
+      .card-info {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 16px;
+        background: rgba(148, 163, 184, 0.1);
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.5;
+      }
+
+      .card-actions {
+        margin-top: 1.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .card-actions button {
+        border: none;
+        border-radius: 999px;
+        padding: 0.6rem 1.2rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--background);
+        background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+        cursor: pointer;
+        box-shadow: 0 12px 30px rgba(14, 165, 233, 0.35);
+        transition: transform 160ms ease, box-shadow 160ms ease;
+      }
+
+      .card-actions button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 40px rgba(14, 165, 233, 0.4);
+      }
+
+      .card-actions span {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+      }
+
+      form {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .field {
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .field label,
+      .field .label {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--text);
+      }
+
+      .field label span {
+        color: var(--text-muted);
+        font-weight: 400;
+        margin-left: 0.35rem;
+      }
+
+      .field input[type='number'],
+      .field select {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.6);
+        color: var(--text);
+        padding: 0.65rem 0.75rem;
+        font-size: 1rem;
+        transition: border 160ms ease, box-shadow 160ms ease;
+      }
+
+      .field input[type='number']:focus,
+      .field select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+      }
+
+      .field[data-disabled='true'] {
+        opacity: 0.6;
+      }
+
+      .field input[type='checkbox'] {
+        width: 18px;
+        height: 18px;
+        margin-right: 0.4rem;
+      }
+
+      .chip-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(15, 23, 42, 0.45);
+        font-size: 0.9rem;
+      }
+
+      .chip input {
+        accent-color: var(--accent-strong);
+      }
+
+      #service-log {
+        list-style: none;
+        margin: 1rem 0 0;
+        padding: 0;
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      #service-log li {
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 16px;
+        padding: 0.75rem 1rem;
+        background: rgba(15, 23, 42, 0.65);
+      }
+
+      #service-log li .summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin-bottom: 0.35rem;
+      }
+
+      #service-log li code {
+        font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco,
+          Consolas, 'Liberation Mono', 'Courier New', monospace;
+        font-size: 0.9rem;
+        background: rgba(56, 189, 248, 0.12);
+        padding: 0.15rem 0.4rem;
+        border-radius: 6px;
+        color: var(--accent);
+      }
+
+      #service-log li time {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+      }
+
+      #service-log li pre {
+        margin: 0;
+        font-size: 0.85rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      #service-log li.empty {
+        text-align: center;
+        border-style: dashed;
+        color: var(--text-muted);
+      }
+
+      .state-viewer {
+        margin-top: 1.5rem;
+      }
+
+      .state-viewer pre {
+        margin: 0;
+        padding: 1rem;
+        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        font-size: 0.85rem;
+        line-height: 1.45;
+        max-height: 260px;
+        overflow: auto;
+      }
+
+      ha-icon,
+      ha-icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(148, 163, 184, 0.15);
+        color: var(--text);
+      }
+
+      ha-icon-button {
+        cursor: pointer;
+        transition: background 160ms ease, transform 160ms ease;
+      }
+
+      ha-icon-button:hover,
+      ha-icon-button:focus {
+        background: rgba(56, 189, 248, 0.2);
+        transform: translateY(-1px);
+        outline: none;
+      }
+
+      footer {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Thermostat Card Sandbox</h1>
+      <p>
+        Use this offline page to experiment with the Lovelace Thermostat Card. The controls on the
+        right emulate the Home Assistant API and allow you to tweak entity data, call services, and
+        observe how the card reacts in real time.
+      </p>
+    </header>
+    <main>
+      <section class="card-panel">
+        <h2>Card preview</h2>
+        <div class="card-wrapper">
+          <thermostat-card id="thermostat-card"></thermostat-card>
+        </div>
+        <div class="card-info">
+          The mock Home Assistant instance mirrors service calls made by the card, so dragging the
+          dial or choosing a HVAC mode will immediately update the simulated entity and log the
+          request below.
+        </div>
+        <div class="card-actions">
+          <span id="dual-state">Single set-point mode is active.</span>
+          <button type="button" id="reset-state">Reset mock state</button>
+        </div>
+      </section>
+      <section class="control-panel">
+        <h2>Mock climate entity</h2>
+        <form id="climate-form">
+          <div class="field">
+            <label for="hvac-state">HVAC state</label>
+            <select id="hvac-state">
+              <option value="off">off</option>
+              <option value="heat">heat</option>
+              <option value="cool">cool</option>
+              <option value="heat_cool">heat_cool</option>
+              <option value="auto">auto</option>
+              <option value="dry">dry</option>
+              <option value="fan_only">fan_only</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ambient-temp">Ambient temperature <span>(°C)</span></label>
+            <input id="ambient-temp" type="number" step="0.1" min="-20" max="50" />
+          </div>
+          <div class="field" data-disabled="false">
+            <label for="target-temp">Target temperature <span>(°C)</span></label>
+            <input id="target-temp" type="number" step="0.1" min="-20" max="50" />
+          </div>
+          <div class="field">
+            <label for="target-temp-low">Target low <span>(°C)</span></label>
+            <input id="target-temp-low" type="number" step="0.1" min="-20" max="50" />
+          </div>
+          <div class="field">
+            <label for="target-temp-high">Target high <span>(°C)</span></label>
+            <input id="target-temp-high" type="number" step="0.1" min="-20" max="50" />
+          </div>
+          <div class="field">
+            <label for="min-temp">Minimum temperature <span>(°C)</span></label>
+            <input id="min-temp" type="number" step="0.5" min="-40" max="60" />
+          </div>
+          <div class="field">
+            <label for="max-temp">Maximum temperature <span>(°C)</span></label>
+            <input id="max-temp" type="number" step="0.5" min="-40" max="60" />
+          </div>
+          <div class="field">
+            <label for="preset-mode">Preset mode</label>
+            <select id="preset-mode">
+              <option value="none">none</option>
+              <option value="home">home</option>
+              <option value="away">away</option>
+              <option value="sleep">sleep</option>
+              <option value="eco">eco</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label">Available HVAC modes</label>
+            <div id="hvac-modes" class="chip-group"></div>
+          </div>
+          <div class="field">
+            <label class="label" for="away-mode">
+              <input id="away-mode" type="checkbox" />Away mode enabled
+            </label>
+          </div>
+        </form>
+        <div class="log">
+          <h3>Service log</h3>
+          <ul id="service-log"></ul>
+        </div>
+        <div class="state-viewer">
+          <h3>Entity payload</h3>
+          <pre id="state-json"></pre>
+        </div>
+      </section>
+    </main>
+    <footer>
+      Open this file directly in your browser or serve the repository locally. No internet
+      connection is required.
+    </footer>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
