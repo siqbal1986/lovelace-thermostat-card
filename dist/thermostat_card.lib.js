@@ -43,6 +43,11 @@ export default class ThermostatUI {
     this._container = document.createElement('div');
     this._main_icon = document.createElement('div');
     this._modes_dialog = document.createElement('div');
+    this._metalRingIds = {
+      gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'),
+      sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
+      filter: SvgUtil.uniqueId('dial__metal-ring-filter')
+    };
     config.title = config.title === null || config.title === undefined ? 'Title' : config.title
 
     this._ic = document.createElement('div');
@@ -447,7 +452,6 @@ export default class ThermostatUI {
       viewBox: '0 0 ' + diameter + ' ' + diameter,
       class: 'dial'
     });
-
     const defs = SvgUtil.createSVGElement('defs', {});
 
     const metalGradient = SvgUtil.createSVGElement('radialGradient', {
@@ -708,6 +712,7 @@ export default class ThermostatUI {
     ringGroup.appendChild(ring);
     ringGroup.appendChild(highlight);
 
+
     return ringGroup;
   }
 
@@ -887,5 +892,8 @@ class SvgUtil {
       Y: Y,
       R: startAngle
     }
+  }
+  static uniqueId(prefix) {
+    return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
   }
 }

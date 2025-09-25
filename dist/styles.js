@@ -203,6 +203,7 @@ export function cssData(user) {
   .dial--edit .dial__metal-ring {
     opacity: 1;
     filter: var(--dial-metal-ring-filter-active, var(--dial-metal-ring-filter, drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45)) drop-shadow(0 -1px 1.5px rgba(255, 255, 255, 0.55))));
+
   }
   .dial__editableIndicator {
     fill: white;
