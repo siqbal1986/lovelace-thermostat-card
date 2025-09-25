@@ -187,24 +187,23 @@ export function cssData(user) {
     opacity: 1;
     pointer-events: initial;
   }
-  .dial__ring {
-    pointer-events: none;
-  }
   .dial__metal-ring {
-    fill: var(--dial-metal-ring-fill, #d6d9df);
-    fill-rule: evenodd;
-    stroke: var(--dial-metal-ring-stroke, rgba(255, 255, 255, 0.7));
-    stroke-width: 1.8px;
+    fill: var(--dial-metal-ring-fill, #c4c8ce);
+    stroke: var(--dial-metal-ring-stroke, rgba(255, 255, 255, 0.68));
+    stroke-width: var(--dial-metal-ring-stroke-width, 1.4px);
+    stroke-linecap: round;
     stroke-linejoin: round;
+    fill-rule: evenodd;
+    filter: var(--dial-metal-ring-filter, drop-shadow(0 3px 5px rgba(0, 0, 0, 0.35)) drop-shadow(0 -1px 1px rgba(255, 255, 255, 0.45)));
     paint-order: stroke fill;
-    filter: var(--dial-metal-ring-filter, drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35)));
+    opacity: 0.97;
     pointer-events: none;
-    opacity: 0.98;
-    transition: stroke-width 0.3s ease, filter 0.3s ease, opacity 0.3s ease;
+    transition: filter 0.35s ease, opacity 0.35s ease;
   }
   .dial--edit .dial__metal-ring {
-    stroke-width: 2.2px;
     opacity: 1;
+    filter: var(--dial-metal-ring-filter-active, var(--dial-metal-ring-filter, drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45)) drop-shadow(0 -1px 1.5px rgba(255, 255, 255, 0.55))));
+
   }
   .dial__editableIndicator {
     fill: white;
