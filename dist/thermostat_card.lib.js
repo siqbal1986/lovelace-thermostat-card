@@ -40,6 +40,7 @@ export default class ThermostatUI {
     this._ring = null;
     this._ringRotation = 0;
     this._dragState = null;
+    this._activeSetpoint = 'target';
     config.title = config.title === null || config.title === undefined ? 'Title' : config.title
 
     this._ic = document.createElement('div');
@@ -84,6 +85,7 @@ export default class ThermostatUI {
     this._root.addEventListener('pointermove', (ev) => this._onPointerMove(ev));
     this._root.addEventListener('pointerup', (ev) => this._onPointerUp(ev));
     this._root.addEventListener('pointercancel', (ev) => this._onPointerUp(ev));
+    this._root.addEventListener('lostpointercapture', (ev) => this._onPointerUp(ev));
     this._root.addEventListener('click', () => this._enableControls());
     this._container.appendChild(this._buildDialog());
     this._main_icon.addEventListener('click', () => this._openDialog());
@@ -110,10 +112,18 @@ export default class ThermostatUI {
     }
 
     this._updateTickDisplay();
+    if (this._isDualModeActive()) {
+      if (this._activeSetpoint !== 'low' && this._activeSetpoint !== 'high') {
+        this._activeSetpoint = 'low';
+      }
+    } else {
+      this._activeSetpoint = 'target';
+    }
     // this._updateColor(this.hvac_state, this.preset_mode);
     this._updateText('ambient', this.ambient);
     this._updateEdit(false);
     this._updateDialog(this.hvac_modes, hass);
+    this._syncRingToActiveSetpoint(this._activeSetpoint);
   }
 
   _temperatureControlClicked(index) {
@@ -121,31 +131,36 @@ export default class ThermostatUI {
     let chevron;
     this._root.querySelectorAll('path.dial__chevron').forEach(el => SvgUtil.setClass(el, 'pressed', false));
     if (this.in_control) {
+      let activeSetpoint = this.dual ? this._activeSetpoint : 'target';
       if (this.dual) {
         switch (index) {
           case 0:
-            // clicked top left 
+            // clicked top left
             chevron = this._root.querySelectorAll('path.dial__chevron--low')[1];
             this._low = this._low + config.step;
             if ((this._low + config.idle_zone) >= this._high) this._low = this._high - config.idle_zone;
+            activeSetpoint = 'low';
             break;
           case 1:
             // clicked top right
             chevron = this._root.querySelectorAll('path.dial__chevron--high')[1];
             this._high = this._high + config.step;
             if (this._high > this.max_value) this._high = this.max_value;
+            activeSetpoint = 'high';
             break;
           case 2:
             // clicked bottom right
             chevron = this._root.querySelectorAll('path.dial__chevron--high')[0];
             this._high = this._high - config.step;
             if ((this._high - config.idle_zone) <= this._low) this._high = this._low + config.idle_zone;
+            activeSetpoint = 'high';
             break;
           case 3:
             // clicked bottom left
             chevron = this._root.querySelectorAll('path.dial__chevron--low')[0];
             this._low = this._low - config.step;
             if (this._low < this.min_value) this._low = this.min_value;
+            activeSetpoint = 'low';
             break;
         }
         SvgUtil.setClass(chevron, 'pressed', true);
@@ -154,6 +169,7 @@ export default class ThermostatUI {
           SvgUtil.setClass(this._controls[index], 'control-visible', true);
       }
       else {
+        activeSetpoint = 'target';
         if (index < 2) {
           // clicked top
           chevron = this._root.querySelectorAll('path.dial__chevron--target')[1];
@@ -184,6 +200,8 @@ export default class ThermostatUI {
           SvgUtil.setClass(this._controls[3], 'control-visible', false);
         }, 200);
       }
+      this._activeSetpoint = activeSetpoint;
+      this._syncRingToActiveSetpoint(activeSetpoint);
       this._updateTickDisplay();
       this._scheduleControlUpdate();
     } else {
@@ -221,10 +239,11 @@ export default class ThermostatUI {
   }
 
   _setRingRotation(angle) {
-    this._ringRotation = angle;
+    const normalized = this._normalizeAngle(angle);
+    this._ringRotation = normalized;
     if (this._ring) {
       const radius = this._config ? this._config.radius : 0;
-      this._ring.setAttribute('transform', `rotate(${angle} ${radius} ${radius})`);
+      this._ring.setAttribute('transform', `rotate(${normalized} ${radius} ${radius})`);
     }
   }
 
@@ -240,6 +259,22 @@ export default class ThermostatUI {
     while (result <= -180) result += 360;
     while (result > 180) result -= 360;
     return result;
+  }
+
+  _syncRingToActiveSetpoint(active) {
+    if (!this._config) return;
+    const dualActive = this._isDualModeActive();
+    let value;
+    if (active === 'low' && dualActive) {
+      value = this._toNumber(this._low, this.min_value);
+    } else if (active === 'high' && dualActive) {
+      value = this._toNumber(this._high, this.max_value);
+    } else {
+      value = this._toNumber(this._target, this.min_value);
+      active = 'target';
+    }
+    const angle = this._clampDialAngle(this._temperatureToAngle(value));
+    this._setRingRotation(angle);
   }
 
   _angleDifference(a, b) {
@@ -394,6 +429,7 @@ export default class ThermostatUI {
     if (!angleInfo) return;
 
     const active = this._determineActiveSetpoint(angleInfo.clamped);
+    this._activeSetpoint = active;
     const startTemperature = this._getActiveTemperature(active, min, max);
     const startAngle = this._temperatureToAngle(startTemperature);
 
@@ -450,6 +486,7 @@ export default class ThermostatUI {
       }
     }
     this._dragState = null;
+    this._syncRingToActiveSetpoint(dragState.active);
     this._scheduleControlUpdate();
     if (dragState && dragState.moved) {
       event.preventDefault();
