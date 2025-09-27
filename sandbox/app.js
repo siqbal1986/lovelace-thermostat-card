@@ -1,4 +1,4 @@
-import '../dist/main.js?v=1.3.0';
+import '../main.js?v=1.3.0';
 import { createMockHass, DEFAULT_CLIMATE_ENTITY } from './mock-hass.js';
 
 const ALL_HVAC_MODES = ['off', 'heat', 'cool', 'heat_cool', 'auto', 'dry', 'fan_only'];
