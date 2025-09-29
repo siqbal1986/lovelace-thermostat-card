@@ -149,6 +149,7 @@ export default class ThermostatUI {
     this._updateText('low', this.temperature.low);
     this._updateText('high', this.temperature.high);
     this._setActiveMode(this.hvac_state);
+    this._updateColor(this.hvac_state, this.preset_mode);
   }
 
   _renderDial({ refreshDialog = false, hass = null, updateAmbient = true, resetEdit = false } = {}) {
@@ -744,16 +745,36 @@ export default class ThermostatUI {
 
   _updateColor(state, preset_mode) {
 
-    if (Object.prototype.toString.call(preset_mode) === "[object String]") {
+    if (!this._root) {
 
-      if (state != 'off' && preset_mode.toLowerCase() == 'idle')
-        state = 'idle'
-      this._root.classList.forEach(c => {
-        if (c.indexOf('dial--state--') != -1)
-          this._root.classList.remove(c);
-      });
-      this._root.classList.add('dial--state--' + state);
+      return;
+
     }
+
+    let hvacState = typeof state === 'string' && state.length ? state : 'off';
+
+    if (typeof preset_mode === 'string' && hvacState !== 'off' && preset_mode.toLowerCase() === 'idle') {
+
+      hvacState = 'idle';
+
+    }
+
+    const prefix = 'dial--state--';
+
+    Array.from(this._root.classList).forEach((className) => {
+
+      if (className.indexOf(prefix) === 0) {
+
+        this._root.classList.remove(className);
+
+      }
+
+    });
+
+    this._root.classList.add(`${prefix}${hvacState}`);
+
+    this._root.dataset.hvacState = hvacState;
+
   }
 
   _updateTicks(from, to, large_ticks, hvac_state) {
@@ -861,27 +882,6 @@ export default class ThermostatUI {
     });
   }
   _buildCore(diameter) {
-
-  _iconForMode(mode, fallback = 'help') {
-    switch (mode) {
-      case 'dry':
-        return 'water-percent';
-      case 'fan_only':
-        return 'fan';
-      case 'cool':
-        return 'snowflake';
-      case 'heat':
-        return 'fire';
-      case 'auto':
-        return 'atom';
-      case 'heat_cool':
-        return 'sync';
-      case 'off':
-        return 'power';
-      default:
-        return fallback;
-    }
-  }
 
     const root = SvgUtil.createSVGElement('svg', {
       width: '100%',
@@ -1052,6 +1052,27 @@ export default class ThermostatUI {
     return root;
   }
 
+  _iconForMode(mode, fallback = 'help') {
+    switch (mode) {
+      case 'dry':
+        return 'water-percent';
+      case 'fan_only':
+        return 'fan';
+      case 'cool':
+        return 'snowflake';
+      case 'heat':
+        return 'fire';
+      case 'auto':
+        return 'atom';
+      case 'heat_cool':
+        return 'sync';
+      case 'off':
+        return 'power';
+      default:
+        return fallback;
+    }
+  }
+
   openProp() {
     this._config.propWin(this.entity.entity_id)
   }
@@ -1086,6 +1107,7 @@ export default class ThermostatUI {
       hvac_mode: mode,
     });
     this._setActiveMode(mode);
+    this._updateColor(mode, this.preset_mode);
     this._modes_dialog.className = "dialog modes menu-open " + mode + " pending";
     this._setModeMenuOpen(true);
     this._timeoutHandlerMode = setTimeout(() => {

@@ -8,6 +8,12 @@ class ThermostatCard extends HTMLElement {
   }
   set hass(hass) {
     const config = this._config;
+
+    if (!config || !this.thermostat) {
+      this._hass = hass;
+      return;
+    }
+
     const entity = hass.states[config.entity];
     if(!entity)return;
     let min_value = entity.attributes.min_temp;
@@ -88,19 +94,53 @@ class ThermostatCard extends HTMLElement {
     }
   }
 
+  _renderError(message) {
+    const card = document.createElement('ha-card');
+    const style = document.createElement('style');
+    style.textContent = cssData();
+    card.appendChild(style);
+
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('role', 'alert');
+    wrapper.style.padding = '16px';
+    wrapper.style.textAlign = 'center';
+    wrapper.style.fontWeight = '500';
+    wrapper.style.lineHeight = '1.4';
+    wrapper.textContent = message;
+
+    card.appendChild(wrapper);
+    this.shadowRoot.appendChild(card);
+  }
+
   setConfig(config) {
-    // Check config
-    if (!config.entity && config.entity.split(".")[0] === 'climate') {
-      throw new Error('Please define an entity');
+    const root = this.shadowRoot;
+
+    while (root.lastChild) {
+      root.removeChild(root.lastChild);
     }
 
-    // Cleanup DOM
-    const root = this.shadowRoot;
-    
-    if (root.lastChild) root.removeChild(root.lastChild);
+    const rawConfig = deepClone(config || {});
+    const { entity } = rawConfig;
+    const entityId = typeof entity === 'string' ? entity.trim() : '';
+    const [domain, objectId] = entityId.split('.');
+    const hasEntity = entityId.length > 0;
+    const isClimateEntity = domain === 'climate' && !!objectId;
+
+    if (!hasEntity || !isClimateEntity) {
+      const message = hasEntity
+        ? 'Thermostat Card requires a climate.<object_id> entity (e.g., climate.living_room).'
+        : 'Thermostat Card needs an entity from the climate domain (e.g., climate.living_room).';
+
+      this._renderError(message);
+      this._config = { ...rawConfig, entity: entityId };
+      this.thermostat = null;
+      this._saved_state = null;
+      return;
+    }
 
     // Prepare config defaults
-    const cardConfig = deepClone(config);
+    const cardConfig = rawConfig;
+    cardConfig.entity = entityId;
     // cardConfig.hvac = Object.assign({}, config.hvac);
     
     if (!cardConfig.diameter) cardConfig.diameter = 400;
@@ -143,6 +183,7 @@ class ThermostatCard extends HTMLElement {
       root.appendChild(card);
     }
     this._config = cardConfig;
+    this._saved_state = null;
   }
 }
 customElements.define('thermostat-card', ThermostatCard);

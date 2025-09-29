@@ -228,6 +228,180 @@ export function cssData(user) {
 
   }
 
+  .dial {
+
+    position: relative;
+
+    display: block;
+
+    width: 100%;
+
+    max-width: 420px;
+
+    margin: 0 auto;
+
+    user-select: none;
+
+    --thermostat-off-fill: rgba(10, 16, 27, 0.92);
+
+    --thermostat-path-color: rgba(148, 163, 184, 0.2);
+
+    --thermostat-path-active-color: rgba(241, 245, 249, 0.92);
+
+    --thermostat-path-active-color-large: rgba(241, 245, 249, 0.98);
+
+    --thermostat-text-color: rgba(244, 247, 254, 0.95);
+
+    --dial-shape-shadow: drop-shadow(0 26px 46px rgba(7, 11, 18, 0.68));
+
+    --dial-shape-filter: var(--dial-shape-shadow);
+
+  }
+
+  .dial .dial__shape {
+
+    fill: var(--thermostat-off-fill);
+
+    filter: var(--dial-shape-filter);
+
+    transition: fill 0.4s ease, filter 0.4s ease;
+
+  }
+
+  .dial--state--off {
+
+    --dial-shape-filter: var(--dial-shape-shadow);
+
+    --mode_color: var(--off_color);
+
+  }
+
+  .dial--state--heat {
+
+    --dial-shape-filter: var(--dial-shape-shadow) drop-shadow(0 0 32px rgba(255, 129, 0, 0.4));
+
+    --mode_color: var(--heat_colorc);
+
+  }
+
+  .dial--state--cool {
+
+    --dial-shape-filter: var(--dial-shape-shadow) drop-shadow(0 0 30px rgba(0, 122, 241, 0.32));
+
+    --mode_color: var(--cool_colorc);
+
+  }
+
+  .dial--state--auto,
+
+  .dial--state--heat_cool {
+
+    --dial-shape-filter: var(--dial-shape-shadow) drop-shadow(0 0 30px rgba(14, 165, 233, 0.32));
+
+    --mode_color: var(--auto_color);
+
+  }
+
+  .dial--state--fan_only {
+
+    --dial-shape-filter: var(--dial-shape-shadow) drop-shadow(0 0 28px rgba(215, 219, 221, 0.28));
+
+    --mode_color: var(--fan_only_color);
+
+  }
+
+  .dial--state--dry {
+
+    --dial-shape-filter: var(--dial-shape-shadow) drop-shadow(0 0 30px rgba(239, 189, 7, 0.35));
+
+    --mode_color: var(--dry_color);
+
+  }
+
+  .dial--state--idle {
+
+    --dial-shape-filter: var(--dial-shape-shadow);
+
+    --mode_color: var(--idle_color);
+
+  }
+
+  .dial--state--unknown {
+
+    --dial-shape-filter: var(--dial-shape-shadow);
+
+    --mode_color: var(--unknown_color);
+
+  }
+
+  .dial--state--heat .dial__shape {
+
+    fill: var(--heat_colorc);
+
+  }
+
+  .dial--state--cool .dial__shape {
+
+    fill: var(--cool_colorc);
+
+  }
+
+  .dial--state--auto .dial__shape,
+
+  .dial--state--heat_cool .dial__shape {
+
+    fill: var(--auto_color);
+
+  }
+
+  .dial--state--fan_only .dial__shape {
+
+    fill: var(--fan_only_color);
+
+  }
+
+  .dial--state--dry .dial__shape {
+
+    fill: var(--dry_color);
+
+  }
+
+  .dial--state--idle .dial__shape {
+
+    fill: var(--idle_color);
+
+  }
+
+  .dial--state--unknown .dial__shape {
+
+    fill: var(--unknown_color);
+
+  }
+
+  .dial__ticks path {
+
+    fill: var(--thermostat-path-color);
+
+    opacity: 0.65;
+
+    transition: fill 0.25s ease, opacity 0.25s ease;
+
+  }
+
+  .dial__ticks path.active {
+
+    fill: var(--mode_color);
+
+    opacity: 0.95;
+
+  }
+
+  .dial__ticks path.large {
+
+    opacity: 0.85;
+
+  }
+
   .climate_info {
 
     position: absolute;
