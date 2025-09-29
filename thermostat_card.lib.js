@@ -862,27 +862,6 @@ export default class ThermostatUI {
   }
   _buildCore(diameter) {
 
-  _iconForMode(mode, fallback = 'help') {
-    switch (mode) {
-      case 'dry':
-        return 'water-percent';
-      case 'fan_only':
-        return 'fan';
-      case 'cool':
-        return 'snowflake';
-      case 'heat':
-        return 'fire';
-      case 'auto':
-        return 'atom';
-      case 'heat_cool':
-        return 'sync';
-      case 'off':
-        return 'power';
-      default:
-        return fallback;
-    }
-  }
-
     const root = SvgUtil.createSVGElement('svg', {
       width: '100%',
       height: '100%',
@@ -1050,6 +1029,27 @@ export default class ThermostatUI {
     root.appendChild(defs);
 
     return root;
+  }
+
+  _iconForMode(mode, fallback = 'help') {
+    switch (mode) {
+      case 'dry':
+        return 'water-percent';
+      case 'fan_only':
+        return 'fan';
+      case 'cool':
+        return 'snowflake';
+      case 'heat':
+        return 'fire';
+      case 'auto':
+        return 'atom';
+      case 'heat_cool':
+        return 'sync';
+      case 'off':
+        return 'power';
+      default:
+        return fallback;
+    }
   }
 
   openProp() {

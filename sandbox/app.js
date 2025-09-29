@@ -1,5 +1,18 @@
-import '../main.js?v=1.3.0';
+import '../main.js';
+import { cssData } from '../styles.js';
 import { createMockHass, DEFAULT_CLIMATE_ENTITY } from './mock-hass.js';
+
+function ensureThermostatStyles() {
+  if (document.getElementById('thermostat-card-styles')) {
+    return;
+  }
+  const style = document.createElement('style');
+  style.id = 'thermostat-card-styles';
+  style.textContent = cssData();
+  document.head.appendChild(style);
+}
+
+ensureThermostatStyles();
 
 const ALL_HVAC_MODES = ['off', 'heat', 'cool', 'heat_cool', 'auto', 'dry', 'fan_only'];
 
