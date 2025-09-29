@@ -1,6 +1,6 @@
-import {cssData} from './styles.js?v=1.3.0';
-import ThermostatUI from './thermostat_card.lib.js?v=1.3.0';
-console.info("%c Thermostat Card \n%c  Version  1.3.0 ", "color: orange; font-weight: bold; background: black", "color: white; font-weight: bold; background: dimgray");
+import {cssData} from './styles.js?v=1.3.4';
+import ThermostatUI from './thermostat_card.lib.js?v=1.3.4';
+console.info("%c Thermostat Card \n%c  Version  1.3.4 ", "color: orange; font-weight: bold; background: black", "color: white; font-weight: bold; background: dimgray");
 class ThermostatCard extends HTMLElement {
   constructor() {
     super();
@@ -109,7 +109,7 @@ class ThermostatCard extends HTMLElement {
     if (!cardConfig.step) cardConfig.step = 0.5;
     if (!cardConfig.highlight_tap) cardConfig.highlight_tap = false;
     if (!cardConfig.no_card) cardConfig.no_card = false;
-    if (!cardConfig.chevron_size) cardConfig.chevron_size = 50;
+    if (!cardConfig.chevron_size) cardConfig.chevron_size = 34;
     if (!cardConfig.num_ticks) cardConfig.num_ticks = 150;
     if (!cardConfig.tick_degrees) cardConfig.tick_degrees = 300;
 
