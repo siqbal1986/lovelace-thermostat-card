@@ -1388,17 +1388,20 @@ class SvgUtil {
   static pointsToPath(points) {
     return points.map((point, iPoint) => (iPoint > 0 ? 'L' : 'M') + point[0] + ' ' + point[1]).join(' ') + 'Z'; // Convert vertices to an SVG path string.
   }
-  static circleToPath(cx, cy, r) {
+  static circleToPath(cx, cy, r, clockwise = true) {
+    const sweep = clockwise ? 1 : 0; // SVG sweep flag: 1 draws clockwise, 0 draws counterclockwise.
     return [
-      "M", cx, ",", cy,
-      "m", 0 - r, ",", 0,
-      "a", r, ",", r, 0, 1, ",", 0, r * 2, ",", 0,
-      "a", r, ",", r, 0, 1, ",", 0, 0 - r * 2, ",", 0,
-      "z"
-    ].join(' ').replace(/\s,\s/g, ","); // Return a full circle path string constructed from two arcs.
+      `M ${cx - r},${cy}`, // Start at the left-most point of the circle.
+      `a ${r},${r} 0 1,${sweep} ${r * 2},0`, // Draw the top half as an arc sweeping across the circle.
+      `a ${r},${r} 0 1,${sweep} ${-r * 2},0`, // Draw the bottom half returning to the starting point.
+      'Z'
+    ].join(' '); // Merge commands into one continuous path string with the desired winding order.
   }
   static donutPath(cx, cy, rOuter, rInner) {
-    return this.circleToPath(cx, cy, rOuter) + " " + this.circleToPath(cx, cy, rInner); // Combine outer and inner circles to form a ring.
+    const outerPath = this.circleToPath(cx, cy, rOuter, true); // Keep the bezel's outer edge winding clockwise.
+    const innerPath = this.circleToPath(cx, cy, rInner, false); // Reverse the inner edge so the default non-zero fill treats it as a hole.
+    return `${outerPath} ${innerPath}`; // Combine both paths so SVG renders a hollow ring instead of a filled disk.
+
   }
 
   static superscript(n) {
