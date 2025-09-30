@@ -242,29 +242,29 @@ export function cssData(user) {
 
     user-select: none;
 
-    --thermostat-off-fill: rgba(10, 16, 27, 0.92);
+    --thermostat-off-fill: rgba(10, 16, 27, 0.92); /* Base face color when no heating/cooling glow is active. */
 
-    --thermostat-path-color: rgba(148, 163, 184, 0.2);
+    --thermostat-path-color: rgba(148, 163, 184, 0.2); /* Default muted color for inactive tick marks. */
 
-    --thermostat-path-active-color: rgba(241, 245, 249, 0.92);
+    --thermostat-path-active-color: rgba(241, 245, 249, 0.92); /* Bright highlight applied to the active tick arc. */
 
-    --thermostat-path-active-color-large: rgba(241, 245, 249, 0.98);
+    --thermostat-path-active-color-large: rgba(241, 245, 249, 0.98); /* Slightly brighter highlight used for the major ticks. */
 
-    --thermostat-text-color: rgba(244, 247, 254, 0.95);
+    --thermostat-text-color: rgba(244, 247, 254, 0.95); /* Gentle white tone for the dial's text labels. */
 
-    --dial-shape-shadow: drop-shadow(0 26px 46px rgba(7, 11, 18, 0.68));
+    --dial-shape-shadow: drop-shadow(0 26px 46px rgba(7, 11, 18, 0.68)); /* Drop shadow that makes the dial appear 3D. */
 
-    --dial-shape-filter: var(--dial-shape-shadow);
+    --dial-shape-filter: var(--dial-shape-shadow); /* Placeholder for mode-specific glow filters. */
 
   }
 
   .dial .dial__shape {
 
-    fill: var(--thermostat-off-fill);
+    fill: var(--thermostat-off-fill); /* Apply the base dial face color. */
 
-    filter: var(--dial-shape-filter);
+    filter: var(--dial-shape-filter); /* Add the drop shadow or glow defined by the current mode. */
 
-    transition: fill 0.4s ease, filter 0.4s ease;
+    transition: fill 0.4s ease, filter 0.4s ease; /* Smoothly animate when the HVAC state changes. */
 
   }
 
@@ -424,9 +424,9 @@ export function cssData(user) {
 
     justify-content: center;
 
-    background: radial-gradient(155% 115% at 35% 25%, rgba(255, 255, 255, 0.28), rgba(22, 27, 35, 1) 58%, rgba(5, 7, 10, 1) 100%);
+    background: radial-gradient(155% 115% at 35% 25%, rgba(255, 255, 255, 0.28), rgba(22, 27, 35, 1) 58%, rgba(5, 7, 10, 1) 100%); /* Metallic-looking knob texture behind the HVAC mode icon. */
 
-    box-shadow: 0 14px 22px rgba(0, 0, 0, 0.55), inset 0 6px 12px rgba(255, 255, 255, 0.16), inset 0 -6px 18px rgba(0, 0, 0, 0.65);
+    box-shadow: 0 14px 22px rgba(0, 0, 0, 0.55), inset 0 6px 12px rgba(255, 255, 255, 0.16), inset 0 -6px 18px rgba(0, 0, 0, 0.65); /* Outer and inner shadows to create depth. */
 
     overflow: hidden;
 
