@@ -1,187 +1,193 @@
+/**
+ * ThermostatUI builds the SVG dial, the metallic ring, the tick marks, and the
+ * mode-selection dialog. The class does not talk directly to Home Assistant;
+ * instead the outer card (main.js) feeds it data and supplies callbacks for
+ * committing temperature changes or opening the entity dialog.
+ */
 export default class ThermostatUI {
   get container() {
-    return this._container
+    return this._container // Expose the main DOM node so the card can insert it into the shadow DOM.
   }
   set dual(val) {
-    this._dual = val
+    this._dual = val // Track whether the thermostat is currently in dual setpoint mode (heat/cool).
   }
   get dual() {
-    return this._dual;
+    return this._dual; // Give other methods a consistent way to read the mode flag.
   }
   get in_control() {
-    return this._in_control;
+    return this._in_control; // Indicates whether the user is actively adjusting temperatures.
   }
   get temperature() {
     return {
-      low: this._low,
-      high: this._high,
-      target: this._target,
+      low: this._low, // Current low setpoint shown in the UI (may be pending user edits).
+      high: this._high, // Current high setpoint shown in the UI.
+      target: this._target, // Single setpoint (used when dual mode is inactive).
     }
   }
   get ambient() {
-    return this._ambient;
+    return this._ambient; // Report the ambient room temperature the UI last received.
   }
   set temperature(val) {
-    this._ambient = val.ambient;
-    this._low = val.low;
-    this._high = val.high;
-    this._target = val.target;
-    if (this._low && this._high) this.dual = true;
+    this._ambient = val.ambient; // Cache the latest ambient temperature so labels can be refreshed quickly.
+    this._low = val.low; // Store the low setpoint provided by Home Assistant.
+    this._high = val.high; // Store the high setpoint provided by Home Assistant.
+    this._target = val.target; // Store the single setpoint.
+    if (this._low && this._high) this.dual = true; // If both ends of the range are defined, enable dual-mode behavior.
   }
   constructor(config) {
 
-    this._config = config;  // need certain options for updates
-    this._ticks = [];       // need for dynamic tick updates
-    this._controls = [];    // need for managing highlight and clicks
-    this._dual = false;     // by default is single temperature
-    ThermostatUI._ringIdCounter = (ThermostatUI._ringIdCounter || 0) + 1;
-    const uid = ThermostatUI._ringIdCounter.toString(36);
-    this._metalGradientId = `dial-metal-gradient-${uid}`;
-    this._metalSheenId = `dial-metal-sheen-${uid}`;
-    this._metalShadowId = `dial-metal-shadow-${uid}`;
+    this._config = config;  // Store the configuration for calculations and callbacks used throughout the class.
+    this._ticks = [];       // Keep references to every tick path so their shape and color can be updated quickly.
+    this._controls = [];    // Keep references to the interactive temperature control overlays.
+    this._dual = false;     // Assume single setpoint mode until data indicates otherwise.
+    ThermostatUI._ringIdCounter = (ThermostatUI._ringIdCounter || 0) + 1; // Unique counter ensures gradients have unique IDs.
+    const uid = ThermostatUI._ringIdCounter.toString(36); // Convert the counter to base-36 for compact string IDs.
+    this._metalGradientId = `dial-metal-gradient-${uid}`; // Distinct id for the metallic fill gradient.
+    this._metalSheenId = `dial-metal-sheen-${uid}`; // Distinct id for the reflective sheen gradient.
+    this._metalShadowId = `dial-metal-shadow-${uid}`; // Distinct id for the filter that fakes depth/shadow.
 
-    this._dragContext = null;
-    this._lastHass = null;
-    this._handleDialPointerDown = this._handleDialPointerDown.bind(this);
+    this._dragContext = null; // Stores information about the current drag gesture when the user rotates the dial.
+    this._lastHass = null; // Home Assistant reference used when refreshing the mode dialog while dragging.
+    this._handleDialPointerDown = this._handleDialPointerDown.bind(this); // Bind event handlers so "this" points to the class instance.
     this._handleDialPointerMove = this._handleDialPointerMove.bind(this);
     this._handleDialPointerUp = this._handleDialPointerUp.bind(this);
-    this._ringRotation = 0;
-    this._dragDisabled = false;
-    this._ringGroup = null;
-    this._dragZoneInnerRatio = 0.8;
-    this._ringMetrics = null;
-    this._dragOverlay = null;
-    this._limitFlash = null;
+    this._ringRotation = 0; // Remember the current rotation of the metallic ring so new ticks can align with it.
+    this._dragDisabled = false; // Flag used to temporarily disable dragging when the mode dialog is open.
+    this._ringGroup = null; // Will hold the SVG group that represents the metallic bezel.
+    this._dragZoneInnerRatio = 0.8; // Only allow dragging when the pointer is near the edge of the dial (80% outward).
+    this._ringMetrics = null; // Stores computed radii used when building ring decorations.
+    this._dragOverlay = null; // Placeholder for an optional overlay shown while dragging.
+    this._limitFlash = null; // Placeholder for the visual flash shown when the user hits min/max limits.
 
-    this._container = document.createElement('div');
-    this._main_icon = document.createElement('div');
-    this._modes_dialog = document.createElement('div');
-    this._modeMenuContainer = null;
-    this._modeMenuToggler = null;
-    this._modeMenuList = null;
-    this._modeMenuItems = [];
+    this._container = document.createElement('div'); // Wrapper that holds both the dial SVG and the mode controls.
+    this._main_icon = document.createElement('div'); // Small circular widget below the dial that shows the current mode icon.
+    this._modes_dialog = document.createElement('div'); // Hidden dialog that reveals HVAC mode options.
+    this._modeMenuContainer = null; // References the dialog container once it is built.
+    this._modeMenuToggler = null; // References the hamburger button that opens/closes the mode carousel.
+    this._modeMenuList = null; // References the list element that holds the individual mode buttons.
+    this._modeMenuItems = []; // Keep the individual list items handy so we can toggle active states.
     this._metalRingIds = {
-      gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'),
+      gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'), // Unique IDs for CSS-only fallbacks (legacy support).
       sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
       filter: SvgUtil.uniqueId('dial__metal-ring-filter')
     };
-    config.title = config.title === null || config.title === undefined ? 'Title' : config.title
+    config.title = config.title === null || config.title === undefined ? 'Title' : config.title // Ensure the card always has a title string.
 
-    this._ic = document.createElement('div');
-    this._ic.className = "prop";
-    this._ic.innerHTML = `<ha-icon-button id="more" icon="mdi:dots-vertical" class="c_icon" role="button" tabindex="0" aria-disabled="false"></ha-icon-button>`;
-    this._container.appendChild(this._ic)
+    this._ic = document.createElement('div'); // Container for the "more" menu button.
+    this._ic.className = "prop"; // Class name expected by the stylesheet.
+    this._ic.innerHTML = `<ha-icon-button id="more" icon="mdi:dots-vertical" class="c_icon" role="button" tabindex="0" aria-disabled="false"></ha-icon-button>`; // Render the kebab menu icon used by Home Assistant.
+    this._container.appendChild(this._ic) // Attach the menu button wrapper to the main container.
 
     // this._container.appendChild(this._buildTitle(config.title));
-    this._ic.addEventListener('click', () => this.openProp());
-    this._container.appendChild(this._load_icon('', ''));
-    this.c_body = document.createElement('div');
+    this._ic.addEventListener('click', () => this.openProp()); // When the kebab button is clicked we request the more-info dialog.
+    this._container.appendChild(this._load_icon('', '')); // Prepare the circular mode indicator beneath the dial.
+    this.c_body = document.createElement('div'); // Wrapper around the SVG dial to provide padding.
     this.c_body.className = 'c_body';
-    const root = this._buildCore(config.diameter);
-    root.appendChild(this._buildDial(config.radius));
-    root.appendChild(this._buildTicks(config.num_ticks));
-    this._ringGroup = this._buildRing(config.radius);
-    root.appendChild(this._ringGroup);
-    root.appendChild(this._buildThermoIcon(config.radius));
-    root.appendChild(this._buildDialSlot(1));
-    root.appendChild(this._buildDialSlot(2));
-    root.appendChild(this._buildDialSlot(3));
+    const root = this._buildCore(config.diameter); // Create the main SVG element with gradients and filters.
+    root.appendChild(this._buildDial(config.radius)); // Draw the dark circular face of the thermostat.
+    root.appendChild(this._buildTicks(config.num_ticks)); // Add the group that will hold all tick marks.
+    this._ringGroup = this._buildRing(config.radius); // Build the metallic ring and remember the group for later rotation.
+    root.appendChild(this._ringGroup); // Place the ring on top of the dial background.
+    root.appendChild(this._buildThermoIcon(config.radius)); // Decorative thermometer icon near the bottom of the dial.
+    root.appendChild(this._buildDialSlot(1)); // First slot used to show rotating temperature labels.
+    root.appendChild(this._buildDialSlot(2)); // Second slot for label text.
+    root.appendChild(this._buildDialSlot(3)); // Third slot for label text.
 
-    root.appendChild(this._buildText(config.radius, 'title', 0));
-    root.appendChild(this._buildText(config.radius, 'ambient', 0));
-    root.appendChild(this._buildText(config.radius, 'target', 0));
-    root.appendChild(this._buildText(config.radius, 'low', -config.radius / 2.5));
-    root.appendChild(this._buildText(config.radius, 'high', config.radius / 3));
-    root.appendChild(this._buildChevrons(config.radius, 0, 'low', 0.7, -config.radius / 2.5));
-    root.appendChild(this._buildChevrons(config.radius, 0, 'high', 0.7, config.radius / 3));
-    root.appendChild(this._buildChevrons(config.radius, 0, 'target', 1, 0));
-    root.appendChild(this._buildChevrons(config.radius, 180, 'low', 0.7, -config.radius / 2.5));
-    root.appendChild(this._buildChevrons(config.radius, 180, 'high', 0.7, config.radius / 3));
-    root.appendChild(this._buildChevrons(config.radius, 180, 'target', 1, 0));
+    root.appendChild(this._buildText(config.radius, 'title', 0)); // Static text placeholder for the thermostat name.
+    root.appendChild(this._buildText(config.radius, 'ambient', 0)); // Large numbers that display the ambient temperature.
+    root.appendChild(this._buildText(config.radius, 'target', 0)); // Large numbers for the setpoint while editing.
+    root.appendChild(this._buildText(config.radius, 'low', -config.radius / 2.5)); // Smaller label that floats around the ring (low setpoint).
+    root.appendChild(this._buildText(config.radius, 'high', config.radius / 3)); // Smaller label for the high setpoint.
+    root.appendChild(this._buildChevrons(config.radius, 0, 'low', 0.7, -config.radius / 2.5)); // Upward chevrons used to adjust the low setpoint.
+    root.appendChild(this._buildChevrons(config.radius, 0, 'high', 0.7, config.radius / 3)); // Upward chevrons for the high setpoint.
+    root.appendChild(this._buildChevrons(config.radius, 0, 'target', 1, 0)); // Upward chevrons when adjusting a single setpoint.
+    root.appendChild(this._buildChevrons(config.radius, 180, 'low', 0.7, -config.radius / 2.5)); // Downward chevrons (rotated 180°) for the low setpoint.
+    root.appendChild(this._buildChevrons(config.radius, 180, 'high', 0.7, config.radius / 3)); // Downward chevrons for the high setpoint.
+    root.appendChild(this._buildChevrons(config.radius, 180, 'target', 1, 0)); // Downward chevrons for the single setpoint.
 
 
-    this.c_body.appendChild(root);
-    this._container.appendChild(this.c_body);
-    this._root = root;
-    this._root.addEventListener('pointerdown', this._handleDialPointerDown, { passive: false });
+    this.c_body.appendChild(root); // Place the SVG inside the padded wrapper.
+    this._container.appendChild(this.c_body); // Add the dial assembly to the main container.
+    this._root = root; // Remember the SVG root for future queries and event handling.
+    this._root.addEventListener('pointerdown', this._handleDialPointerDown, { passive: false }); // Capture pointer events for drag interactions.
     this._root.addEventListener('pointermove', this._handleDialPointerMove);
     this._root.addEventListener('pointerup', this._handleDialPointerUp);
     this._root.addEventListener('pointercancel', this._handleDialPointerUp);
-    this._buildControls(config.radius);
-    this._root.addEventListener('click', () => this._enableControls());
-    this._container.appendChild(this._buildDialog());
-    this._main_icon.addEventListener('click', () => this._openDialog());
-    this._modes_dialog.addEventListener('click', () => this._hideDialog());
-    this._updateText('title', config.title);
-    this._applyRingRotation();
+    this._buildControls(config.radius); // Build invisible hit areas that react to click/tap adjustments.
+    this._root.addEventListener('click', () => this._enableControls()); // Clicking the dial switches it into "editing" mode.
+    this._container.appendChild(this._buildDialog()); // Create the HVAC mode selector dialog and attach it to the container.
+    this._main_icon.addEventListener('click', () => this._openDialog()); // Tapping the circular icon opens the mode selector.
+    this._modes_dialog.addEventListener('click', () => this._hideDialog()); // Clicking outside the dialog closes it.
+    this._updateText('title', config.title); // Initialize the title label now that text nodes exist.
+    this._applyRingRotation(); // Make sure the metallic ring is drawn using the default rotation state.
   }
 
   updateState(options, hass) {
 
-    const config = this._config;
-    this.entity = options.entity;
-    this.min_value = options.min_value;
-    this.max_value = options.max_value;
-    this.hvac_state = options.hvac_state;
-    this.preset_mode = options.preset_mode;
-    this.hvac_modes = options.hvac_modes;
+    const config = this._config; // Local alias for brevity.
+    this.entity = options.entity; // Keep the full entity reference handy (for the more-info dialog and drag helpers).
+    this.min_value = options.min_value; // Store current min so dragging can clamp values correctly.
+    this.max_value = options.max_value; // Store current max.
+    this.hvac_state = options.hvac_state; // Remember the active HVAC mode.
+    this.preset_mode = options.preset_mode; // Preset information is used to adjust colors/labels.
+    this.hvac_modes = options.hvac_modes; // Provide the list of available modes to the dialog builder.
     this.temperature = {
-      low: options.target_temperature_low,
+      low: options.target_temperature_low, // Populate the setter above which updates dual-mode flag.
       high: options.target_temperature_high,
       target: options.target_temperature,
       ambient: options.ambient_temperature,
     }
 
-    this._lastHass = hass;
+    this._lastHass = hass; // Keep the Home Assistant object for callbacks triggered by drag gestures.
     this._renderDial({
-      refreshDialog: true,
+      refreshDialog: true, // When new state arrives we refresh the HVAC mode dialog in case available modes changed.
       hass,
-      updateAmbient: !this.in_control,
-      resetEdit: !this.in_control
+      updateAmbient: !this.in_control, // Avoid overwriting the ambient label mid-drag so the user sees live adjustments.
+      resetEdit: !this.in_control // When not editing we reset editing visuals to match the new state.
     });
 
     if (!this.in_control) {
-      this._updateEdit(false);
-      this._updateClass('in_control', this.in_control);
+      this._updateEdit(false); // Ensure the UI leaves edit mode after fresh state arrives.
+      this._updateClass('in_control', this.in_control); // Keep CSS classes aligned with the logic flag.
     }
 
-    this._updateText('target', this.temperature.target);
+    this._updateText('target', this.temperature.target); // Update text labels to show the latest setpoints.
     this._updateText('low', this.temperature.low);
     this._updateText('high', this.temperature.high);
-    this._setActiveMode(this.hvac_state);
-    this._updateColor(this.hvac_state, this.preset_mode);
+    this._setActiveMode(this.hvac_state); // Highlight the active HVAC mode in the dialog carousel.
+    this._updateColor(this.hvac_state, this.preset_mode); // Apply appropriate color theme to the dial.
   }
 
   _renderDial({ refreshDialog = false, hass = null, updateAmbient = true, resetEdit = false } = {}) {
-    const config = this._config;
+    const config = this._config; // Convenience shortcut for configuration values used repeatedly below.
 
-    const totalRange = Math.max(this.max_value - this.min_value, Number.EPSILON);
+    const totalRange = Math.max(this.max_value - this.min_value, Number.EPSILON); // Avoid division by zero in case min=max.
     const mapValueToIndex = (value) => {
       if (typeof value !== 'number' || Number.isNaN(value)) {
-        return null;
+        return null; // Invalid numbers cannot be drawn on the tick ring.
       }
-      const normalized = (value - this.min_value) / totalRange;
-      return SvgUtil.restrictToRange(Math.round(normalized * config.num_ticks), 0, config.num_ticks - 1);
+      const normalized = (value - this.min_value) / totalRange; // Convert the value into a 0..1 fraction of the full range.
+      return SvgUtil.restrictToRange(Math.round(normalized * config.num_ticks), 0, config.num_ticks - 1); // Turn the fraction into a tick index we can highlight.
     };
 
-    const ambientValue = typeof this.ambient === 'number' ? this.ambient : null;
+    const ambientValue = typeof this.ambient === 'number' ? this.ambient : null; // Guard against null sensors.
     const targetValue = typeof this._target === 'number' ? this._target : null;
     const highValue = typeof this._high === 'number' ? this._high : null;
     const lowValue = typeof this._low === 'number' ? this._low : null;
 
-    const ambientIndex = mapValueToIndex(ambientValue);
+    const ambientIndex = mapValueToIndex(ambientValue); // Convert temperatures into tick indices for drawing arcs.
     const targetIndex = mapValueToIndex(targetValue);
     const highIndex = mapValueToIndex(highValue);
     const lowIndex = mapValueToIndex(lowValue);
 
-    this._updateClass('has_dual', this.dual);
+    this._updateClass('has_dual', this.dual); // Toggle CSS so the UI knows whether to show dual controls.
 
-    const tickIndexes = [];
-    let fromIndex = null;
-    let toIndex = null;
+    const tickIndexes = []; // Collect specific ticks to render as "major" marks (ambient, low, high, etc.).
+    let fromIndex = null; // Start of the highlighted arc.
+    let toIndex = null; // End of the highlighted arc.
 
-    const dualState = this.dual && (this.hvac_state === 'heat_cool' || this.hvac_state === 'off');
-    let rotationReference = targetValue ?? ambientValue ?? this.min_value;
+    const dualState = this.dual && (this.hvac_state === 'heat_cool' || this.hvac_state === 'off'); // Only show dual arcs when the thermostat supports it and is in a compatible mode.
+    let rotationReference = targetValue ?? ambientValue ?? this.min_value; // Default rotation anchor ensures the ring tracks the main value.
 
     if (dualState) {
       const sortedDualValues = [lowValue, highValue, ambientValue]
@@ -254,8 +260,8 @@ export default class ThermostatUI {
       const primaryValue = sortedSingleValues[0];
       const secondaryValue = sortedSingleValues[1] ?? sortedSingleValues[0];
 
-      this._updateTemperatureSlot(primaryValue, -8, `temperature_slot_1`);
-      this._updateTemperatureSlot(secondaryValue, 8, `temperature_slot_2`);
+      this._updateTemperatureSlot(primaryValue, -8, `temperature_slot_1`); // The first label hugs the lower side of the highlighted arc.
+      this._updateTemperatureSlot(secondaryValue, 8, `temperature_slot_2`); // The second label floats near the upper side.
 
       sortedSingleValues.forEach((value) => {
         const idx = mapValueToIndex(value);
@@ -307,7 +313,7 @@ export default class ThermostatUI {
       tickIndexes.sort((a, b) => a - b);
     }
 
-    this._updateTicks(fromIndex, toIndex, tickIndexes, this.hvac_state);
+    this._updateTicks(fromIndex, toIndex, tickIndexes, this.hvac_state); // Paint the tick marks using the calculated ranges.
 
     if (!this._dragContext) {
       if (typeof rotationReference === 'number' && !Number.isNaN(rotationReference)) {
@@ -322,59 +328,59 @@ export default class ThermostatUI {
 
     if (resetEdit) {
       this._in_control = false;
-      this._updateEdit(false);
+      this._updateEdit(false); // Remove edit styling when requested by the caller.
       this._updateClass('in_control', this.in_control);
     }
 
     if (refreshDialog && hass) {
-      this._updateDialog(this.hvac_modes, hass);
+      this._updateDialog(this.hvac_modes, hass); // Rebuild the HVAC mode dialog using the latest list from the entity.
     }
   }
 
 
   _temperatureControlClicked(index) {
-    const config = this._config;
-    let chevron;
-    this._root.querySelectorAll('path.dial__chevron').forEach(el => SvgUtil.setClass(el, 'pressed', false));
+    const config = this._config; // Readability shortcut.
+    let chevron; // Will point at the SVG chevron that should flash.
+    this._root.querySelectorAll('path.dial__chevron').forEach(el => SvgUtil.setClass(el, 'pressed', false)); // Clear any previous "pressed" animation before applying a new one.
     if (this.in_control) {
       if (this.dual) {
         switch (index) {
           case 0:
-            // clicked top left 
+            // clicked top left
             chevron = this._root.querySelectorAll('path.dial__chevron--low')[1];
-            this._low = this._low + config.step;
-            if ((this._low + config.idle_zone) >= this._high) this._low = this._high - config.idle_zone;
+            this._low = this._low + config.step; // Raise the low setpoint.
+            if ((this._low + config.idle_zone) >= this._high) this._low = this._high - config.idle_zone; // Prevent the low setpoint from crossing over the high setpoint.
             break;
           case 1:
             // clicked top right
             chevron = this._root.querySelectorAll('path.dial__chevron--high')[1];
-            this._high = this._high + config.step;
-            if (this._high > this.max_value) this._high = this.max_value;
+            this._high = this._high + config.step; // Raise the high setpoint.
+            if (this._high > this.max_value) this._high = this.max_value; // Clamp to the thermostat's maximum temperature.
             break;
           case 2:
             // clicked bottom right
             chevron = this._root.querySelectorAll('path.dial__chevron--high')[0];
-            this._high = this._high - config.step;
-            if ((this._high - config.idle_zone) <= this._low) this._high = this._low + config.idle_zone;
+            this._high = this._high - config.step; // Lower the high setpoint.
+            if ((this._high - config.idle_zone) <= this._low) this._high = this._low + config.idle_zone; // Keep a minimum idle zone between the setpoints.
             break;
           case 3:
             // clicked bottom left
             chevron = this._root.querySelectorAll('path.dial__chevron--low')[0];
-            this._low = this._low - config.step;
-            if (this._low < this.min_value) this._low = this.min_value;
+            this._low = this._low - config.step; // Lower the low setpoint.
+            if (this._low < this.min_value) this._low = this.min_value; // Do not go below the thermostat's minimum.
             break;
         }
-        SvgUtil.setClass(chevron, 'pressed', true);
+        SvgUtil.setClass(chevron, 'pressed', true); // Briefly highlight the chevron that was tapped.
         setTimeout(() => SvgUtil.setClass(chevron, 'pressed', false), 200);
         if (config.highlight_tap)
-          SvgUtil.setClass(this._controls[index], 'control-visible', true);
+          SvgUtil.setClass(this._controls[index], 'control-visible', true); // Optionally flash the invisible control overlay for clarity.
       }
       else {
         if (index < 2) {
           // clicked top
           chevron = this._root.querySelectorAll('path.dial__chevron--target')[1];
-          this._target = this._target + config.step;
-          if (this._target > this.max_value) this._target = this.max_value;
+          this._target = this._target + config.step; // Increase the single setpoint.
+          if (this._target > this.max_value) this._target = this.max_value; // Cap at thermostat maximum.
           if (config.highlight_tap) {
             SvgUtil.setClass(this._controls[0], 'control-visible', true);
             SvgUtil.setClass(this._controls[1], 'control-visible', true);
@@ -382,8 +388,8 @@ export default class ThermostatUI {
         } else {
           // clicked bottom
           chevron = this._root.querySelectorAll('path.dial__chevron--target')[0];
-          this._target = this._target - config.step;
-          if (this._target < this.min_value) this._target = this.min_value;
+          this._target = this._target - config.step; // Decrease the single setpoint.
+          if (this._target < this.min_value) this._target = this.min_value; // Do not fall below the minimum.
           if (config.highlight_tap) {
             SvgUtil.setClass(this._controls[2], 'control-visible', true);
             SvgUtil.setClass(this._controls[3], 'control-visible', true);
@@ -401,7 +407,7 @@ export default class ThermostatUI {
         }, 200);
       }
     } else {
-      this._enableControls();
+      this._enableControls(); // If the dial was not yet in edit mode, first enable controls so the next tap adjusts values.
     }
   }
 
@@ -785,30 +791,30 @@ export default class ThermostatUI {
       [config.radius + 1, config.ticks_outer_radius],
       [config.radius + 1, config.ticks_inner_radius],
       [config.radius - 1, config.ticks_inner_radius]
-    ];
+    ]; // Basic rectangle used for small tick marks before rotation.
     const tickPointsLarge = [
       [config.radius - 1.5, config.ticks_outer_radius],
       [config.radius + 1.5, config.ticks_outer_radius],
       [config.radius + 1.5, config.ticks_inner_radius + 20],
       [config.radius - 1.5, config.ticks_inner_radius + 20]
-    ];
+    ]; // Taller rectangle used for "major" tick marks (ambient/target/high/low).
 
-    const highlightStart = typeof from === 'number' ? from : -1;
+    const highlightStart = typeof from === 'number' ? from : -1; // Default to -1 so comparisons fail when no highlight is needed.
     const highlightEnd = typeof to === 'number' ? to : -1;
 
     this._ticks.forEach((tick, index) => {
       let isLarge = false;
-      const theta = config.tick_degrees / config.num_ticks;
+      const theta = config.tick_degrees / config.num_ticks; // Angle between each tick along the partial circle.
       large_ticks.forEach((i) => {
-        if (index === i) isLarge = true;
+        if (index === i) isLarge = true; // Mark the tick as "large" if it matches one of the highlighted indices.
       });
 
-      const withinRange = highlightStart >= 0 && highlightEnd >= highlightStart && index >= highlightStart && index <= highlightEnd;
+      const withinRange = highlightStart >= 0 && highlightEnd >= highlightStart && index >= highlightStart && index <= highlightEnd; // Check whether this tick falls inside the active arc.
       const classes = [];
       if (withinRange) {
         classes.push('active');
         if (hvac_state) {
-          classes.push(hvac_state);
+          classes.push(hvac_state); // Encode the HVAC state to let CSS color the active arc.
         }
       }
       if (isLarge) {
@@ -816,7 +822,7 @@ export default class ThermostatUI {
       }
 
       SvgUtil.attributes(tick, {
-        d: SvgUtil.pointsToPath(SvgUtil.rotatePoints(isLarge ? tickPointsLarge : tickPoints, index * theta - config.offset_degrees, [config.radius, config.radius])),
+        d: SvgUtil.pointsToPath(SvgUtil.rotatePoints(isLarge ? tickPointsLarge : tickPoints, index * theta - config.offset_degrees, [config.radius, config.radius])), // Rotate each tick's rectangle into position around the dial.
         class: classes.join(' ')
       });
     });
@@ -887,7 +893,7 @@ export default class ThermostatUI {
       width: '100%',
       height: '100%',
       viewBox: '0 0 ' + diameter + ' ' + diameter,
-      class: 'dial'
+      class: 'dial' // CSS class that applies shadows, colors, and animations to the whole dial.
     });
     const defs = SvgUtil.createSVGElement('defs', {});
 
@@ -1174,7 +1180,7 @@ export default class ThermostatUI {
   _buildRing(radius) {
     const config = this._config;
     const ringGroup = SvgUtil.createSVGElement('g', {
-      class: 'dial__ring'
+      class: 'dial__ring' // Wrapper around every decorative element that forms the metallic bezel.
     });
 
     const outerRadius = radius - 1.5;
@@ -1190,7 +1196,7 @@ export default class ThermostatUI {
     };
 
     const ringSurface = SvgUtil.createSVGElement('path', {
-      d: SvgUtil.donutPath(radius, radius, outerRadius, ringInnerRadius),
+      d: SvgUtil.donutPath(radius, radius, outerRadius, ringInnerRadius), // Draw a donut-shaped path representing the metal ring.
       class: 'dial__metal-ring'
     });
     ringSurface.setAttribute('fill', `url(#${this._metalGradientId})`);
@@ -1204,19 +1210,19 @@ export default class ThermostatUI {
     const sheenOuter = outerRadius - ringThickness * 0.12;
     const sheenInner = ringInnerRadius + ringThickness * 0.55;
     const sheen = SvgUtil.createSVGElement('path', {
-      d: SvgUtil.donutPath(radius, radius, sheenOuter, sheenInner),
+      d: SvgUtil.donutPath(radius, radius, sheenOuter, sheenInner), // Slightly smaller donut used to simulate a reflective highlight.
       class: 'dial__metal-ring-sheen'
     });
 
     const shadowOuter = outerRadius - ringThickness * 0.02;
     const shadowInner = ringInnerRadius + ringThickness * 0.15;
     const shadow = SvgUtil.createSVGElement('path', {
-      d: SvgUtil.donutPath(radius, radius, shadowOuter, shadowInner),
+      d: SvgUtil.donutPath(radius, radius, shadowOuter, shadowInner), // Shadow overlay that darkens the lower portion of the ring.
       class: 'dial__metal-ring-shadow'
     });
 
     const gripGroup = SvgUtil.createSVGElement('g', {
-      class: 'dial__ring-grips'
+      class: 'dial__ring-grips' // Holds the tiny ridges etched into the ring surface.
     });
     const gripCount = Math.max(36, Math.round(config.tick_degrees / 5));
     const gripWidth = Math.max(1.6, ringThickness * 0.25);
@@ -1232,7 +1238,7 @@ export default class ThermostatUI {
         [radius - gripWidth / 2, radius - gripInset]
       ];
       const grip = SvgUtil.createSVGElement('path', {
-        d: SvgUtil.pointsToPath(SvgUtil.rotatePoints(gripPoints, angle, [radius, radius])),
+        d: SvgUtil.pointsToPath(SvgUtil.rotatePoints(gripPoints, angle, [radius, radius])), // Rotate each grip so it hugs the ring circumference.
         class: 'dial__ring-grip'
       });
       gripGroup.appendChild(grip);
@@ -1254,7 +1260,7 @@ export default class ThermostatUI {
       }
     }
     const highlight = SvgUtil.createSVGElement('path', {
-      d: SvgUtil.donutPath(radius, radius, highlightOuter, highlightInner),
+      d: SvgUtil.donutPath(radius, radius, highlightOuter, highlightInner), // Thin glowing band that appears when the dial is being edited.
       class: 'dial__editableIndicator'
     });
 
@@ -1269,12 +1275,12 @@ export default class ThermostatUI {
 
   _buildTicks(num_ticks) {
     const tick_element = SvgUtil.createSVGElement('g', {
-      class: 'dial__ticks'
+      class: 'dial__ticks' // Group that will store every tick mark path.
     });
     for (let i = 0; i < num_ticks; i++) {
-      const tick = SvgUtil.createSVGElement('path', {})
-      this._ticks.push(tick);
-      tick_element.appendChild(tick);
+      const tick = SvgUtil.createSVGElement('path', {}) // Create an empty SVG path; _updateTicks will fill in the geometry later.
+      this._ticks.push(tick); // Save the reference for quick updates without rebuilding the DOM.
+      tick_element.appendChild(tick); // Attach the path to the group immediately so it renders once updated.
     }
     return tick_element;
   }
@@ -1283,8 +1289,8 @@ export default class ThermostatUI {
     const config = this._config;
     const translation = rotation > 0 ? -1 : 1;
     const width = config.chevron_size;
-    const chevron_def = ["M", 0, 0, "L", width / 2, width * 0.3, "L", width, 0].map((x) => isNaN(x) ? x : x * scale).join(' ');
-    const translate = [radius - width / 2 * scale * translation + offset, radius + 70 * scale * 1.1 * translation];
+    const chevron_def = ["M", 0, 0, "L", width / 2, width * 0.3, "L", width, 0].map((x) => isNaN(x) ? x : x * scale).join(' '); // Define a triangular arrow path scaled to the desired size.
+    const translate = [radius - width / 2 * scale * translation + offset, radius + 70 * scale * 1.1 * translation]; // Compute where to position the chevron relative to the dial.
     const chevron = SvgUtil.createSVGElement('path', {
       class: `dial__chevron dial__chevron--${id}`,
       d: chevron_def,
@@ -1296,7 +1302,7 @@ export default class ThermostatUI {
   _buildThermoIcon(radius) {
     const thermoScale = radius / 3 / 100;
     const thermoDef = 'M 37.999 38.261 V 7 c 0 -3.859 -3.141 -7 -7 -7 s -7 3.141 -7 7 v 31.261 c -3.545 2.547 -5.421 6.769 -4.919 11.151 c 0.629 5.482 5.066 9.903 10.551 10.512 c 0.447 0.05 0.895 0.074 1.339 0.074 c 2.956 0 5.824 -1.08 8.03 -3.055 c 2.542 -2.275 3.999 -5.535 3.999 -8.943 C 42.999 44.118 41.14 40.518 37.999 38.261 Z M 37.666 55.453 c -2.146 1.921 -4.929 2.8 -7.814 2.482 c -4.566 -0.506 -8.261 -4.187 -8.785 -8.752 c -0.436 -3.808 1.28 -7.471 4.479 -9.56 l 0.453 -0.296 V 38 h 1 c 0.553 0 1 -0.447 1 -1 s -0.447 -1 -1 -1 h -1 v -3 h 1 c 0.553 0 1 -0.447 1 -1 s -0.447 -1 -1 -1 h -1 v -3 h 1 c 0.553 0 1 -0.447 1 -1 s -0.447 -1 -1 -1 h -1 v -3 h 1 c 0.553 0 1 -0.447 1 -1 s -0.447 -1 -1 -1 h -1 v -3 h 1 c 0.553 0 1 -0.447 1 -1 s -0.447 -1 -1 -1 h -1 v -3 h 1 c 0.553 0 1 -0.447 1 -1 s -0.447 -1 -1 -1 h -1 V 8 h 1 c 0.553 0 1 -0.447 1 -1 s -0.447 -1 -1 -1 H 26.1 c 0.465 -2.279 2.484 -4 4.899 -4 c 2.757 0 5 2.243 5 5 v 1 h -1 c -0.553 0 -1 0.447 -1 1 s 0.447 1 1 1 h 1 v 3 h -1 c -0.553 0 -1 0.447 -1 1 s 0.447 1 1 1 h 1 v 3 h -1 c -0.553 0 -1 0.447 -1 1 s 0.447 1 1 1 h 1 v 3 h -1 c -0.553 0 -1 0.447 -1 1 s 0.447 1 1 1 h 1 v 3 h -1 c -0.553 0 -1 0.447 -1 1 s 0.447 1 1 1 h 1 v 3 h -1 c -0.553 0 -1 0.447 -1 1 s 0.447 1 1 1 h 1 v 4.329 l 0.453 0.296 c 2.848 1.857 4.547 4.988 4.547 8.375 C 40.999 50.841 39.784 53.557 37.666 55.453 Z'.split(' ').map((x) => isNaN(x) ? x : x * thermoScale).join(' ');
-    const translate = [radius - (thermoScale * 100 * 0.3), radius * 1.65]
+    const translate = [radius - (thermoScale * 100 * 0.3), radius * 1.65] // Offset the thermometer icon so it rests near the lower center of the dial.
     return SvgUtil.createSVGElement('path', {
       class: 'dial__ico__thermo',
       d: thermoDef,
@@ -1317,16 +1323,16 @@ export default class ThermostatUI {
       y: radius - (name == 'title' ? radius / 2 : 0),
       class: `dial__lbl dial__lbl--${name}`,
       id: name
-    });
+    }); // Create the wrapper text node anchored relative to the dial center.
     const text = SvgUtil.createSVGElement('tspan', {
-    });
+    }); // First span holds the main number or label.
     // hack
     if (name == 'target' || name == 'ambient') offset += 20;
     const superscript = SvgUtil.createSVGElement('tspan', {
       x: radius + radius / 3.1 + offset,
       y: radius - radius / 6,
       class: `dial__lbl--super--${name}`
-    });
+    }); // Second span holds the fractional digit so it can be positioned like a superscript.
     target.appendChild(text);
     target.appendChild(superscript);
     return target;
@@ -1337,18 +1343,18 @@ export default class ThermostatUI {
     let loop = 4;
     for (let index = 0; index < loop; index++) {
       const angle = 360 / loop;
-      const sector = SvgUtil.anglesToSectors(radius, startAngle, angle);
-      const controlsDef = 'M' + sector.L + ',' + sector.L + ' L' + sector.L + ',0 A' + sector.L + ',' + sector.L + ' 1 0,1 ' + sector.X + ', ' + sector.Y + ' z';
+      const sector = SvgUtil.anglesToSectors(radius, startAngle, angle); // Calculate the wedge that should respond to taps.
+      const controlsDef = 'M' + sector.L + ',' + sector.L + ' L' + sector.L + ',0 A' + sector.L + ',' + sector.L + ' 1 0,1 ' + sector.X + ', ' + sector.Y + ' z'; // Build a path covering that wedge.
       const path = SvgUtil.createSVGElement('path', {
         class: 'dial__temperatureControl',
         fill: 'transparent',
         d: controlsDef,
         transform: 'rotate(' + sector.R + ', ' + sector.L + ', ' + sector.L + ')'
       });
-      this._controls.push(path);
-      path.addEventListener('click', () => this._temperatureControlClicked(index));
+      this._controls.push(path); // Keep references so highlighting can be toggled on tap.
+      path.addEventListener('click', () => this._temperatureControlClicked(index)); // Route taps to the handler that adjusts temperatures.
       this._root.appendChild(path);
-      startAngle = startAngle + angle;
+      startAngle = startAngle + angle; // Move on to the next quadrant.
     }
   }
 
@@ -1356,13 +1362,13 @@ export default class ThermostatUI {
 
 class SvgUtil {
   static createSVGElement(tag, attributes) {
-    const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
-    this.attributes(element, attributes)
+    const element = document.createElementNS('http://www.w3.org/2000/svg', tag); // Create an SVG element in the proper namespace.
+    this.attributes(element, attributes) // Apply all supplied attributes immediately.
     return element;
   }
   static attributes(element, attrs) {
     for (let i in attrs) {
-      element.setAttribute(i, attrs[i]);
+      element.setAttribute(i, attrs[i]); // Assign each attribute key/value pair to the SVG node.
     }
   }
   // Rotate a cartesian point about given origin by X degrees
@@ -1372,47 +1378,49 @@ class SvgUtil {
     const y = point[1] - origin[1];
     const x1 = x * Math.cos(radians) - y * Math.sin(radians) + origin[0];
     const y1 = x * Math.sin(radians) + y * Math.cos(radians) + origin[1];
-    return [x1, y1];
+    return [x1, y1]; // Provide the new coordinate so callers can construct rotated shapes.
   }
   // Rotate an array of cartesian points about a given origin by X degrees
   static rotatePoints(points, angle, origin) {
-    return points.map((point) => this.rotatePoint(point, angle, origin));
+    return points.map((point) => this.rotatePoint(point, angle, origin)); // Rotate every point in a path.
   }
   // Given an array of points, return an SVG path string representing the shape they define
   static pointsToPath(points) {
-    return points.map((point, iPoint) => (iPoint > 0 ? 'L' : 'M') + point[0] + ' ' + point[1]).join(' ') + 'Z';
+    return points.map((point, iPoint) => (iPoint > 0 ? 'L' : 'M') + point[0] + ' ' + point[1]).join(' ') + 'Z'; // Convert vertices to an SVG path string.
   }
-  static circleToPath(cx, cy, r) {
+  static circleToPath(cx, cy, r, clockwise = true) {
+    const sweep = clockwise ? 1 : 0; // SVG sweep flag: 1 draws clockwise, 0 draws counterclockwise.
     return [
-      "M", cx, ",", cy,
-      "m", 0 - r, ",", 0,
-      "a", r, ",", r, 0, 1, ",", 0, r * 2, ",", 0,
-      "a", r, ",", r, 0, 1, ",", 0, 0 - r * 2, ",", 0,
-      "z"
-    ].join(' ').replace(/\s,\s/g, ",");
+      `M ${cx - r},${cy}`, // Start at the left-most point of the circle.
+      `a ${r},${r} 0 1,${sweep} ${r * 2},0`, // Draw the top half as an arc sweeping across the circle.
+      `a ${r},${r} 0 1,${sweep} ${-r * 2},0`, // Draw the bottom half returning to the starting point.
+      'Z'
+    ].join(' '); // Merge commands into one continuous path string with the desired winding order.
   }
   static donutPath(cx, cy, rOuter, rInner) {
-    return this.circleToPath(cx, cy, rOuter) + " " + this.circleToPath(cx, cy, rInner);
+    const outerPath = this.circleToPath(cx, cy, rOuter, true); // Keep the bezel's outer edge winding clockwise.
+    const innerPath = this.circleToPath(cx, cy, rInner, false); // Reverse the inner edge so the default non-zero fill treats it as a hole.
+    return `${outerPath} ${innerPath}`; // Combine both paths so SVG renders a hollow ring instead of a filled disk.
   }
 
   static superscript(n) {
 
     if ((n - Math.floor(n)) !== 0)
-      n = Number(n).toFixed(1);;
+      n = Number(n).toFixed(1);; // Limit decimal temperatures to a single decimal place for readability.
     const x = `${n}${n == 0 ? '' : ''}`;
-    return x;
+    return x; // Return the formatted string for placement in the rotating labels.
   }
 
   // Restrict a number to a min + max range
   static restrictToRange(val, min, max) {
     if (val < min) return min;
     if (val > max) return max;
-    return val;
+    return val; // Clamp out-of-range values so visuals stay within the dial.
   }
   static setClass(el, className, state) {
 
 
-    el.classList[state ? 'add' : 'remove'](className);
+    el.classList[state ? 'add' : 'remove'](className); // Add or remove the class based on a boolean flag.
   }
 
   static anglesToSectors(radius, startAngle, angle) {
@@ -1442,10 +1450,10 @@ class SvgUtil {
       X: X,
       Y: Y,
       R: startAngle
-    }
+    } // Provide coordinates used to draw wedge-shaped hit areas for tap controls.
   }
   static uniqueId(prefix) {
-    return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
+    return `${prefix}-${Math.random().toString(36).slice(2, 11)}`; // Generate a random suffix to avoid DOM id collisions.
   }
 }
 

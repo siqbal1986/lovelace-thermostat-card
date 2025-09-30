@@ -1,44 +1,57 @@
+/**
+ * The thermostat card is split into three files:
+ *   - styles.js: returns a long CSS template literal that themes the widget.
+ *   - thermostat_card.lib.js: builds and updates the SVG-based dial and mode controls.
+ *   - this file: wires the card into Home Assistant, feeds data into the UI helper,
+ *     and exposes it as a custom element.
+ *
+ * The imports below pull in the CSS factory function and the UI helper class. The
+ * version numbers in the query strings make sure browsers reload the files when
+ * the code changes instead of using an older cached copy.
+ */
 import {cssData} from './styles.js?v=1.3.4';
 import ThermostatUI from './thermostat_card.lib.js?v=1.3.4';
+
+// This log statement helps identify the version of the card in the browser console.
 console.info("%c Thermostat Card \n%c  Version  1.3.4 ", "color: orange; font-weight: bold; background: black", "color: white; font-weight: bold; background: dimgray");
 class ThermostatCard extends HTMLElement {
   constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
+    super(); // Always call the base HTMLElement constructor.
+    this.attachShadow({ mode: 'open' }); // Use a shadow root so the card's DOM and CSS are isolated from the main page.
   }
   set hass(hass) {
-    const config = this._config;
+    const config = this._config; // The configuration created in setConfig is cached on the instance.
 
     if (!config || !this.thermostat) {
-      this._hass = hass;
-      return;
+      this._hass = hass; // If configuration is missing we still remember the hass reference for future updates.
+      return; // Without configuration or a UI helper there is nothing to update yet.
     }
 
-    const entity = hass.states[config.entity];
-    if(!entity)return;
-    let min_value = entity.attributes.min_temp;
+    const entity = hass.states[config.entity]; // Pull the climate entity the card should display.
+    if(!entity)return; // If the entity cannot be found we exit silently; Home Assistant may still be loading.
+    let min_value = entity.attributes.min_temp; // Default minimum temperature is provided by the entity.
     if (config.min_value)
-      min_value = config.min_value;
-    let max_value = entity.attributes.max_temp;
+      min_value = config.min_value; // Allow the user to override the minimum temperature via the card configuration.
+    let max_value = entity.attributes.max_temp; // Same idea for the maximum temperature.
     if (config.max_value)
       max_value = config.max_value;
-    let ambient_temperature = entity.attributes.current_temperature || 0;
+    let ambient_temperature = entity.attributes.current_temperature || 0; // Ambient (room) temperature is reported by the entity.
     if (config.ambient_temperature && hass.states[config.ambient_temperature])
-      ambient_temperature = hass.states[config.ambient_temperature].state;
-    let hvac_state = entity.state;
-    
+      ambient_temperature = hass.states[config.ambient_temperature].state; // Optionally use a separate sensor for the ambient reading.
+    let hvac_state = entity.state; // The climate entity's main state (off, heat, cool, etc.).
+
     const new_state = {
-      entity: entity,
-      min_value: min_value,
-      max_value: max_value,
-      ambient_temperature: ambient_temperature,
-      target_temperature: entity.attributes.temperature,
-      target_temperature_low: entity.attributes.target_temp_low,
-      target_temperature_high: entity.attributes.target_temp_high,
-      hvac_state: entity.state,
-      hvac_modes:entity.attributes.hvac_modes,
-      preset_mode: entity.attributes.preset_mode,
-      away: (entity.attributes.away_mode == 'on' ? true : false)
+      entity: entity, // Keep the entire entity reference so we can open the more-info panel later.
+      min_value: min_value, // Remember the working minimum temperature.
+      max_value: max_value, // Remember the working maximum temperature.
+      ambient_temperature: ambient_temperature, // Store the current ambient reading.
+      target_temperature: entity.attributes.temperature, // Single setpoint for heat-only or cool-only systems.
+      target_temperature_low: entity.attributes.target_temp_low, // Low setpoint for dual-mode systems.
+      target_temperature_high: entity.attributes.target_temp_high, // High setpoint for dual-mode systems.
+      hvac_state: entity.state, // Primary HVAC mode (heat, cool, off, etc.).
+      hvac_modes:entity.attributes.hvac_modes, // All available HVAC modes so the mode selector can list them.
+      preset_mode: entity.attributes.preset_mode, // Optional preset (eco, away, etc.).
+      away: (entity.attributes.away_mode == 'on' ? true : false) // Legacy away flag used by some thermostats.
     }
 
     if (!this._saved_state ||
@@ -51,45 +64,45 @@ class ThermostatCard extends HTMLElement {
         this._saved_state.hvac_state != new_state.hvac_state ||
         this._saved_state.preset_mode != new_state.preset_mode ||
         this._saved_state.away != new_state.away)) {
-      this._saved_state = new_state;
-      this.thermostat.updateState(new_state,hass);
+      this._saved_state = new_state; // Cache the incoming state so we can detect future changes and avoid unnecessary redraws.
+      this.thermostat.updateState(new_state,hass); // Hand the state data to the SVG/UI helper for rendering.
      }
-    this._hass = hass;
+    this._hass = hass; // Always hold onto the latest Home Assistant object for future service calls.
   }
-  
+
   openProp(entityId) {
-    this.fire('hass-more-info', { entityId });
+    this.fire('hass-more-info', { entityId }); // Helper called when the info button is tapped to open the default entity dialog.
   }
   fire(type, detail, options) {
-  
-    options = options || {}
-    detail = detail === null || detail === undefined ? {} : detail
+
+    options = options || {} // Allow callers to omit the options bag.
+    detail = detail === null || detail === undefined ? {} : detail // Ensure the event carries an object payload.
     const e = new Event(type, {
-      bubbles: options.bubbles === undefined ? true : options.bubbles,
-      cancelable: Boolean(options.cancelable),
-      composed: options.composed === undefined ? true : options.composed,
+      bubbles: options.bubbles === undefined ? true : options.bubbles, // Events bubble through the DOM tree by default so HA can catch them.
+      cancelable: Boolean(options.cancelable), // Allow callers to prevent the default behavior if they need to.
+      composed: options.composed === undefined ? true : options.composed, // Composed events can leave the shadow DOM and reach HA.
     })
-    
-    e.detail = detail
-    this.dispatchEvent(e)
-    return e
+
+    e.detail = detail // Attach the detail payload expected by HA (e.g., entityId).
+    this.dispatchEvent(e) // Fire the event through the shadow boundary.
+    return e // Return the event so callers can inspect it if needed.
   }
-  
+
   _controlSetPoints() {
 
     if (this.thermostat.dual) {
       if (this.thermostat.temperature.high != this._saved_state.target_temperature_high ||
         this.thermostat.temperature.low != this._saved_state.target_temperature_low)
         this._hass.callService('climate', 'set_temperature', {
-          entity_id: this._config.entity,
-          target_temp_high: this.thermostat.temperature.high,
-          target_temp_low: this.thermostat.temperature.low,
+          entity_id: this._config.entity, // Tell Home Assistant which thermostat to update.
+          target_temp_high: this.thermostat.temperature.high, // Send the new high setpoint from the UI helper.
+          target_temp_low: this.thermostat.temperature.low, // Send the new low setpoint from the UI helper.
         });
     } else {
       if (this.thermostat.temperature.target != this._saved_state.target_temperature)
         this._hass.callService('climate', 'set_temperature', {
-          entity_id: this._config.entity,
-          temperature: this.thermostat.temperature.target,
+          entity_id: this._config.entity, // Again, target the configured climate entity.
+          temperature: this.thermostat.temperature.target, // Send the single target temperature for heat-only or cool-only modes.
         });
     }
   }
@@ -113,18 +126,18 @@ class ThermostatCard extends HTMLElement {
   }
 
   setConfig(config) {
-    const root = this.shadowRoot;
+    const root = this.shadowRoot; // Everything rendered by the card lives inside the shadow DOM created in the constructor.
 
     while (root.lastChild) {
-      root.removeChild(root.lastChild);
+      root.removeChild(root.lastChild); // Remove any previous DOM so the card can be reconfigured cleanly.
     }
 
-    const rawConfig = deepClone(config || {});
-    const { entity } = rawConfig;
-    const entityId = typeof entity === 'string' ? entity.trim() : '';
-    const [domain, objectId] = entityId.split('.');
-    const hasEntity = entityId.length > 0;
-    const isClimateEntity = domain === 'climate' && !!objectId;
+    const rawConfig = deepClone(config || {}); // Clone the configuration object so mutations do not leak back to HA.
+    const { entity } = rawConfig; // Extract the entity string if provided.
+    const entityId = typeof entity === 'string' ? entity.trim() : ''; // Normalize the entity id by trimming whitespace.
+    const [domain, objectId] = entityId.split('.'); // Split "climate.living_room" into ["climate", "living_room"].
+    const hasEntity = entityId.length > 0; // Track whether the user supplied anything at all.
+    const isClimateEntity = domain === 'climate' && !!objectId; // Make sure the entity string points to a climate domain entity.
 
     if (!hasEntity || !isClimateEntity) {
       const message = hasEntity
@@ -139,10 +152,10 @@ class ThermostatCard extends HTMLElement {
     }
 
     // Prepare config defaults
-    const cardConfig = rawConfig;
-    cardConfig.entity = entityId;
+    const cardConfig = rawConfig; // Reuse the cloned config so the code below can add defaults directly onto it.
+    cardConfig.entity = entityId; // Store the normalized entity id for later use.
     // cardConfig.hvac = Object.assign({}, config.hvac);
-    
+
     if (!cardConfig.diameter) cardConfig.diameter = 400;
     if (!cardConfig.pending) cardConfig.pending = 3;
     if (!cardConfig.idle_zone) cardConfig.idle_zone = 2;
@@ -154,16 +167,16 @@ class ThermostatCard extends HTMLElement {
     if (!cardConfig.tick_degrees) cardConfig.tick_degrees = 300;
 
     // Extra config values generated for simplicity of updates
-    cardConfig.radius = cardConfig.diameter / 2;
-    cardConfig.ticks_outer_radius = cardConfig.diameter / 30;
-    cardConfig.ticks_inner_radius = cardConfig.diameter / 8;
-    cardConfig.offset_degrees = 180 - (360 - cardConfig.tick_degrees) / 2;
-    cardConfig.control = this._controlSetPoints.bind(this);
-    cardConfig.propWin = this.openProp.bind(this);
-    this.thermostat = new ThermostatUI(cardConfig);
-    
+    cardConfig.radius = cardConfig.diameter / 2; // The SVG uses radius rather than diameter, so store it for convenience.
+    cardConfig.ticks_outer_radius = cardConfig.diameter / 30; // Pre-calculated distance from the center to the outside of tick marks.
+    cardConfig.ticks_inner_radius = cardConfig.diameter / 8; // Pre-calculated distance to the inner end of tick marks.
+    cardConfig.offset_degrees = 180 - (360 - cardConfig.tick_degrees) / 2; // Angle offset so the tick arc is centered vertically.
+    cardConfig.control = this._controlSetPoints.bind(this); // Provide the UI helper with a callback to send temperature changes back to HA.
+    cardConfig.propWin = this.openProp.bind(this); // Provide a callback that opens the more-info dialog when needed.
+    this.thermostat = new ThermostatUI(cardConfig); // Build the heavy SVG/UI helper once configuration is ready.
+
     if (cardConfig.no_card === true) {
-      
+
       const card = document.createElement('ha-card');
       card.className = "no_card";
       const style = document.createElement('style');
@@ -182,24 +195,24 @@ class ThermostatCard extends HTMLElement {
       card.appendChild(this.thermostat.container);
       root.appendChild(card);
     }
-    this._config = cardConfig;
-    this._saved_state = null;
+    this._config = cardConfig; // Store the normalized configuration for later use by hass setter and helpers.
+    this._saved_state = null; // Clear the cached entity state so the first hass call triggers a full UI update.
   }
 }
 customElements.define('thermostat-card', ThermostatCard);
 
 function deepClone(value) {
   if (!(!!value && typeof value == 'object')) {
-    return value;
+    return value; // Primitive values (numbers, strings, booleans) can be returned as-is.
   }
   if (Object.prototype.toString.call(value) == '[object Date]') {
-    return new Date(value.getTime());
+    return new Date(value.getTime()); // Clone Date objects so the copy has its own internal timestamp.
   }
   if (Array.isArray(value)) {
-    return value.map(deepClone);
+    return value.map(deepClone); // Recursively clone every item in an array.
   }
   var result = {};
   Object.keys(value).forEach(
-    function(key) { result[key] = deepClone(value[key]); });
-  return result;
+    function(key) { result[key] = deepClone(value[key]); }); // Copy each property one by one and clone nested objects.
+  return result; // Return the brand-new object copy.
 }
