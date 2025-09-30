@@ -1401,6 +1401,7 @@ class SvgUtil {
     const outerPath = this.circleToPath(cx, cy, rOuter, true); // Keep the bezel's outer edge winding clockwise.
     const innerPath = this.circleToPath(cx, cy, rInner, false); // Reverse the inner edge so the default non-zero fill treats it as a hole.
     return `${outerPath} ${innerPath}`; // Combine both paths so SVG renders a hollow ring instead of a filled disk.
+
   }
 
   static superscript(n) {
