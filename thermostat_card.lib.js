@@ -875,6 +875,9 @@ export default class ThermostatUI {
     const expanded = !!open;
     this._modeMenuContainer.classList.toggle('menu-open', expanded);
     this._modeMenuToggler.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    if (this._modeMenuList) {
+      this._modeMenuList.setAttribute('aria-hidden', expanded ? 'false' : 'true');
+    }
   }
 
   _setActiveMode(mode) {
