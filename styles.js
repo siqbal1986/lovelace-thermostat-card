@@ -705,119 +705,142 @@ export function cssData(user) {
 
   }
 
-  .mode-carousel{
-    position: absolute; /* Establish the positioning context for layered elements. */
-    inset: 0; /* Offset the absolutely positioned layer from each edge. */
-    display: flex; /* Choose a layout model that supports the intended alignment. */
-    align-items: center; /* Vertically align child content within the flex container. */
-    justify-content: center; /* Horizontally align child content within the flex container. */
-    pointer-events: auto; /* Allow or block pointer interaction as appropriate for the layer. */
-    transition: opacity 0.3s ease; /* Animate property changes smoothly for a polished feel. */
-    opacity: 1; /* Adjust transparency to blend the layer into the dial. */
-    z-index: 40; /* Documented property purpose for clarity. */
+  .mode-menu{
+    position: absolute; /* Anchor the menu in the middle of the dialog overlay. */
+    inset: 0; /* Stretch the container so menu items can radiate in any direction. */
+    display: flex; /* Center the toggler in the available space. */
+    align-items: center; /* Vertically center the toggler. */
+    justify-content: center; /* Horizontally center the toggler. */
+    pointer-events: none; /* Keep the container itself from capturing events. */
+    --menu-distance-scale: 0; /* Collapse radial items by default. */
+    z-index: 40; /* Sit above the dial graphics like the legacy carousel. */
   }
-  .mode-carousel.hide{
-    opacity: 0; /* Adjust transparency to blend the layer into the dial. */
-    pointer-events: none; /* Allow or block pointer interaction as appropriate for the layer. */
+  .mode-menu.menu-open{
+    pointer-events: auto; /* Allow menu items to receive interaction while open. */
+    --menu-distance-scale: 1; /* Expand the radial layout. */
   }
-  .mode-carousel__track{
-    position: relative; /* Establish the positioning context for layered elements. */
-    display: flex; /* Choose a layout model that supports the intended alignment. */
-    align-items: center; /* Vertically align child content within the flex container. */
-    justify-content: center; /* Horizontally align child content within the flex container. */
-    gap: 28px; /* Space out child items evenly. */
-    width: 78%; /* Control the component's width for consistent sizing. */
-    max-width: 560px; /* Prevent the element from growing too wide on large layouts. */
-    perspective: 1400px; /* Provide depth to 3D transformed children. */
-    pointer-events: auto; /* Allow or block pointer interaction as appropriate for the layer. */
-    touch-action: pan-y; /* Limit touch gestures to avoid interfering with drag interactions. */
-    cursor: grab; /* Indicate the pointer feedback expected for this element. */
+  .mode-menu__toggler{
+    position: relative; /* Create a stacking context for the toggle button. */
+    z-index: 2; /* Sit above the fanned out menu items. */
+    width: 58px; /* Provide a large tap target. */
+    height: 58px; /* Match width to keep the control circular. */
+    border-radius: 50%; /* Round shape echoes the dial. */
+    border: 1px solid rgba(255, 255, 255, 0.22); /* Subtle outline to lift the button. */
+    background: radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.65), rgba(44, 54, 72, 0.92)); /* Soft highlight for depth. */
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.55), inset 0 3px 6px rgba(255, 255, 255, 0.25), inset 0 -6px 10px rgba(0, 0, 0, 0.55); /* Layered shadows enhance realism. */
+    cursor: pointer; /* Indicate the control is interactive. */
+    pointer-events: auto; /* Allow clicks to pass through to the toggler. */
+    display: inline-flex; /* Center the decorative bars. */
+    align-items: center; /* Align internal spans vertically. */
+    justify-content: center; /* Align internal spans horizontally. */
+    gap: 6px; /* Even spacing for the bars. */
+    padding: 0; /* Remove default button padding. */
+    color: inherit; /* Inherit text/icon color. */
+    -webkit-appearance: none; /* Reset browser button styles. */
+    appearance: none; /* Reset browser button styles. */
+    transition: transform 0.3s ease, box-shadow 0.3s ease; /* Smooth hover feedback. */
   }
-  .mode-carousel__track:active{
-    cursor: grabbing; /* Indicate the pointer feedback expected for this element. */
+  .mode-menu.menu-open .mode-menu__toggler{
+    transform: scale(0.95); /* Slightly compress when active. */
+    box-shadow: 0 10px 18px rgba(0, 0, 0, 0.5), inset 0 4px 8px rgba(255, 255, 255, 0.2), inset 0 -4px 8px rgba(0, 0, 0, 0.55); /* Adjust lighting while open. */
   }
-  .mode-carousel__halo{
-    position: absolute; /* Establish the positioning context for layered elements. */
-    width: 36%; /* Control the component's width for consistent sizing. */
-    aspect-ratio: 1; /* Maintain a consistent proportional shape. */
-    border-radius: 50%; /* Round the corners for a softer, circular appearance. */
-    border: 1px solid rgba(255, 255, 255, 0.18); /* Outline the element to reinforce its shape. */
-    box-shadow: inset 0 0 25px rgba(120, 160, 255, 0.35); /* Add highlights and shadows to create dimensionality. */
-    opacity: 0.4; /* Adjust transparency to blend the layer into the dial. */
-    pointer-events: none; /* Allow or block pointer interaction as appropriate for the layer. */
-    transition: opacity 0.25s ease; /* Animate property changes smoothly for a polished feel. */
+  .mode-menu__toggler span{
+    display: block; /* Treat each bar as a block element. */
+    width: 18px; /* Consistent bar width. */
+    height: 2px; /* Thin bar to mimic a menu icon. */
+    border-radius: 2px; /* Slightly round the ends. */
+    background: rgba(28, 34, 48, 0.85); /* Dark accent against the bright button. */
+    transition: transform 0.3s ease, opacity 0.3s ease; /* Animate to an X when open. */
   }
-  .mode-carousel__halo.mode-carousel__halo--hidden{
-    opacity: 0; /* Adjust transparency to blend the layer into the dial. */
+  .mode-menu.menu-open .mode-menu__toggler span:nth-child(1){
+    transform: translateY(6px) rotate(45deg); /* Form the first arm of the close icon. */
   }
-  .mode-carousel__item{
-    display: flex; /* Choose a layout model that supports the intended alignment. */
-    flex-direction: column; /* Documented property purpose for clarity. */
-    align-items: center; /* Vertically align child content within the flex container. */
-    justify-content: center; /* Horizontally align child content within the flex container. */
-    gap: 10px; /* Space out child items evenly. */
-    min-width: 88px; /* Documented property purpose for clarity. */
-    min-height: 120px; /* Documented property purpose for clarity. */
-    padding: 14px 20px 18px; /* Documented property purpose for clarity. */
-    border-radius: 36px; /* Round the corners for a softer, circular appearance. */
-    border: none; /* Outline the element to reinforce its shape. */
-    background: linear-gradient(155deg, rgba(54, 62, 78, 0.96), rgba(20, 24, 32, 0.88)); /* Apply gradient shading to reinforce depth. */
-    box-shadow: 0 20px 32px rgba(0, 0, 0, 0.6), inset 0 3px 5px rgba(255, 255, 255, 0.15), inset 0 -8px 16px rgba(0, 0, 0, 0.65); /* Add highlights and shadows to create dimensionality. */
-    color: rgba(224, 232, 252, 0.75); /* Set the text or icon colour to match the current mode. */
-    text-transform: uppercase; /* Control casing for the label text. */
-    letter-spacing: 0.12em; /* Adjust spacing between characters for style. */
-    font-size: 11px; /* Size the text appropriately for readability. */
-    line-height: 1.4; /* Set the line height to keep text legible. */
-    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, opacity 0.2s ease; /* Animate property changes smoothly for a polished feel. */
-    cursor: pointer; /* Indicate the pointer feedback expected for this element. */
-    pointer-events: auto; /* Allow or block pointer interaction as appropriate for the layer. */
-    -webkit-appearance: none; /* Remove native button styling in WebKit browsers. */
-    appearance: none; /* Reset default form-control styling across browsers. */
-    background-clip: padding-box; /* Confine background painting to the padding box for crisp edges. */
+  .mode-menu.menu-open .mode-menu__toggler span:nth-child(2){
+    opacity: 0; /* Hide the middle bar while open. */
   }
-  .mode-carousel__item--focus{
-    box-shadow: 0 24px 38px rgba(0, 0, 0, 0.65), inset 0 4px 6px rgba(255, 255, 255, 0.22), inset 0 -9px 18px rgba(0, 0, 0, 0.65); /* Add highlights and shadows to create dimensionality. */
+  .mode-menu.menu-open .mode-menu__toggler span:nth-child(3){
+    transform: translateY(-6px) rotate(-45deg); /* Form the second arm of the close icon. */
   }
-  .mode-carousel__item--active{
-    color: rgba(255, 255, 255, 0.95); /* Set the text or icon colour to match the current mode. */
-    box-shadow: 0 26px 40px rgba(0, 0, 0, 0.68), inset 0 4px 6px rgba(255, 255, 255, 0.24), inset 0 -9px 18px rgba(255, 146, 88, 0.55); /* Add highlights and shadows to create dimensionality. */
+  .mode-menu__items{
+    list-style: none; /* Remove default list bullets. */
+    padding: 0; /* Strip default list padding. */
+    margin: 0; /* Strip default list margin. */
+    position: absolute; /* Allow radial positioning around the toggler. */
+    inset: 0; /* Fill the container so transforms pivot around the center. */
+    pointer-events: none; /* Only enable interaction when the container is open. */
   }
-  .mode-carousel__item--deep{
-    filter: saturate(0.8); /* Soften colours when the item sits deeper in the carousel. */
+  .mode-menu.menu-open .mode-menu__items{
+    pointer-events: auto; /* Allow buttons to be clicked while the menu is expanded. */
   }
-  .mode-carousel__item.pending{
-    filter: saturate(1.25); /* Intensify colours when the item is pending interaction. */
+  .menu-item{
+    position: absolute; /* Absolute positioning lets each item fan out from the middle. */
+    top: 50%; /* Start centered vertically. */
+    left: 50%; /* Start centered horizontally. */
+    transform-origin: center; /* Keep transforms balanced around the button center. */
+    transform: translate(-50%, -50%) rotate(var(--menu-angle, 0deg)) translate(calc(var(--menu-distance, 0px) * var(--menu-distance-scale))) rotate(var(--menu-angle-negative, 0deg)); /* Rotate outwards and keep labels upright. */
+    opacity: 0; /* Hidden until the menu opens. */
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease; /* Smoothly animate the radial layout. */
+    pointer-events: none; /* Disable interaction until open. */
   }
-  .mode-carousel.pending .mode-carousel__item:not(.pending){
-    opacity: 0.45; /* Adjust transparency to blend the layer into the dial. */
-    filter: saturate(0.65); /* Desaturate unfocused options while showing a pending state. */
-    pointer-events: none; /* Allow or block pointer interaction as appropriate for the layer. */
+  .mode-menu.menu-open .menu-item{
+    opacity: 1; /* Fade in when expanded. */
+    pointer-events: auto; /* Enable pointer interaction once visible. */
   }
-  .mode-carousel__icon{
-    display: flex; /* Choose a layout model that supports the intended alignment. */
-    align-items: center; /* Vertically align child content within the flex container. */
-    justify-content: center; /* Horizontally align child content within the flex container. */
-    width: 56px; /* Control the component's width for consistent sizing. */
-    height: 56px; /* Control the component's height so proportions stay balanced. */
-    border-radius: 50%; /* Round the corners for a softer, circular appearance. */
-    background: radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.55), rgba(82, 92, 112, 0.25) 55%, rgba(8, 10, 14, 0.88) 100%); /* Apply gradient shading to reinforce depth. */
-    box-shadow: inset 0 3px 4px rgba(255, 255, 255, 0.2), inset 0 -4px 8px rgba(0, 0, 0, 0.55), 0 8px 16px rgba(0, 0, 0, 0.6); /* Add highlights and shadows to create dimensionality. */
+  .menu-item__button{
+    display: inline-flex; /* Align icon and label vertically. */
+    flex-direction: column; /* Stack the icon over the label. */
+    align-items: center; /* Center contents horizontally. */
+    justify-content: center; /* Center contents vertically. */
+    gap: 8px; /* Space between icon and text. */
+    min-width: 86px; /* Provide a generous tap target. */
+    padding: 14px 18px; /* Comfortable touch padding. */
+    border-radius: 32px; /* Pill shape matches existing UI. */
+    border: none; /* Remove the native border. */
+    background: linear-gradient(155deg, rgba(54, 62, 78, 0.92), rgba(22, 26, 34, 0.88)); /* Soft gradient similar to legacy carousel. */
+    box-shadow: 0 16px 26px rgba(0, 0, 0, 0.55), inset 0 2px 4px rgba(255, 255, 255, 0.18), inset 0 -6px 12px rgba(0, 0, 0, 0.6); /* Depth to emphasize floating buttons. */
+    color: rgba(224, 232, 252, 0.78); /* Neutral label color. */
+    font-size: 12px; /* Legible but compact text. */
+    line-height: 1.35; /* Comfortable spacing for multi-line labels. */
+    letter-spacing: 0.08em; /* Slight tracking to mirror original design language. */
+    text-transform: uppercase; /* Preserve menu styling. */
+    cursor: pointer; /* Clarify interactivity. */
+    -webkit-appearance: none; /* Reset browser styles. */
+    appearance: none; /* Reset browser styles. */
+    transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease; /* Provide tactile feedback. */
   }
-  .mode-carousel__icon ha-icon{
-    color: var(--mode_color); /* Set the text or icon colour to match the current mode. */
-    --mdc-icon-size: 32px; /* Scale the Material Design icon to fill its container. */
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.65)); /* Apply visual effects such as blur or drop shadows for depth cues. */
-    transition: filter 0.25s ease, color 0.25s ease; /* Animate property changes smoothly for a polished feel. */
+  .menu-item__button:hover,
+  .menu-item__button:focus{
+    outline: none; /* Remove default outlines while we style focus ourselves. */
+    transform: translateY(-4px); /* Lift slightly on hover/focus. */
+    box-shadow: 0 20px 30px rgba(0, 0, 0, 0.6), inset 0 3px 6px rgba(255, 255, 255, 0.22), inset 0 -6px 14px rgba(0, 0, 0, 0.6); /* Enhance shadow for depth. */
+    color: rgba(255, 255, 255, 0.92); /* Brighten label for accessibility. */
   }
-  .mode-carousel__item--active .mode-carousel__icon ha-icon{
-    filter: drop-shadow(0 5px 10px rgba(255, 156, 98, 0.8)); /* Apply visual effects such as blur or drop shadows for depth cues. */
+  .menu-item--active .menu-item__button{
+    color: rgba(255, 255, 255, 0.95); /* Highlight active mode. */
+    box-shadow: 0 22px 34px rgba(0, 0, 0, 0.62), inset 0 4px 7px rgba(255, 255, 255, 0.24), inset 0 -6px 16px rgba(255, 146, 90, 0.55); /* Warm inner glow to signal selection. */
   }
-  .mode-carousel__label{
-    color: rgba(224, 232, 252, 0.64); /* Set the text or icon colour to match the current mode. */
-    transition: color 0.25s ease; /* Animate property changes smoothly for a polished feel. */
+  .menu-item__icon{
+    display: flex; /* Center the icon in its circular badge. */
+    align-items: center; /* Vertical centering. */
+    justify-content: center; /* Horizontal centering. */
+    width: 52px; /* Circular badge size. */
+    height: 52px; /* Match width for perfect circle. */
+    border-radius: 50%; /* Circular badge. */
+    background: radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.55), rgba(82, 92, 112, 0.28) 55%, rgba(10, 12, 18, 0.82) 100%); /* Metallic inspired highlight. */
+    box-shadow: inset 0 3px 5px rgba(255, 255, 255, 0.2), inset 0 -5px 10px rgba(0, 0, 0, 0.6), 0 8px 16px rgba(0, 0, 0, 0.55); /* Depth to match dial. */
   }
-  .mode-carousel__item--active .mode-carousel__label{
-    color: rgba(255, 255, 255, 0.92); /* Set the text or icon colour to match the current mode. */
+  .menu-item__icon ha-icon{
+    --mdc-icon-size: 30px; /* Balance icon within the badge. */
+    color: var(--mode_color); /* Match icon color to HVAC mode. */
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6)); /* Glow for readability. */
+    transition: color 0.25s ease, filter 0.25s ease; /* Animate when state changes. */
+  }
+  .menu-item--active .menu-item__icon ha-icon{
+    filter: drop-shadow(0 4px 9px rgba(255, 156, 98, 0.75)); /* Warmer glow when active. */
+  }
+  .menu-item__label{
+    color: inherit; /* Follow button color changes. */
+    text-align: center; /* Keep labels centered. */
   }
   .dial--blurred{
     filter: blur(6px); /* Apply visual effects such as blur or drop shadows for depth cues. */
