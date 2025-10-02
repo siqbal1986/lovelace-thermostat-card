@@ -241,6 +241,10 @@ export function cssData(user) {
 
     margin: 0 auto; /* Center the dial horizontally. */
 
+    -ms-touch-action: none; /* Prevent legacy Edge from hijacking the gesture for panning. */
+
+    touch-action: none; /* Keep browsers from cancelling the drag to start scrolling. */
+
     user-select: none; /* Stop accidental text selection while dragging on the dial. */
 
     --thermostat-off-fill: rgba(10, 16, 27, 0.92); /* Base face color when no heating/cooling glow is active. */
