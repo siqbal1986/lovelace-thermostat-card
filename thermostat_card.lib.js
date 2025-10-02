@@ -1460,6 +1460,20 @@ if (!ThermostatUI.prototype.__codexEnhanced) {
     return 0.5;
   };
 
+  ThermostatUI.prototype._angleDelta = function(current, last, arc) {
+    if (!Number.isFinite(current) || !Number.isFinite(last)) {
+      return 0;
+    }
+    const span = Number.isFinite(arc) && arc > CODEX_EPSILON ? arc : 360;
+    let delta = current - last;
+    if (delta > span / 2) {
+      delta -= span;
+    } else if (delta < -span / 2) {
+      delta += span;
+    }
+    return delta;
+  };
+
   ThermostatUI.prototype._hasSetpointChanged = function(snapshot) {
     if (!snapshot) {
       return true;

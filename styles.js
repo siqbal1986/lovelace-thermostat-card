@@ -269,6 +269,88 @@ export function cssData(user) {
 
   }
 
+  .dial__metal-ring {
+
+    fill: var(--dial-metal-ring-fill, radial-gradient(circle at 38% 34%, #fefefe 0%, #e7eaef 32%, #cdd1d8 55%, #a3a8b0 72%, #6c737b 88%, #464b52 100%)); /* Reapply the brushed metal base using the generated gradient or a close CSS fallback. */
+
+    stroke: var(--dial-metal-ring-stroke, rgba(243, 244, 247, 0.68)); /* Use the dynamic sheen gradient when available so the edge glints correctly. */
+
+    stroke-width: 1.4; /* Match the SVG stroke width set when constructing the path. */
+
+    filter: var(--dial-metal-ring-filter, drop-shadow(0 3px 5px rgba(0, 0, 0, 0.35)) drop-shadow(0 -1px 1px rgba(255, 255, 255, 0.45))); /* Restore the layered lighting that makes the ring look recessed. */
+
+    transition: filter 0.35s ease, fill 0.45s ease, stroke 0.45s ease; /* Smooth the response when the ring gains active emphasis. */
+
+  }
+
+  .dial.in_control .dial__metal-ring {
+
+    filter: var(--dial-metal-ring-filter-active, drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45)) drop-shadow(0 -1px 1.5px rgba(255, 255, 255, 0.55))); /* Intensify the glow while the dial is actively being adjusted. */
+
+  }
+
+  .dial__metal-ring-sheen {
+
+    fill: var(--dial-metal-ring-stroke, linear-gradient(to bottom, rgba(255, 255, 255, 0.85) 0%, rgba(243, 244, 247, 0.4) 35%, rgba(182, 187, 195, 0.15) 65%, rgba(107, 112, 120, 0.55) 100%)); /* Overlay the reflective sheen using the same gradient fallback for consistency. */
+
+    mix-blend-mode: screen; /* Allow the sheen to brighten the metal subtly instead of obscuring it. */
+
+    opacity: 0.85; /* Keep the highlight soft so it reads as polished metal. */
+
+    pointer-events: none; /* Ensure the sheen never blocks pointer interactions with the dial. */
+
+  }
+
+  .dial__metal-ring-shadow {
+
+    fill: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.25) 55%, rgba(0, 0, 0, 0.55) 100%); /* Reinstate the lower shadow that sells the metal depth. */
+
+    mix-blend-mode: multiply; /* Let the shadow darken the existing tones rather than covering them. */
+
+    opacity: 0.75; /* Balance the shadow strength so the bevel stays readable. */
+
+    pointer-events: none; /* Prevent the shadow overlay from catching pointer events. */
+
+  }
+
+  .dial__ring-grip {
+
+    fill: linear-gradient(to bottom, rgba(255, 255, 255, 0.18) 0%, rgba(120, 125, 134, 0.22) 50%, rgba(36, 38, 45, 0.18) 100%); /* Give each etched grip a subtle metallic gradient without overpowering the ring. */
+
+    stroke: rgba(0, 0, 0, 0.22); /* Add a faint outline so the grooves remain crisp. */
+
+    stroke-width: 0.25; /* Keep the outline delicate to avoid banding. */
+
+    vector-effect: non-scaling-stroke; /* Maintain a consistent grip edge when the dial scales. */
+
+    mix-blend-mode: soft-light; /* Blend the grips with the underlying ring to avoid harsh dark patches. */
+
+    pointer-events: none; /* Prevent the grips from blocking drag gestures or darkening on hover. */
+
+  }
+
+  .dial__editableIndicator {
+
+    fill: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.08) 70%, rgba(255, 255, 255, 0) 100%); /* Light halo that appears when the dial enters edit mode. */
+
+    stroke: rgba(255, 255, 255, 0.38); /* Faint rim to separate the halo from the ring surface. */
+
+    stroke-width: 0.6; /* Light stroke matching the thin highlight geometry. */
+
+    opacity: 0; /* Hidden by default until the dial becomes editable. */
+
+    pointer-events: none; /* Keep the halo from intercepting pointer actions. */
+
+    transition: opacity 0.3s ease; /* Fade the halo in and out smoothly. */
+
+  }
+
+  .dial.in_control .dial__editableIndicator {
+
+    opacity: 1; /* Reveal the halo while the user is actively manipulating the dial. */
+
+  }
+
   .dial--state--off {
 
     --dial-shape-filter: var(--dial-shape-shadow); /* Keep the base drop shadow without an extra glow. */
