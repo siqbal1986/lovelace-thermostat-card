@@ -60,8 +60,6 @@ export default class ThermostatUI {
     this._limitFlash = null; // Placeholder for the visual flash shown when the user hits min/max limits.
 
     this._container = document.createElement('div'); // Wrapper that holds both the dial SVG and the mode controls.
-    this._main_icon = document.createElement('div'); // Small circular widget below the dial that shows the current mode icon.
-    this._modes_dialog = document.createElement('div'); // Hidden dialog that reveals HVAC mode options.
     this._modeMenuContainer = null; // References the dialog container once it is built.
     this._modeMenuToggler = null; // References the hamburger button that opens/closes the mode carousel.
     this._modeMenuList = null; // References the list element that holds the individual mode buttons.
@@ -80,7 +78,6 @@ export default class ThermostatUI {
 
     // this._container.appendChild(this._buildTitle(config.title));
     this._ic.addEventListener('click', () => this.openProp()); // When the kebab button is clicked we request the more-info dialog.
-    this._container.appendChild(this._load_icon('', '')); // Prepare the circular mode indicator beneath the dial.
     this.c_body = document.createElement('div'); // Wrapper around the SVG dial to provide padding.
     this.c_body.className = 'c_body';
     const root = this._buildCore(config.diameter); // Create the main SVG element with gradients and filters.
@@ -115,9 +112,7 @@ export default class ThermostatUI {
     this._root.addEventListener('pointercancel', this._handleDialPointerUp);
     this._buildControls(config.radius); // Build invisible hit areas that react to click/tap adjustments.
     this._root.addEventListener('click', () => this._enableControls()); // Clicking the dial switches it into "editing" mode.
-    this._container.appendChild(this._buildDialog()); // Create the HVAC mode selector dialog and attach it to the container.
-    this._main_icon.addEventListener('click', () => this._openDialog()); // Tapping the circular icon opens the mode selector.
-    this._modes_dialog.addEventListener('click', () => this._hideDialog()); // Clicking outside the dialog closes it.
+    this._buildDialog(); // Create the HVAC mode selector menu structure beneath the dial.
     this._updateText('title', config.title); // Initialize the title label now that text nodes exist.
     this._applyRingRotation(); // Make sure the metallic ring is drawn using the default rotation state.
   }
@@ -206,9 +201,6 @@ export default class ThermostatUI {
       switch (this.hvac_state) {
         case 'heat_cool':
         case 'off': {
-          const icon = this.hvac_state === 'heat_cool' ? 'sync' : 'power';
-          this._load_icon(this.hvac_state, icon);
-
           if (highIndex !== null && ambientIndex !== null && highIndex < ambientIndex) {
             fromIndex = highIndex;
             toIndex = ambientIndex;
@@ -230,7 +222,6 @@ export default class ThermostatUI {
           break;
         }
         default: {
-          this._load_icon(this.hvac_state, 'dots-horizontal');
           this._updateTemperatureSlot(lowValue, -8, `temperature_slot_1`);
           this._updateTemperatureSlot(highValue, 8, `temperature_slot_3`);
           if (lowIndex !== null && highIndex !== null) {
@@ -267,33 +258,6 @@ export default class ThermostatUI {
         const idx = mapValueToIndex(value);
         if (idx !== null) tickIndexes.push(idx);
       });
-
-      switch (this.hvac_state) {
-        case 'dry':
-          this._load_icon(this.hvac_state, 'water-percent');
-          break;
-        case 'fan_only':
-          this._load_icon(this.hvac_state, 'fan');
-          break;
-        case 'cool':
-          this._load_icon(this.hvac_state, 'snowflake');
-          break;
-        case 'heat':
-          this._load_icon(this.hvac_state, 'fire');
-          break;
-        case 'heat_cool':
-          this._load_icon(this.hvac_state, 'sync');
-          break;
-        case 'auto':
-          this._load_icon(this.hvac_state, 'atom');
-          break;
-        case 'off':
-          this._load_icon(this.hvac_state, 'power');
-          break;
-        default:
-          this._load_icon('more', 'dots-horizontal');
-          break;
-      }
 
       if (targetIndex !== null && ambientIndex !== null) {
         fromIndex = Math.min(targetIndex, ambientIndex);
@@ -873,8 +837,28 @@ export default class ThermostatUI {
       return;
     }
     const expanded = !!open;
+    if (expanded) {
+      this._dragDisabled = true;
+      const activePointerId = this._dragContext ? this._dragContext.pointerId : undefined;
+      if (this._dragContext) {
+        this._dragContext = null;
+        this._setDragging(false);
+      }
+      if (activePointerId !== undefined && this._root && this._root.releasePointerCapture) {
+        try {
+          this._root.releasePointerCapture(activePointerId);
+        } catch (err) {
+          // ignore pointer release errors
+        }
+      }
+    } else {
+      this._dragDisabled = false;
+    }
     this._modeMenuContainer.classList.toggle('menu-open', expanded);
     this._modeMenuToggler.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    if (this._modeMenuList) {
+      this._modeMenuList.setAttribute('aria-hidden', expanded ? 'false' : 'true');
+    }
   }
 
   _setActiveMode(mode) {
@@ -1082,30 +1066,7 @@ export default class ThermostatUI {
   openProp() {
     this._config.propWin(this.entity.entity_id)
   }
-  _openDialog() {
-    this._dragDisabled = true;
-    const activePointerId = this._dragContext ? this._dragContext.pointerId : undefined;
-    if (this._dragContext) {
-      this._dragContext = null;
-      this._setDragging(false);
-    }
-    if (activePointerId !== undefined && this._root.releasePointerCapture) {
-      try {
-        this._root.releasePointerCapture(activePointerId);
-      } catch (err) {
-        // ignore
-      }
-    }
-    this._modes_dialog.className = "dialog modes menu-open";
-    this._setModeMenuOpen(true);
-  }
-  _hideDialog() {
-    this._dragDisabled = false;
-    this._setModeMenuOpen(false);
-    this._modes_dialog.className = "dialog modes hide";
-  }
   _setMode(e, mode, hass) {
-    console.log(mode);
     let config = this._config;
     if (this._timeoutHandlerMode) clearTimeout(this._timeoutHandlerMode);
     hass.callService('climate', 'set_hvac_mode', {
@@ -1114,58 +1075,52 @@ export default class ThermostatUI {
     });
     this._setActiveMode(mode);
     this._updateColor(mode, this.preset_mode);
-    this._modes_dialog.className = "dialog modes menu-open " + mode + " pending";
     this._setModeMenuOpen(true);
+    const delay = Math.max((config.pending || 0) * 1000, 0);
     this._timeoutHandlerMode = setTimeout(() => {
-      this._hideDialog();
-    }, config.pending * 1000);
+      this._setModeMenuOpen(false);
+    }, delay);
     e.stopPropagation();
   }
-  _load_icon(state, ic_name) {
-
-    let ic_dot = 'dot_r'
-    if (ic_name == '') {
-      ic_dot = 'dot_h'
+  _buildDialog() {
+    if (!this._modeMenuContainer) {
+      const container = document.createElement('div');
+      container.className = 'mode-menu';
+      container.addEventListener('click', (event) => event.stopPropagation());
+      this._modeMenuContainer = container;
+      this._container.appendChild(container);
     }
 
-    this._main_icon.innerHTML = `
-      <div class="climate_info">
-        <div class="climate_info__bezel"></div>
-        <div class="mode_color"><span class="${ic_dot}"></span></div>
-        <div class="modes__glow"></div>
-        <div class="modes"><ha-icon class="${state}" icon="mdi:${ic_name}"></ha-icon></div>
-      </div>
-    `;
-    return this._main_icon;
-  }
-  _buildDialog() {
-    this._modes_dialog.className = "dialog modes hide";
-    this._modes_dialog.innerHTML = '';
-    const container = document.createElement('div');
-    container.className = 'mode-menu';
+    const container = this._modeMenuContainer;
+    container.innerHTML = '';
+
     const toggler = document.createElement('button');
     toggler.type = 'button';
     toggler.className = 'mode-menu__toggler';
     toggler.setAttribute('aria-label', 'Toggle HVAC modes');
     toggler.setAttribute('aria-expanded', 'false');
     toggler.innerHTML = '<span></span><span></span><span></span>';
+
     const list = document.createElement('ul');
     list.className = 'mode-menu__items';
+    list.setAttribute('aria-hidden', 'true');
+
     container.appendChild(toggler);
     container.appendChild(list);
-    container.addEventListener('click', (event) => event.stopPropagation());
+
     toggler.addEventListener('click', (event) => {
       event.stopPropagation();
-      this._setModeMenuOpen(!container.classList.contains('menu-open'));
+      const shouldOpen = !container.classList.contains('menu-open');
+      this._setModeMenuOpen(shouldOpen);
     });
+
     list.addEventListener('click', (event) => event.stopPropagation());
-    this._modeMenuContainer = container;
+
     this._modeMenuToggler = toggler;
     this._modeMenuList = list;
     this._modeMenuItems = [];
-    this._modes_dialog.appendChild(container);
     this._setModeMenuOpen(false);
-    return this._modes_dialog;
+    return container;
   }
   // build black dial
   _buildDial(radius) {
