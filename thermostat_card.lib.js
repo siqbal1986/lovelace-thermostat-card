@@ -32,7 +32,7 @@ export default class ThermostatUI {
     this._low = val.low; // Store the low setpoint provided by Home Assistant.
     this._high = val.high; // Store the high setpoint provided by Home Assistant.
     this._target = val.target; // Store the single setpoint.
-    if (this._low && this._high) this.dual = true; // If both ends of the range are defined, enable dual-mode behavior.
+    if (Number.isFinite(this._low) && Number.isFinite(this._high)) this.dual = true; // If both ends are valid numbers, enable dual-mode behavior.
   }
   constructor(config) {
 
@@ -102,6 +102,25 @@ export default class ThermostatUI {
     root.appendChild(this._buildChevrons(config.radius, 180, 'high', 0.7, config.radius / 3)); // Downward chevrons for the high setpoint.
     root.appendChild(this._buildChevrons(config.radius, 180, 'target', 1, 0)); // Downward chevrons for the single setpoint.
 
+    // Drag overlay and limit flash layers (visual feedback during interactions)
+    const dragOverlay = SvgUtil.createSVGElement('circle', {
+      cx: config.radius,
+      cy: config.radius,
+      r: config.radius,
+      class: 'dial__drag-overlay'
+    });
+    root.appendChild(dragOverlay);
+    this._dragOverlay = dragOverlay;
+
+    const limitFlash = SvgUtil.createSVGElement('circle', {
+      cx: config.radius,
+      cy: config.radius,
+      r: config.radius,
+      class: 'dial__limit-flash'
+    });
+    root.appendChild(limitFlash);
+    this._limitFlash = limitFlash;
+
 
     this.c_body.appendChild(root); // Place the SVG inside the padded wrapper.
     this._container.appendChild(this.c_body); // Add the dial assembly to the main container.
@@ -131,7 +150,7 @@ export default class ThermostatUI {
       high: options.target_temperature_high,
       target: options.target_temperature,
       ambient: options.ambient_temperature,
-    }
+    };
 
     this._lastHass = hass; // Keep the Home Assistant object for callbacks triggered by drag gestures.
     this._renderDial({
@@ -181,7 +200,7 @@ export default class ThermostatUI {
     let fromIndex = null; // Start of the highlighted arc.
     let toIndex = null; // End of the highlighted arc.
 
-    const dualState = this.dual && (this.hvac_state === 'heat_cool' || this.hvac_state === 'off'); // Only show dual arcs when the thermostat supports it and is in a compatible mode.
+    const dualState = this.dual && (this.hvac_state === 'heat_cool' || this.hvac_state === 'off' || this.hvac_state === 'auto'); // Treat 'auto' like dual where low/high exist.
     let rotationReference = targetValue ?? ambientValue ?? this.min_value; // Default rotation anchor ensures the ring tracks the main value.
 
     if (dualState) {
@@ -496,7 +515,7 @@ export default class ThermostatUI {
   }
 
   _determineDragTarget(event) {
-    const dualAllowed = this.dual && (this.hvac_state === 'heat_cool' || this.hvac_state === 'off');
+    const dualAllowed = this.dual && (this.hvac_state === 'heat_cool' || this.hvac_state === 'off' || this.hvac_state === 'auto');
     if (!dualAllowed || typeof this._low !== 'number' || typeof this._high !== 'number') {
       return 'target';
     }
@@ -675,13 +694,27 @@ export default class ThermostatUI {
     SvgUtil.setClass(this._root, class_name, flag);
   }
 
+  // Visual feedback for hitting min/max limits during drag
+  _triggerLimitFlash(direction) {
+    if (!this._limitFlash) return;
+    this._limitFlash.classList.remove('flash--min', 'flash--max', 'flash-active');
+    this._limitFlash.classList.add(direction >= 0 ? 'flash--max' : 'flash--min');
+    // trigger animation
+    void this._limitFlash.offsetWidth; // reflow
+    this._limitFlash.classList.add('flash-active');
+    setTimeout(() => {
+      if (this._limitFlash) this._limitFlash.classList.remove('flash-active');
+    }, 380);
+  }
+
   _updateText(id, value) {
     const lblTarget = this._root.querySelector(`#${id}`).querySelectorAll('tspan');
-    const text = Math.floor(value);
-    if (value) {
+    const n = Number(value);
+    const text = Math.floor(n);
+    if (Number.isFinite(n)) {
       lblTarget[0].textContent = text;
-      if (value % 1 != 0) {
-        lblTarget[1].textContent = Math.round(value % 1 * 10);
+      if (n % 1 != 0) {
+        lblTarget[1].textContent = Math.round(n % 1 * 10);
       } else {
         lblTarget[1].textContent = '';
       }
@@ -695,13 +728,18 @@ export default class ThermostatUI {
       lblTarget[0].textContent = value;
       lblTarget[1].textContent = '';
     }
+    // Ensure correct glyph and clear fractional in dual edit mode
+    if (this.in_control && id == 'target' && this.dual) {
+      lblTarget[0].textContent = '·';
+      lblTarget[1].textContent = '';
+    }
   }
 
   _updateTemperatureSlot(value, offset, slot) {
 
     const config = this._config;
     const lblSlot1 = this._root.querySelector(`#${slot}`)
-    lblSlot1.textContent = value != null ? SvgUtil.superscript(value) : '';
+    lblSlot1.textContent = value != null ? (SvgUtil.superscript(value) + '°') : '';
 
     const peggedValue = SvgUtil.restrictToRange(value, this.min_value, this.max_value);
     const position = [config.radius, config.ticks_outer_radius - (config.ticks_outer_radius - config.ticks_inner_radius) / 2];
@@ -1075,11 +1113,7 @@ export default class ThermostatUI {
     });
     this._setActiveMode(mode);
     this._updateColor(mode, this.preset_mode);
-    this._setModeMenuOpen(true);
-    const delay = Math.max((config.pending || 0) * 1000, 0);
-    this._timeoutHandlerMode = setTimeout(() => {
-      this._setModeMenuOpen(false);
-    }, delay);
+    this._setModeMenuOpen(false); // Close immediately after selection
     e.stopPropagation();
   }
   _buildDialog() {
@@ -1413,203 +1447,84 @@ class SvgUtil {
   }
 }
 
-// --- Codex interaction enhancements ---
-if (!ThermostatUI.prototype.__codexEnhanced) {
-  Object.defineProperty(ThermostatUI.prototype, '__codexEnhanced', {
+/* Removed legacy prototype patch block */
+
+// Text rendering override: add degree symbol to ambient/target and hide target while editing dual
+if (!ThermostatUI.prototype.__textPatchedV2) {
+  Object.defineProperty(ThermostatUI.prototype, '__textPatchedV2', {
     value: true,
     configurable: false,
     writable: false,
     enumerable: false
   });
-  const CODEX_EPSILON = 0.05;
-  const codexClamp = (value, min, max) => {
-    if (typeof SvgUtil !== 'undefined' && typeof SvgUtil.restrictToRange === 'function') {
-      return SvgUtil.restrictToRange(value, min, max);
+  const overrideUpdateText = function(id, value) {
+    const node = this._root && this._root.querySelector(`#${id}`);
+    if (!node) return;
+    const spans = node.querySelectorAll('tspan');
+    const main = spans[0];
+    const sup = spans[1];
+    if (id === 'title') {
+      if (main) main.textContent = value != null ? String(value) : '';
+      if (sup) sup.textContent = '';
+      return;
     }
-    if (!Number.isFinite(value)) {
-      return min;
-    }
-    return Math.min(Math.max(value, min), max);
-  };
-  const quantizeValue = (value, step) => {
-    if (!Number.isFinite(value) || !Number.isFinite(step) || step <= 0) {
-      return value;
-    }
-    const scaled = Math.round(value / step) * step;
-    return Math.abs(scaled) < CODEX_EPSILON ? 0 : scaled;
-  };
-  const coerceNumber = (value) => {
-    const num = Number(value);
-    return Number.isFinite(num) ? num : null;
-  };
-  const resolveStep = (card) => {
-    const cfg = card && card._config;
-    if (cfg) {
-      const cfgStep = Number(cfg.step);
-      if (Number.isFinite(cfgStep) && cfgStep > 0) {
-        return cfgStep;
-      }
-    }
-    const entity = card && card.entity;
-    if (entity && entity.attributes) {
-      const entityStep = Number(entity.attributes.target_temp_step);
-      if (Number.isFinite(entityStep) && entityStep > 0) {
-        return entityStep;
-      }
-    }
-    return 0.5;
-  };
-
-  ThermostatUI.prototype._angleDelta = function(current, last, arc) {
-    if (!Number.isFinite(current) || !Number.isFinite(last)) {
-      return 0;
-    }
-    const span = Number.isFinite(arc) && arc > CODEX_EPSILON ? arc : 360;
-    let delta = current - last;
-    if (delta > span / 2) {
-      delta -= span;
-    } else if (delta < -span / 2) {
-      delta += span;
-    }
-    return delta;
-  };
-
-  ThermostatUI.prototype._hasSetpointChanged = function(snapshot) {
-    if (!snapshot) {
-      return true;
-    }
-    const changed = (current, original) => {
-      const cur = coerceNumber(current);
-      const base = coerceNumber(original);
-      if (cur === null && base === null) {
-        return false;
-      }
-      if (cur === null || base === null) {
-        return true;
-      }
-      return Math.abs(cur - base) > CODEX_EPSILON;
-    };
-    return changed(this._target, snapshot.target) ||
-      changed(this._low, snapshot.low) ||
-      changed(this._high, snapshot.high);
-  };
-
-  ThermostatUI.prototype._quantizeSetpoints = function() {
-    const step = resolveStep(this);
-    const clampValue = (value) => codexClamp(value, this.min_value, this.max_value);
-    if (Number.isFinite(this._target)) {
-      this._target = clampValue(quantizeValue(this._target, step));
-    }
-    if (Number.isFinite(this._low)) {
-      this._low = clampValue(quantizeValue(this._low, step));
-    }
-    if (Number.isFinite(this._high)) {
-      this._high = clampValue(quantizeValue(this._high, step));
-    }
-    if (Number.isFinite(this._low) && Number.isFinite(this._high) && this._low > this._high) {
-      const mid = clampValue((this._low + this._high) / 2);
-      this._low = mid;
-      this._high = mid;
-    }
-  };
-
-  ThermostatUI.prototype._updateSetpointLabels = function() {
-    const hvacDual = this.hvac_state === 'heat_cool' || this.hvac_state === 'auto';
-    const dualActive = hvacDual && Number.isFinite(this._low) && Number.isFinite(this._high);
-    this._updateClass('has_dual', dualActive);
-    if (dualActive) {
-      this._updateText('target', null);
-      this._updateText('low', this._low);
-      this._updateText('high', this._high);
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+      if (main) main.textContent = '';
+      if (sup) sup.textContent = '';
     } else {
-      this._updateText('target', Number.isFinite(this._target) ? this._target : null);
-      this._updateText('low', null);
-      this._updateText('high', null);
+      if (main) main.textContent = String(Math.floor(n));
+      if (sup) {
+        const frac = n % 1;
+        const fracText = frac !== 0 ? String(Math.round(frac * 10)) : '';
+        const needsDeg = id === 'ambient' || id === 'target';
+        sup.textContent = fracText + (needsDeg ? '°' : '');
+      }
     }
-    if (this.temperature && Number.isFinite(this.temperature.ambient)) {
-      this._updateText('ambient', this.temperature.ambient);
+    if (this.in_control && id === 'target' && this.dual) {
+      if (main) main.textContent = '';
+      if (sup) sup.textContent = '';
     }
   };
-
-  ThermostatUI.prototype._updateFromPointer = function(event) {
-    const context = this._dragContext;
-    if (!context) {
-      return false;
-    }
-    const normalizedAngle = this._pointerNormalizedAngle(event);
-    if (normalizedAngle === null) {
-      return false;
-    }
-    const config = this._config || {};
-    const arc = Number(config.tick_degrees) || 360;
-    const deltaAngle = this._angleDelta(normalizedAngle, context.lastAngle, arc);
-    context.lastAngle = normalizedAngle;
-    const totalRange = Math.max(this.max_value - this.min_value, Number.EPSILON);
-    const valueDelta = deltaAngle / arc * totalRange;
-    if (!valueDelta) {
-      return false;
-    }
-    const preview = context.preview || (context.preview = {
-      target: this._target,
-      low: this._low,
-      high: this._high
-    });
-    const applyChange = (type) => {
-      const slotKey = '_' + type;
-      let current = coerceNumber(preview[type]);
-      if (current === null) {
-        current = coerceNumber(this[slotKey]);
-      }
-      if (current === null) {
-        current = type === 'high' ? this.max_value : this.min_value;
-      }
-      let next = current + valueDelta;
-      let min = this.min_value;
-      let max = this.max_value;
-      if (type === 'low' && Number.isFinite(this._high)) {
-        max = Math.min(max, this._high);
-      }
-      if (type === 'high' && Number.isFinite(this._low)) {
-        min = Math.max(min, this._low);
-      }
-      const clamped = codexClamp(next, min, max);
-      const hitLimit = clamped !== next;
-      preview[type] = clamped;
-      this[slotKey] = clamped;
-      return {
-        changed: Math.abs(clamped - current) > CODEX_EPSILON,
-        hitLimit,
-        value: clamped
-      };
-    };
-    const dragType = context.type === 'low' || context.type === 'high' ? context.type : 'target';
-    const result = applyChange(dragType);
-    if (result.hitLimit) {
-      this._triggerLimitFlash(deltaAngle >= 0 ? 1 : -1);
-    }
-    if (result.changed) {
-      if (Number.isFinite(result.value)) {
-        this._ringRotation = this._computeRingRotationFromValue(result.value);
-        this._applyRingRotation();
-      }
-      this._updateSetpointLabels();
-      this._renderDial({
-        refreshDialog: false,
-        hass: this._lastHass,
-        updateAmbient: false,
-        resetEdit: false
-      });
-      return true;
-    }
-    return false;
-  };
+  ThermostatUI.prototype._updateText = overrideUpdateText;
 }
 
-
-
-
-
-
-
-
-
+// Override again with safe unicode escape for degree symbol to avoid encoding issues
+if (!ThermostatUI.prototype.__textPatchedV3) {
+  Object.defineProperty(ThermostatUI.prototype, '__textPatchedV3', {
+    value: true,
+    configurable: false,
+    writable: false,
+    enumerable: false
+  });
+  const overrideUpdateTextV3 = function(id, value) {
+    const node = this._root && this._root.querySelector(`#${id}`);
+    if (!node) return;
+    const spans = node.querySelectorAll('tspan');
+    const main = spans[0];
+    const sup = spans[1];
+    if (id === 'title') {
+      if (main) main.textContent = value != null ? String(value) : '';
+      if (sup) sup.textContent = '';
+      return;
+    }
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+      if (main) main.textContent = '';
+      if (sup) sup.textContent = '';
+    } else {
+      if (main) main.textContent = String(Math.floor(n));
+      if (sup) {
+        const frac = n % 1;
+        const fracText = frac !== 0 ? String(Math.round(frac * 10)) : '';
+        const needsDeg = id === 'ambient' || id === 'target';
+        sup.textContent = fracText + (needsDeg ? '\u00B0' : '');
+      }
+    }
+    if (this.in_control && id === 'target' && this.dual) {
+      if (main) main.textContent = '';
+      if (sup) sup.textContent = '';
+    }
+  };
+  ThermostatUI.prototype._updateText = overrideUpdateTextV3;
+}

@@ -28,16 +28,33 @@ class ThermostatCard extends HTMLElement {
     }
 
     const entity = hass.states[config.entity]; // Pull the climate entity the card should display.
-    if(!entity)return; // If the entity cannot be found we exit silently; Home Assistant may still be loading.
+    if(!entity){
+      // Show a lightweight overlay when entity is missing/unavailable
+      this._setUnavailable(true, 'Entity unavailable');
+      this._hass = hass;
+      return;
+    } else {
+      this._setUnavailable(false);
+    }
     let min_value = entity.attributes.min_temp; // Default minimum temperature is provided by the entity.
     if (config.min_value)
       min_value = config.min_value; // Allow the user to override the minimum temperature via the card configuration.
     let max_value = entity.attributes.max_temp; // Same idea for the maximum temperature.
     if (config.max_value)
       max_value = config.max_value;
-    let ambient_temperature = entity.attributes.current_temperature || 0; // Ambient (room) temperature is reported by the entity.
-    if (config.ambient_temperature && hass.states[config.ambient_temperature])
-      ambient_temperature = hass.states[config.ambient_temperature].state; // Optionally use a separate sensor for the ambient reading.
+    // Ambient (room) temperature. Coerce to a number whether from the entity or an override sensor.
+    let ambient_temperature = entity.attributes.current_temperature;
+    if (ambient_temperature !== undefined) {
+      const n = Number(ambient_temperature);
+      ambient_temperature = Number.isFinite(n) ? n : 0;
+    } else {
+      ambient_temperature = 0;
+    }
+    if (config.ambient_temperature && hass.states[config.ambient_temperature]) {
+      const raw = hass.states[config.ambient_temperature].state;
+      const n = Number(raw);
+      if (Number.isFinite(n)) ambient_temperature = n; // Optionally use a separate sensor for the ambient reading.
+    }
     let hvac_state = entity.state; // The climate entity's main state (off, heat, cool, etc.).
 
     const new_state = {
@@ -53,6 +70,19 @@ class ThermostatCard extends HTMLElement {
       preset_mode: entity.attributes.preset_mode, // Optional preset (eco, away, etc.).
       away: (entity.attributes.away_mode == 'on' ? true : false) // Legacy away flag used by some thermostats.
     }
+
+    // Update step from entity if user didn't explicitly configure it
+    try {
+      if (!this._userProvidedStep) {
+        const entStep = Number(entity.attributes && entity.attributes.target_temp_step);
+        if (Number.isFinite(entStep) && entStep > 0 && this._config.step !== entStep) {
+          this._config.step = entStep;
+          if (this.thermostat && this.thermostat._config) {
+            this.thermostat._config.step = entStep;
+          }
+        }
+      }
+    } catch (_) { /* ignore */ }
 
     if (!this._saved_state ||
       (this._saved_state.min_value != new_state.min_value ||
@@ -72,6 +102,35 @@ class ThermostatCard extends HTMLElement {
 
   openProp(entityId) {
     this.fire('hass-more-info', { entityId }); // Helper called when the info button is tapped to open the default entity dialog.
+  }
+  _setUnavailable(show, message='Unavailable'){
+    try{
+      if(!this._cardEl){ return; }
+      if(show){
+        if(!this._unavailableEl){
+          const overlay = document.createElement('div');
+          overlay.setAttribute('role','status');
+          overlay.style.position='absolute';
+          overlay.style.inset='0';
+          overlay.style.display='flex';
+          overlay.style.alignItems='center';
+          overlay.style.justifyContent='center';
+          overlay.style.zIndex='50';
+          overlay.style.backdropFilter='blur(1.5px)';
+          overlay.style.background='rgba(0,0,0,0.18)';
+          overlay.style.color='var(--primary-text-color, #fff)';
+          overlay.style.fontWeight='600';
+          overlay.style.textShadow='0 1px 2px rgba(0,0,0,0.35)';
+          this._cardEl.style.position='relative';
+          this._unavailableEl = overlay;
+          this._cardEl.appendChild(overlay);
+        }
+        this._unavailableEl.textContent = message;
+        this._unavailableEl.style.display='flex';
+      }else if(this._unavailableEl){
+        this._unavailableEl.style.display='none';
+      }
+    }catch(_){/* ignore */}
   }
   fire(type, detail, options) {
 
@@ -159,6 +218,9 @@ class ThermostatCard extends HTMLElement {
     if (!cardConfig.diameter) cardConfig.diameter = 400;
     if (!cardConfig.pending) cardConfig.pending = 3;
     if (!cardConfig.idle_zone) cardConfig.idle_zone = 2;
+    // Track whether user explicitly provided common options
+    this._userProvidedStep = Object.prototype.hasOwnProperty.call(rawConfig, 'step');
+    cardConfig.userTitleProvided = Object.prototype.hasOwnProperty.call(rawConfig, 'title');
     if (!cardConfig.step) cardConfig.step = 0.5;
     if (!cardConfig.highlight_tap) cardConfig.highlight_tap = false;
     if (!cardConfig.no_card) cardConfig.no_card = false;
@@ -184,6 +246,7 @@ class ThermostatCard extends HTMLElement {
       card.appendChild(style);
       card.appendChild(this.thermostat.container);
       root.appendChild(card);
+      this._cardEl = card;
       
     }
     else {
@@ -194,6 +257,7 @@ class ThermostatCard extends HTMLElement {
       card.appendChild(style);
       card.appendChild(this.thermostat.container);
       root.appendChild(card);
+      this._cardEl = card;
     }
     this._config = cardConfig; // Store the normalized configuration for later use by hass setter and helpers.
     this._saved_state = null; // Clear the cached entity state so the first hass call triggers a full UI update.
@@ -215,4 +279,16 @@ function deepClone(value) {
   Object.keys(value).forEach(
     function(key) { result[key] = deepClone(value[key]); }); // Copy each property one by one and clone nested objects.
   return result; // Return the brand-new object copy.
+}
+
+// Cleanup when removed from DOM
+ThermostatCard.prototype.disconnectedCallback = function(){
+  try{
+    const root = this.shadowRoot;
+    if(root){ while(root.lastChild){ root.removeChild(root.lastChild);} }
+  }catch(_){ }
+  this.thermostat = null;
+  this._saved_state = null;
+  this._cardEl = null;
+  this._unavailableEl = null;
 }
