@@ -263,6 +263,54 @@ export function cssData(user) {
 
   }
 
+  /* Remove any default focus/tap highlight artifacts on the SVG and its children */
+  .dial, .dial * {
+    outline: none;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+  }
+  svg.dial:focus { outline: none; }
+
+  /* Outer ground shadow beneath the dial */
+  .outer__shadow{
+    fill: rgba(0,0,0,0.6);
+    filter: blur(28px);
+    mix-blend-mode: multiply;
+    opacity: 0.35;
+    pointer-events: none;
+    transition: opacity 0.3s ease, filter 0.3s ease;
+  }
+
+  /* Inner face vignette for depth */
+  .face__vignette{
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    opacity: 0.85;
+    transition: opacity 0.3s ease;
+  }
+
+  /* Glass highlights */
+  .dial__glass{ pointer-events: none; }
+  .glass__diag{
+    fill: white;
+    mix-blend-mode: screen;
+    filter: blur(5px);
+    opacity: 0.20;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .glass__diag--tl{ opacity: 0.26; filter: blur(6px); }
+  .glass__diag--br{ opacity: 0.18; filter: blur(5px); }
+  .glass__bottom{
+    fill: white;
+    opacity: 0.18;
+    filter: blur(9px);
+    mix-blend-mode: screen;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+
+  /* Ring groups */
+  .dial__ring-static{ pointer-events: none; }
+  .dial__ring-spin{ pointer-events: none; }
+
   .dial .dial__shape {
 
     fill: var(--thermostat-off-fill); /* Apply the base dial face color. */
@@ -281,7 +329,7 @@ export function cssData(user) {
 
     stroke-width: 1.4; /* Match the SVG stroke width set when constructing the path. */
 
-    filter: var(--dial-metal-ring-filter, drop-shadow(0 3px 5px rgba(0, 0, 0, 0.35)) drop-shadow(0 -1px 1px rgba(255, 255, 255, 0.45))); /* Restore the layered lighting that makes the ring look recessed. */
+    filter: var(--dial-metal-ring-filter, drop-shadow(0 3px 7px rgba(0, 0, 0, 0.45)) drop-shadow(0 -1px 1.2px rgba(255, 255, 255, 0.6))); /* Stronger layered lighting for realism. */
 
     transition: filter 0.35s ease, fill 0.45s ease, stroke 0.45s ease; /* Smooth the response when the ring gains active emphasis. */
 
@@ -295,11 +343,11 @@ export function cssData(user) {
 
   .dial__metal-ring-sheen {
 
-    fill: var(--dial-metal-ring-stroke, linear-gradient(to bottom, rgba(255, 255, 255, 0.85) 0%, rgba(243, 244, 247, 0.4) 35%, rgba(182, 187, 195, 0.15) 65%, rgba(107, 112, 120, 0.55) 100%)); /* Overlay the reflective sheen using the same gradient fallback for consistency. */
+    fill: var(--dial-metal-ring-stroke, linear-gradient(to bottom, rgba(255, 255, 255, 0.95) 0%, rgba(243, 244, 247, 0.5) 30%, rgba(182, 187, 195, 0.2) 60%, rgba(60, 65, 74, 0.7) 100%)); /* Tighter brighter specular falloff. */
 
     mix-blend-mode: screen; /* Allow the sheen to brighten the metal subtly instead of obscuring it. */
 
-    opacity: 0.85; /* Keep the highlight soft so it reads as polished metal. */
+    opacity: 0.95; /* Brighter specular for chrome-like rim. */
 
     pointer-events: none; /* Ensure the sheen never blocks pointer interactions with the dial. */
 
@@ -307,7 +355,7 @@ export function cssData(user) {
 
   .dial__metal-ring-shadow {
 
-    fill: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.25) 55%, rgba(0, 0, 0, 0.55) 100%); /* Reinstate the lower shadow that sells the metal depth. */
+    fill: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.35) 55%, rgba(0, 0, 0, 0.7) 100%); /* Deeper lower shadow for depth. */
 
     mix-blend-mode: multiply; /* Let the shadow darken the existing tones rather than covering them. */
 
@@ -318,28 +366,53 @@ export function cssData(user) {
   }
 
   .dial__ring-grip {
+    /* Use a solid fill; CSS gradients are not applied to SVG fill in all engines */
+    fill: rgba(255, 255, 255, 0.28);
 
-    fill: linear-gradient(to bottom, rgba(255, 255, 255, 0.18) 0%, rgba(120, 125, 134, 0.22) 50%, rgba(36, 38, 45, 0.18) 100%); /* Give each etched grip a subtle metallic gradient without overpowering the ring. */
+    stroke: rgba(0, 0, 0, 0.12); /* Softer outline to avoid darkening the rim. */
 
-    stroke: rgba(0, 0, 0, 0.22); /* Add a faint outline so the grooves remain crisp. */
-
-    stroke-width: 0.25; /* Keep the outline delicate to avoid banding. */
+    stroke-width: 0.15; /* Thinner stroke to keep bands bright. */
 
     vector-effect: non-scaling-stroke; /* Maintain a consistent grip edge when the dial scales. */
 
-    mix-blend-mode: soft-light; /* Blend the grips with the underlying ring to avoid harsh dark patches. */
+    mix-blend-mode: screen; /* Brighten the rim without muddying it. */
 
     pointer-events: none; /* Prevent the grips from blocking drag gestures or darkening on hover. */
 
   }
 
+  /* Rotating reflection band on ring */
+  .dial__ring-reflection{
+    fill: rgba(255,255,255,0.18);
+    filter: blur(2.2px);
+    mix-blend-mode: screen;
+    opacity: 0.22;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  /* Specular rim line */
+  .dial__rim-spec{
+    mix-blend-mode: screen;
+    filter: blur(0.6px);
+    opacity: 0.95;
+    pointer-events: none;
+  }
+  .dial__rim-spec--inner{ opacity: 0.6; filter: blur(0.4px); }
+
+  /* Inner bevel ring */
+  .dial__inner-bevel{
+    mix-blend-mode: multiply;
+    opacity: 0.9;
+    pointer-events: none;
+  }
+  .dial__metal-brush{ mix-blend-mode: overlay; opacity: 0.18; pointer-events: none; }
+
   .dial__editableIndicator {
+    /* Use a solid semi-transparent fill; CSS gradients are not supported on SVG fills in all engines */
+    fill: rgba(255, 255, 255, 0.16); /* Light halo that appears when the dial enters edit mode. */
 
-    fill: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.08) 70%, rgba(255, 255, 255, 0) 100%); /* Light halo that appears when the dial enters edit mode. */
-
-    stroke: rgba(255, 255, 255, 0.38); /* Faint rim to separate the halo from the ring surface. */
-
-    stroke-width: 0.6; /* Light stroke matching the thin highlight geometry. */
+    stroke: none; /* Avoid thin outline artifacts on press/focus. */
 
     opacity: 0; /* Hidden by default until the dial becomes editable. */
 
@@ -469,7 +542,7 @@ export function cssData(user) {
 
     fill: var(--thermostat-path-color); /* Default muted colour for inactive tick marks. */
 
-    opacity: 0.65; /* Slightly translucent so the active arc stands out. */
+    opacity: 0.45; /* Darker, more subdued for glassy face. */
 
     transition: fill 0.25s ease, opacity 0.25s ease; /* Smooth changes when ticks light up. */
 
@@ -479,13 +552,13 @@ export function cssData(user) {
 
     fill: var(--mode_color); /* Highlight active ticks with the current mode colour. */
 
-    opacity: 0.95; /* Increase opacity so the active arc appears brighter. */
+    opacity: 1; /* Brighter for emphasis. */
 
   }
 
   .dial__ticks path.large {
 
-    opacity: 0.85; /* Make major ticks slightly more prominent than minor ones. */
+    opacity: 0.75; /* Major ticks a bit more prominent, still subtle. */
 
   }
 
@@ -740,6 +813,8 @@ export function cssData(user) {
 
     fill: transparent; /* Set the SVG fill colour for this shape. */
 
+    stroke: none; /* Prevent any focus/press outline from appearing. */
+
     transition: fill 0.25s ease, opacity 0.25s ease; /* Animate property changes smoothly for a polished feel. */
 
     pointer-events: auto; /* Allow or block pointer interaction as appropriate for the layer. */
@@ -829,11 +904,48 @@ export function cssData(user) {
 
   }
 
+  /* Always render face gradient regardless of hvac state */
+  .dial--state--heat .dial__shape,
+  .dial--state--cool .dial__shape,
+  .dial--state--auto .dial__shape,
+  .dial--state--heat_cool .dial__shape,
+  .dial--state--fan_only .dial__shape,
+  .dial--state--dry .dial__shape,
+  .dial--state--idle .dial__shape,
+  .dial--state--unknown .dial__shape {
+    fill: var(--thermostat-off-fill) !important;
+  }
+
+  /* Weather FX */
+  @keyframes rain-drop {
+    0%   { transform: translateY(-24%); opacity: 0.05; }
+    50%  { opacity: 0.35; }
+    100% { transform: translateY(24%); opacity: 0.05; }
+  }
+  @keyframes lightning-flicker {
+    0%, 96%, 100% { opacity: 0; }
+    97% { opacity: 1; }
+    98% { opacity: 0.2; }
+    99% { opacity: 1; }
+  }
+  .weather__rain .rain-drop{
+    stroke: rgba(255,255,255,0.35);
+    stroke-width: 1.2px;
+    stroke-linecap: round;
+    filter: blur(0.3px);
+    opacity: 0.25;
+    animation: rain-drop 1.9s linear infinite;
+  }
+  .weather__lightning .lightning-bolt{
+    fill: none;
+    stroke: rgba(255,255,255,0.9);
+    stroke-width: 2.4px;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.9)) blur(0.5px);
+    animation: lightning-flicker 3.7s steps(1,end) infinite;
+  }
+
   `
 
   return css; /* Provide the assembled stylesheet to callers. */
 
   }
-
-  
-

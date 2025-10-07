@@ -45,6 +45,11 @@ export default class ThermostatUI {
     this._metalGradientId = `dial-metal-gradient-${uid}`; // Distinct id for the metallic fill gradient.
     this._metalSheenId = `dial-metal-sheen-${uid}`; // Distinct id for the reflective sheen gradient.
     this._metalShadowId = `dial-metal-shadow-${uid}`; // Distinct id for the filter that fakes depth/shadow.
+    this._rimSpecId = `dial-rim-spec-${uid}`; // Specular rim stroke gradient id.
+    this._innerBevelId = `dial-inner-bevel-${uid}`; // Inner bevel gradient id.
+    this._faceDarkId = `dial-face-dark-${uid}`; // Dark glass face gradient id.
+    this._rimSpecInnerId = `dial-rim-spec-inner-${uid}`; // Inner specular rim id.
+    this._metalBrushId = `dial-metal-brush-${uid}`; // Brushed metal overlay filter id.
 
     this._dragContext = null; // Stores information about the current drag gesture when the user rotates the dial.
     this._lastHass = null; // Home Assistant reference used when refreshing the mode dialog while dragging.
@@ -81,7 +86,21 @@ export default class ThermostatUI {
     this.c_body = document.createElement('div'); // Wrapper around the SVG dial to provide padding.
     this.c_body.className = 'c_body';
     const root = this._buildCore(config.diameter); // Create the main SVG element with gradients and filters.
+    // Apply the dark face gradient to the dial shape through CSS variable
+    try { root.style.setProperty('--thermostat-off-fill', `url(#${this._faceDarkId})`); } catch(_) {}
+    // Add a soft outer shadow beneath everything
+    const outerShadow = this._buildOuterShadow(config.radius);
+    if (outerShadow) {
+      root.appendChild(outerShadow);
+      this._outerShadow = outerShadow;
+    }
     root.appendChild(this._buildDial(config.radius)); // Draw the dark circular face of the thermostat.
+    // Weather FX (storm) layer beneath texts
+    const fxMode = (this._config && this._config.fx_weather) || 'storm';
+    this._weatherFX = this._buildWeatherFX(config.radius, fxMode);
+    if (this._weatherFX) {
+      root.appendChild(this._weatherFX);
+    }
     root.appendChild(this._buildTicks(config.num_ticks)); // Add the group that will hold all tick marks.
     this._ringGroup = this._buildRing(config.radius); // Build the metallic ring and remember the group for later rotation.
     root.appendChild(this._ringGroup); // Place the ring on top of the dial background.
@@ -125,6 +144,12 @@ export default class ThermostatUI {
     this.c_body.appendChild(root); // Place the SVG inside the padded wrapper.
     this._container.appendChild(this.c_body); // Add the dial assembly to the main container.
     this._root = root; // Remember the SVG root for future queries and event handling.
+    // Add glass highlights and vignette on top for a realistic dome
+    const glass = this._buildGlassOverlays(config.radius);
+    if (glass) {
+      root.appendChild(glass);
+      this._glassGroup = glass;
+    }
     this._root.addEventListener('pointerdown', this._handleDialPointerDown, { passive: false }); // Capture pointer events for drag interactions.
     this._root.addEventListener('pointermove', this._handleDialPointerMove);
     this._root.addEventListener('pointerup', this._handleDialPointerUp);
@@ -134,6 +159,8 @@ export default class ThermostatUI {
     this._buildDialog(); // Create the HVAC mode selector menu structure beneath the dial.
     this._updateText('title', config.title); // Initialize the title label now that text nodes exist.
     this._applyRingRotation(); // Make sure the metallic ring is drawn using the default rotation state.
+    // Ensure only ambient is shown initially
+    this._setLabelVisibility(false);
   }
 
   updateState(options, hass) {
@@ -151,8 +178,20 @@ export default class ThermostatUI {
       target: options.target_temperature,
       ambient: options.ambient_temperature,
     };
+    // Determine if dual should be active based on HVAC mode + valid low/high
+    const hvacDual = this.hvac_state === 'heat_cool' || this.hvac_state === 'auto';
+    const haveDual = hvacDual && Number.isFinite(this._low) && Number.isFinite(this._high);
+    this.dual = !!haveDual;
+    if (!this.dual) {
+      // Clear dual values to avoid stale labels or accidental service payloads
+      this._low = null;
+      this._high = null;
+      this._updateText('low', null);
+      this._updateText('high', null);
+    }
 
     this._lastHass = hass; // Keep the Home Assistant object for callbacks triggered by drag gestures.
+    this._setLabelVisibility(this.in_control); // Ensure correct label visibility
     this._renderDial({
       refreshDialog: true, // When new state arrives we refresh the HVAC mode dialog in case available modes changed.
       hass,
@@ -194,13 +233,15 @@ export default class ThermostatUI {
     const highIndex = mapValueToIndex(highValue);
     const lowIndex = mapValueToIndex(lowValue);
 
-    this._updateClass('has_dual', this.dual); // Toggle CSS so the UI knows whether to show dual controls.
+    // Reset dual class; will be applied below if truly active
+    this._updateClass('has_dual', false);
 
     const tickIndexes = []; // Collect specific ticks to render as "major" marks (ambient, low, high, etc.).
     let fromIndex = null; // Start of the highlighted arc.
     let toIndex = null; // End of the highlighted arc.
 
-    const dualState = this.dual && (this.hvac_state === 'heat_cool' || this.hvac_state === 'off' || this.hvac_state === 'auto'); // Treat 'auto' like dual where low/high exist.
+    const dualState = (this.hvac_state === 'heat_cool' || this.hvac_state === 'auto') && this.dual; // Only treat true dual modes as dual.
+    this._updateClass('has_dual', !!dualState);
     let rotationReference = targetValue ?? ambientValue ?? this.min_value; // Default rotation anchor ensures the ring tracks the main value.
 
     if (dualState) {
@@ -402,6 +443,7 @@ export default class ThermostatUI {
     this._in_control = true;
     this._updateClass('in_control', this.in_control);
     this._updateEdit(true);
+    this._setLabelVisibility(true);
     //this._updateClass('has-thermo', true);
     this._updateText('target', this.temperature.target);
     this._updateText('low', this.temperature.low);
@@ -419,6 +461,7 @@ export default class ThermostatUI {
       //this._updateClass('has-thermo', false);
       this._in_control = false;
       this._updateClass('in_control', this.in_control);
+      this._setLabelVisibility(false);
       if (typeof config.control === 'function') {
         config.control();
       }
@@ -593,11 +636,19 @@ export default class ThermostatUI {
   }
 
   _applyRingRotation() {
-    if (!this._ringGroup) {
+    const target = this._ringSpinGroup || this._ringGroup;
+    if (!target) {
       return;
     }
     const angle = this._ringRotation || 0;
-    this._ringGroup.setAttribute('transform', `rotate(${angle} ${this._config.radius} ${this._config.radius})`);
+    target.setAttribute('transform', `rotate(${angle} ${this._config.radius} ${this._config.radius})`);
+    // Subtle parallax on the glass highlights based on rotation
+    if (this._glassGroup) {
+      const maxShift = Math.max(1.5, this._config.radius * 0.01);
+      const shiftX = Math.max(-maxShift, Math.min(maxShift, -angle * 0.02));
+      const shiftY = Math.max(-maxShift, Math.min(maxShift, angle * 0.01));
+      this._glassGroup.setAttribute('transform', `translate(${shiftX},${shiftY})`);
+    }
   }
 
   _updateFromPointer(event) {
@@ -692,6 +743,14 @@ export default class ThermostatUI {
 
   _updateClass(class_name, flag) {
     SvgUtil.setClass(this._root, class_name, flag);
+  }
+
+  _setLabelVisibility(editMode) {
+    if (!this._root) return;
+    const amb = this._root.querySelector('#ambient');
+    const tgt = this._root.querySelector('#target');
+    if (amb) amb.style.visibility = editMode ? 'hidden' : 'visible';
+    if (tgt) tgt.style.visibility = editMode ? 'visible' : 'hidden';
   }
 
   // Visual feedback for hitting min/max limits during drag
@@ -928,12 +987,12 @@ export default class ThermostatUI {
       fy: '34%'
     });
     [
-      ['0%', '#fefefe', '1'],
-      ['32%', '#e7eaef', '1'],
-      ['55%', '#cdd1d8', '1'],
-      ['72%', '#a3a8b0', '1'],
-      ['88%', '#6c737b', '1'],
-      ['100%', '#464b52', '1']
+      ['0%', '#ffffff', '1'],
+      ['30%', '#f5f7fa', '1'],
+      ['55%', '#dfe5ea', '1'],
+      ['75%', '#b9c1c9', '1'],
+      ['90%', '#80878f', '1'],
+      ['100%', '#5b6067', '1']
     ].forEach(([offset, color, opacity]) => {
       metalGradient.appendChild(SvgUtil.createSVGElement('stop', {
         offset,
@@ -1072,9 +1131,87 @@ export default class ThermostatUI {
       shadowMerge
     ].forEach((node) => metalShadow.appendChild(node));
 
+    // Dark face gradient
+    const faceDark = SvgUtil.createSVGElement('radialGradient', {
+      id: this._faceDarkId,
+      cx: '50%', cy: '46%', r: '68%', fx: '50%', fy: '50%'
+    });
+    [
+      ['0%', '#0e1724', '1'],
+      ['40%', '#0a1420', '1'],
+      ['70%', '#090d14', '1'],
+      ['100%', '#05070b', '1']
+    ].forEach(([offset, color, opacity]) => {
+      faceDark.appendChild(SvgUtil.createSVGElement('stop', { offset, 'stop-color': color, 'stop-opacity': opacity }));
+    });
+
+    // Specular stroke gradient across the rim (top-left to bottom-right)
+    const rimSpec = SvgUtil.createSVGElement('linearGradient', {
+      id: this._rimSpecId,
+      gradientUnits: 'userSpaceOnUse',
+      x1: '0', y1: '0', x2: String(diameter), y2: String(diameter)
+    });
+    [
+      ['0%', '#ffffff', '0.85'],
+      ['15%', '#ffffff', '0.6'],
+      ['40%', '#f5f5f5', '0.18'],
+      ['65%', '#eaeaea', '0.08'],
+      ['100%', '#ffffff', '0']
+    ].forEach(([offset, color, opacity]) => {
+      rimSpec.appendChild(SvgUtil.createSVGElement('stop', { offset, 'stop-color': color, 'stop-opacity': opacity }));
+    });
+
+    // Inner bevel gradient (vertical)
+    const innerBevel = SvgUtil.createSVGElement('linearGradient', {
+      id: this._innerBevelId,
+      gradientUnits: 'userSpaceOnUse',
+      x1: '0', y1: '0', x2: '0', y2: String(diameter)
+    });
+    [
+      ['0%', 'rgba(255,255,255,0.6)'],
+      ['35%', 'rgba(200,205,215,0.15)'],
+      ['100%', 'rgba(0,0,0,0.55)']
+    ].forEach(([offset, color]) => {
+      innerBevel.appendChild(SvgUtil.createSVGElement('stop', { offset, 'stop-color': color }));
+    });
+
+    // Inner specular gradient (reverse diagonal)
+    const rimSpecInner = SvgUtil.createSVGElement('linearGradient', {
+      id: this._rimSpecInnerId,
+      gradientUnits: 'userSpaceOnUse',
+      x1: String(diameter), y1: '0', x2: '0', y2: String(diameter)
+    });
+    [
+      ['0%', '#ffffff', '0.7'],
+      ['25%', '#f2f2f2', '0.15'],
+      ['60%', '#dddddd', '0.05'],
+      ['100%', '#ffffff', '0']
+    ].forEach(([offset, color, opacity]) => {
+      rimSpecInner.appendChild(SvgUtil.createSVGElement('stop', { offset, 'stop-color': color, 'stop-opacity': opacity }));
+    });
+
+    // Brushed metal overlay filter
+    const metalBrush = SvgUtil.createSVGElement('filter', {
+      id: this._metalBrushId,
+      x: '-30%', y: '-30%', width: '160%', height: '160%'
+    });
+    const turb = SvgUtil.createSVGElement('feTurbulence', {
+      type: 'fractalNoise', baseFrequency: '0.8 0.03', numOctaves: '2', seed: '7', result: 'noise'
+    });
+    const blur = SvgUtil.createSVGElement('feGaussianBlur', { in: 'noise', stdDeviation: '0.4', result: 'noiseBlur' });
+    const comp = SvgUtil.createSVGElement('feComposite', { in: 'noiseBlur', in2: 'SourceAlpha', operator: 'in', result: 'masked' });
+    metalBrush.appendChild(turb);
+    metalBrush.appendChild(blur);
+    metalBrush.appendChild(comp);
+
     defs.appendChild(metalGradient);
     defs.appendChild(metalSheen);
     defs.appendChild(metalShadow);
+    defs.appendChild(faceDark);
+    defs.appendChild(rimSpec);
+    defs.appendChild(rimSpecInner);
+    defs.appendChild(innerBevel);
+    defs.appendChild(metalBrush);
     root.appendChild(defs);
 
     return root;
@@ -1156,6 +1293,99 @@ export default class ThermostatUI {
     this._setModeMenuOpen(false);
     return container;
   }
+  // build overlays
+  _buildGlassOverlays(radius) {
+    const group = SvgUtil.createSVGElement('g', { class: 'dial__glass' });
+    const defs = this._root ? this._root.querySelector('defs') : null;
+    if (defs && !this._faceVignetteId) {
+      this._faceVignetteId = SvgUtil.uniqueId('dial__face-vignette');
+      const vignette = SvgUtil.createSVGElement('radialGradient', {
+        id: this._faceVignetteId,
+        cx: '50%', cy: '50%', r: '60%'
+      });
+      [
+        ['0%', '#000000', '0'],
+        ['60%', '#000000', '0'],
+        ['85%', '#000000', '0.45'],
+        ['100%', '#000000', '0.65']
+      ].forEach(([offset, color, opacity]) => {
+        vignette.appendChild(SvgUtil.createSVGElement('stop', { offset, 'stop-color': color, 'stop-opacity': opacity }));
+      });
+      defs.appendChild(vignette);
+    }
+    const vignetteCircle = SvgUtil.createSVGElement('circle', {
+      cx: radius,
+      cy: radius,
+      r: radius * 0.98,
+      class: 'face__vignette',
+      fill: this._faceVignetteId ? `url(#${this._faceVignetteId})` : 'rgba(0,0,0,0.35)'
+    });
+    group.appendChild(vignetteCircle);
+    // Smaller diagonal reflections (top-left and bottom-right)
+    const diagTL = SvgUtil.createSVGElement('path', {
+      d: SvgUtil.donutArcPath(radius, radius, radius * 0.99, radius * 0.93, 140, 175),
+      class: 'glass__diag glass__diag--tl'
+    });
+    group.appendChild(diagTL);
+    const diagBR = SvgUtil.createSVGElement('path', {
+      d: SvgUtil.donutArcPath(radius, radius, radius * 0.99, radius * 0.93, 25, 55),
+      class: 'glass__diag glass__diag--br'
+    });
+    group.appendChild(diagBR);
+    const bottomGlow = SvgUtil.createSVGElement('path', {
+      d: SvgUtil.donutArcPath(radius, radius, radius * 0.985, radius * 0.90, 258, 282),
+      class: 'glass__bottom'
+    });
+    group.appendChild(bottomGlow);
+    group.setAttribute('pointer-events','none');
+    return group;
+  }
+  _buildWeatherFX(radius, mode = 'storm') {
+    const fxGroup = SvgUtil.createSVGElement('g', { class: 'weather__fx' });
+    fxGroup.setAttribute('pointer-events','none');
+    if (mode === 'storm' || mode === 'rain') {
+      const rainGroup = SvgUtil.createSVGElement('g', { class: 'weather__rain' });
+      const drops = 28;
+      for (let i = 0; i < drops; i++) {
+        const angle = Math.random() * 360;
+        const aRad = angle * Math.PI / 180;
+        const r = radius * (0.2 + Math.random() * 0.7);
+        const cx = radius + Math.cos(aRad) * r;
+        const cy = radius + Math.sin(aRad) * r * 0.9;
+        const len = 10 + Math.random() * 24;
+        const line = SvgUtil.createSVGElement('line', {
+          x1: cx, y1: cy - len/2, x2: cx, y2: cy + len/2,
+          class: 'rain-drop'
+        });
+        line.style.animationDelay = `${(Math.random()*1.5).toFixed(2)}s`;
+        line.style.animationDuration = `${(1.6 + Math.random()*0.8).toFixed(2)}s`;
+        rainGroup.appendChild(line);
+      }
+      fxGroup.appendChild(rainGroup);
+    }
+    if (mode === 'storm') {
+      const boltGroup = SvgUtil.createSVGElement('g', { class: 'weather__lightning' });
+      // Simple zigzag bolt near right side
+      const x = radius * 1.18;
+      const y = radius * 0.9;
+      const path = `M ${x} ${y} L ${x-18} ${y+28} L ${x+4} ${y+28} L ${x-22} ${y+70}`;
+      const bolt = SvgUtil.createSVGElement('path', { d: path, class: 'lightning-bolt' });
+      boltGroup.appendChild(bolt);
+      fxGroup.appendChild(boltGroup);
+    }
+    return fxGroup;
+  }
+  _buildOuterShadow(radius) {
+    const shadow = SvgUtil.createSVGElement('ellipse', {
+      cx: radius + radius * 0.04,
+      cy: radius + radius * 0.18,
+      rx: radius * 0.98,
+      ry: radius * 0.88,
+      class: 'outer__shadow'
+    });
+    shadow.setAttribute('pointer-events','none');
+    return shadow;
+  }
   // build black dial
   _buildDial(radius) {
     return SvgUtil.createSVGElement('circle', {
@@ -1168,12 +1398,12 @@ export default class ThermostatUI {
   // build circle around
   _buildRing(radius) {
     const config = this._config;
-    const ringGroup = SvgUtil.createSVGElement('g', {
-      class: 'dial__ring' // Wrapper around every decorative element that forms the metallic bezel.
-    });
+    const ringGroup = SvgUtil.createSVGElement('g', { class: 'dial__ring' });
+    const ringStatic = SvgUtil.createSVGElement('g', { class: 'dial__ring-static' });
+    const ringSpin = SvgUtil.createSVGElement('g', { class: 'dial__ring-spin' });
 
     const outerRadius = radius - 1.5;
-    const minimumThickness = Math.max(radius * 0.14, 18);
+    const minimumThickness = Math.max(radius * 0.22, 24);
     const tickClearance = radius - config.ticks_outer_radius + 2;
     const ringInnerRadius = Math.max(outerRadius - minimumThickness, tickClearance);
     const ringThickness = outerRadius - ringInnerRadius;
@@ -1210,28 +1440,39 @@ export default class ThermostatUI {
       class: 'dial__metal-ring-shadow'
     });
 
-    const gripGroup = SvgUtil.createSVGElement('g', {
-      class: 'dial__ring-grips' // Holds the tiny ridges etched into the ring surface.
-    });
-    const gripCount = Math.max(36, Math.round(config.tick_degrees / 5));
-    const gripWidth = Math.max(1.6, ringThickness * 0.25);
-    const gripLength = ringThickness * 0.75;
-    const gripInset = ringInnerRadius + ringThickness * 0.12;
-
+    const gripGroup = SvgUtil.createSVGElement('g', { class: 'dial__ring-grips' });
+    // True radial grooves: thin rectangles radiating from inner to outer edge around full 360°
+    const gripCount = 120;
+    const angleStep = 360 / gripCount;
+    const gripLength = (outerRadius - ringInnerRadius) * 0.72; // span most of rim
+    const gripInset = ringInnerRadius + (outerRadius - ringInnerRadius - gripLength) / 2; // center within rim
+    const gripWidth = ringThickness * 0.10; // 10% of rim thickness
     for (let i = 0; i < gripCount; i++) {
-      const angle = (config.tick_degrees / gripCount) * i - config.offset_degrees;
+      const angle = angleStep * i;
       const gripPoints = [
         [radius - gripWidth / 2, radius - (gripInset + gripLength)],
         [radius + gripWidth / 2, radius - (gripInset + gripLength)],
         [radius + gripWidth / 2, radius - gripInset],
         [radius - gripWidth / 2, radius - gripInset]
       ];
-      const grip = SvgUtil.createSVGElement('path', {
-        d: SvgUtil.pointsToPath(SvgUtil.rotatePoints(gripPoints, angle, [radius, radius])), // Rotate each grip so it hugs the ring circumference.
-        class: 'dial__ring-grip'
+      const pathD = SvgUtil.pointsToPath(SvgUtil.rotatePoints(gripPoints, angle, [radius, radius]));
+      const seg = SvgUtil.createSVGElement('path', {
+        d: pathD,
+        class: 'dial__ring-grip',
+        fill: 'rgba(255,255,255,0.26)',
+        stroke: 'rgba(0,0,0,0.12)'
       });
-      gripGroup.appendChild(grip);
+      seg.style.mixBlendMode = 'screen';
+      gripGroup.appendChild(seg);
     }
+
+    // Rotating reflection band that moves with ring rotation (subtle)
+    const reflOuter = outerRadius - ringThickness * 0.05;
+    const reflInner = ringInnerRadius + ringThickness * 0.25;
+    const reflectionBand = SvgUtil.createSVGElement('path', {
+      d: SvgUtil.donutArcPath(radius, radius, reflOuter, reflInner, -20, 20),
+      class: 'dial__ring-reflection'
+    });
 
     const highlightThickness = ringThickness * 0.45;
     const highlightOuterInset = Math.min(3.5, highlightThickness);
@@ -1253,12 +1494,55 @@ export default class ThermostatUI {
       class: 'dial__editableIndicator'
     });
 
-    ringGroup.appendChild(ringSurface);
-    ringGroup.appendChild(shadow);
-    ringGroup.appendChild(sheen);
-    ringGroup.appendChild(gripGroup);
-    ringGroup.appendChild(highlight);
+    // Specular rim lines and bevels
+    // Specular rim stroke just inside the outer edge
+    const rimSpecular = SvgUtil.createSVGElement('path', {
+      d: SvgUtil.circleToPath(radius, radius, outerRadius - 0.8),
+      class: 'dial__rim-spec'
+    });
+    rimSpecular.setAttribute('fill','none');
+    rimSpecular.setAttribute('stroke', `url(#${this._rimSpecId})`);
+    rimSpecular.setAttribute('stroke-width','1.2');
+    rimSpecular.setAttribute('stroke-linecap','round');
 
+    // Inner bevel ring to darken inner edge and add depth
+    const innerBevel = SvgUtil.createSVGElement('path', {
+      d: SvgUtil.donutPath(radius, radius, ringInnerRadius + 2.8, ringInnerRadius + 0.6),
+      class: 'dial__inner-bevel'
+    });
+    innerBevel.setAttribute('fill', `url(#${this._innerBevelId})`);
+
+    // Inner specular stroke near inner edge
+    const rimInnerSpec = SvgUtil.createSVGElement('path', {
+      d: SvgUtil.circleToPath(radius, radius, ringInnerRadius + 1.2),
+      class: 'dial__rim-spec dial__rim-spec--inner'
+    });
+    rimInnerSpec.setAttribute('fill','none');
+    rimInnerSpec.setAttribute('stroke', `url(#${this._rimSpecInnerId})`);
+    rimInnerSpec.setAttribute('stroke-width','0.9');
+    rimInnerSpec.setAttribute('stroke-linecap','round');
+
+    // Brushed overlay using noise filter
+    const brushOverlay = SvgUtil.createSVGElement('path', {
+      d: SvgUtil.donutPath(radius, radius, outerRadius, ringInnerRadius),
+      class: 'dial__metal-brush'
+    });
+    brushOverlay.setAttribute('filter', `url(#${this._metalBrushId})`);
+
+    ringStatic.appendChild(ringSurface);
+    ringStatic.appendChild(shadow);
+    ringStatic.appendChild(sheen);
+    ringStatic.appendChild(rimSpecular);
+    ringStatic.appendChild(innerBevel);
+    ringStatic.appendChild(rimInnerSpec);
+    ringStatic.appendChild(brushOverlay);
+    ringSpin.appendChild(gripGroup);
+    ringSpin.appendChild(reflectionBand);
+    ringSpin.appendChild(highlight);
+    ringGroup.appendChild(ringStatic);
+    ringGroup.appendChild(ringSpin);
+    this._ringStaticGroup = ringStatic;
+    this._ringSpinGroup = ringSpin;
     return ringGroup;
   }
 
@@ -1393,6 +1677,30 @@ class SvgUtil {
 
   }
 
+  // Ring segment between start and end angles (degrees)
+  static donutArcPath(cx, cy, rOuter, rInner, startDeg, endDeg) {
+    const toRad = (d) => (d % 360) * Math.PI / 180;
+    const a0 = toRad(startDeg);
+    const a1 = toRad(endDeg);
+    const largeArc = Math.abs(endDeg - startDeg) % 360 > 180 ? 1 : 0;
+    const sweep = 1; // clockwise
+    const ox0 = cx + rOuter * Math.cos(a0);
+    const oy0 = cy + rOuter * Math.sin(a0);
+    const ox1 = cx + rOuter * Math.cos(a1);
+    const oy1 = cy + rOuter * Math.sin(a1);
+    const ix0 = cx + rInner * Math.cos(a1);
+    const iy0 = cy + rInner * Math.sin(a1);
+    const ix1 = cx + rInner * Math.cos(a0);
+    const iy1 = cy + rInner * Math.sin(a0);
+    return [
+      `M ${ox0},${oy0}`,
+      `A ${rOuter},${rOuter} 0 ${largeArc},${sweep} ${ox1},${oy1}`,
+      `L ${ix0},${iy0}`,
+      `A ${rInner},${rInner} 0 ${largeArc},${sweep ^ 1} ${ix1},${iy1}`,
+      'Z'
+    ].join(' ');
+  }
+
   static superscript(n) {
 
     if ((n - Math.floor(n)) !== 0)
@@ -1505,6 +1813,11 @@ if (!ThermostatUI.prototype.__textPatchedV3) {
     const sup = spans[1];
     if (id === 'title') {
       if (main) main.textContent = value != null ? String(value) : '';
+      if (sup) sup.textContent = '';
+      return;
+    }
+    if (value === null || value === undefined) {
+      if (main) main.textContent = '';
       if (sup) sup.textContent = '';
       return;
     }

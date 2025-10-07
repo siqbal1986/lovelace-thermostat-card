@@ -148,21 +148,29 @@ class ThermostatCard extends HTMLElement {
   }
 
   _controlSetPoints() {
-
-    if (this.thermostat.dual) {
-      if (this.thermostat.temperature.high != this._saved_state.target_temperature_high ||
-        this.thermostat.temperature.low != this._saved_state.target_temperature_low)
+    // Decide based on current HVAC mode rather than lingering dual flag
+    const state = this._saved_state;
+    const hvacMode = state && state.hvac_state;
+    const isDual = hvacMode === 'heat_cool' || hvacMode === 'auto';
+    if (isDual) {
+      const high = Number(this.thermostat.temperature.high);
+      const low = Number(this.thermostat.temperature.low);
+      const changed = (high !== Number(state.target_temperature_high)) || (low !== Number(state.target_temperature_low));
+      if (changed && Number.isFinite(high) && Number.isFinite(low)) {
         this._hass.callService('climate', 'set_temperature', {
-          entity_id: this._config.entity, // Tell Home Assistant which thermostat to update.
-          target_temp_high: this.thermostat.temperature.high, // Send the new high setpoint from the UI helper.
-          target_temp_low: this.thermostat.temperature.low, // Send the new low setpoint from the UI helper.
+          entity_id: this._config.entity,
+          target_temp_high: high,
+          target_temp_low: low,
         });
+      }
     } else {
-      if (this.thermostat.temperature.target != this._saved_state.target_temperature)
+      const target = Number(this.thermostat.temperature.target);
+      if (Number.isFinite(target) && target !== Number(state.target_temperature)) {
         this._hass.callService('climate', 'set_temperature', {
-          entity_id: this._config.entity, // Again, target the configured climate entity.
-          temperature: this.thermostat.temperature.target, // Send the single target temperature for heat-only or cool-only modes.
+          entity_id: this._config.entity,
+          temperature: target,
         });
+      }
     }
   }
 
@@ -227,6 +235,7 @@ class ThermostatCard extends HTMLElement {
     if (!cardConfig.chevron_size) cardConfig.chevron_size = 34;
     if (!cardConfig.num_ticks) cardConfig.num_ticks = 150;
     if (!cardConfig.tick_degrees) cardConfig.tick_degrees = 300;
+    if (!cardConfig.fx_weather) cardConfig.fx_weather = 'storm';
 
     // Extra config values generated for simplicity of updates
     cardConfig.radius = cardConfig.diameter / 2; // The SVG uses radius rather than diameter, so store it for convenience.
