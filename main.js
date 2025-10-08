@@ -244,6 +244,23 @@ class ThermostatCard extends HTMLElement {
     cardConfig.offset_degrees = 180 - (360 - cardConfig.tick_degrees) / 2; // Angle offset so the tick arc is centered vertically.
     cardConfig.control = this._controlSetPoints.bind(this); // Provide the UI helper with a callback to send temperature changes back to HA.
     cardConfig.propWin = this.openProp.bind(this); // Provide a callback that opens the more-info dialog when needed.
+
+    // Phase 1 of layered refactor: optionally align geometry to SVG anchor percentages
+    // without moving DOM. When enabled via `use_layered_anchors: true`, we map the
+    // ticks ring to 70%..90% of the base radius as defined by your layered spec.
+    try {
+      if (cardConfig.use_layered_anchors === true) {
+        const R = cardConfig.radius; // base radius of the dial
+        // ticks_main: donut with inner radius 70% and outer radius 90% of base
+        // Note: the UI expects absolute Y offsets from the top edge, so convert
+        // center-relative radii to top offsets (y = R - r)
+        const rOuter = R * 0.90;
+        const rInner = R * 0.70;
+        cardConfig.ticks_outer_radius = Math.max(0, R - rOuter); // ~0.10 * R
+        cardConfig.ticks_inner_radius = Math.max(0, R - rInner); // ~0.30 * R
+        // Keep other layers (numbers/mode/rim/aura/glass) unchanged in phase 1
+      }
+    } catch (_){ /* ignore mapping errors */ }
     this.thermostat = new ThermostatUI(cardConfig); // Build the heavy SVG/UI helper once configuration is ready.
 
     if (cardConfig.no_card === true) {
