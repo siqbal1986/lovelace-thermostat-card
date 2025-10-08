@@ -273,7 +273,7 @@ class ThermostatCard extends HTMLElement {
       card.appendChild(this.thermostat.container);
       root.appendChild(card);
       this._cardEl = card;
-      
+
     }
     else {
 
@@ -287,6 +287,12 @@ class ThermostatCard extends HTMLElement {
     }
     this._config = cardConfig; // Store the normalized configuration for later use by hass setter and helpers.
     this._saved_state = null; // Clear the cached entity state so the first hass call triggers a full UI update.
+
+    // Phase 2 (non-invasive): optionally read anchor geometry for future alignment
+    // without changing DOM or behaviour. Enable with both flags to avoid surprises.
+    if (cardConfig.use_layered_anchors === true && cardConfig.debug_layered_anchors === true) {
+      try { this._extractLayeredAnchors(); } catch(_){ /* ignore */ }
+    }
   }
 }
 customElements.define('thermostat-card', ThermostatCard);
@@ -317,4 +323,46 @@ ThermostatCard.prototype.disconnectedCallback = function(){
   this._saved_state = null;
   this._cardEl = null;
   this._unavailableEl = null;
+}
+
+// Read anchor bboxes from /thermostat-layered.svg for future alignment
+ThermostatCard.prototype._extractLayeredAnchors = async function() {
+  try {
+    const res = await fetch('/thermostat-layered.svg', { cache: 'no-cache' });
+    if (!res.ok) return;
+    const text = await res.text();
+    const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+    const svg = doc.documentElement;
+    // Attach temporarily to measure bboxes in SVG user units
+    const holder = document.createElement('div');
+    holder.style.position = 'absolute';
+    holder.style.width = '0px';
+    holder.style.height = '0px';
+    holder.style.overflow = 'hidden';
+    holder.style.visibility = 'hidden';
+    this.shadowRoot.appendChild(holder);
+    holder.appendChild(svg);
+
+    const pickBBox = (id) => {
+      const el = svg.querySelector('#' + id);
+      if (!el || !el.getBBox) return null;
+      try { const b = el.getBBox(); return { x: b.x, y: b.y, width: b.width, height: b.height }; } catch(_) { return null; }
+    };
+    const anchors = {
+      base: pickBBox('base_main'),
+      weather: pickBBox('weather_main'),
+      numbers: pickBBox('numbers_main'),
+      mode: pickBBox('mode_main'),
+      ticks: pickBBox('ticks_main'),
+      rim: pickBBox('rim_main'),
+      aura: pickBBox('aura_main'),
+      glass: pickBBox('glass_main'),
+      sensor: pickBBox('sensor_main'),
+    };
+    // Remove measurement node
+    try { this.shadowRoot.removeChild(holder); } catch(_) {}
+    this._config._layeredAnchors = anchors;
+    // Helpful console for inspection during development only
+    console.info('[thermostat-card] layered anchors:', anchors);
+  } catch(_){ /* ignore */ }
 }
