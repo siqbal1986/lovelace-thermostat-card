@@ -87,6 +87,15 @@ export default class ThermostatUI {
     const stopPointer = (event) => {
       event.stopPropagation();
     };
+    const handleToggle = (event, fromKeyboard = false) => {
+      const isOpen = container.classList.contains('menu-open');
+      if (this._modeCarouselEnabled && isOpen) {
+        this._commitCarouselSelection(fromKeyboard ? 'toggler-key' : 'toggler', null, event);
+        return;
+      }
+      const shouldOpen = !isOpen;
+      this._setModeMenuOpen(shouldOpen);
+    };
     toggler.addEventListener('pointerdown', (event) => {
       stopPointer(event);
       if (event.pointerType === 'touch') {
@@ -97,14 +106,12 @@ export default class ThermostatUI {
     toggler.addEventListener('pointercancel', stopPointer);
     toggler.addEventListener('click', (event) => {
       stopPointer(event);
-      const shouldOpen = !container.classList.contains('menu-open');
-      this._setModeMenuOpen(shouldOpen);
+      handleToggle(event, false);
     });
     toggler.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        const shouldOpen = !container.classList.contains('menu-open');
-        this._setModeMenuOpen(shouldOpen);
+        handleToggle(event, true);
       }
     });
 
@@ -206,6 +213,23 @@ export default class ThermostatUI {
     this._modeMenuItems = []; // Keep the individual list items handy so we can toggle active states.
     this._modeMenuGeometry = null; // Cache geometry for the toggle to support responsive layouts.
     this._modeMenuScale = 0; // Remember the most recent expansion state so transforms can be recomputed quickly.
+    this._modeCarouselEnabled = config && config.mode_carousel_ui === true; // Flag for the experimental carousel UI.
+    const timeoutSeconds = Number(config && config.mode_carousel_timeout);
+    const resolvedSeconds = Number.isFinite(timeoutSeconds) ? Math.max(timeoutSeconds, 0) : 5;
+    this._modeCarouselAutoCloseMs = resolvedSeconds * 1000; // Milliseconds before the carousel auto-commits.
+    this._modeCarouselWrapper = null; // HTML wrapper for the frosted glass carousel overlay.
+    this._modeCarouselSurface = null; // Inner surface positioned over the mode anchor area.
+    this._modeCarouselTrack = null; // Track element that holds individual carousel options.
+    this._modeCarouselItems = []; // Data bag describing each carousel option.
+    this._modeCarouselActiveIndex = 0; // Index of the option currently centered in the carousel.
+    this._modeCarouselTimer = null; // Timeout handle for automatic close-and-commit.
+    this._modeCarouselSwipeContext = null; // Tracks swipe gestures on the carousel itself.
+    this._modeCarouselPointerHandlers = null; // Cached pointer handler references for swipe gestures.
+    this._modeCarouselDialContext = null; // Tracks dial rotation gestures while the carousel is open.
+    this._modeCarouselDialHandlersAttached = false; // Ensure dial gesture listeners are only installed once.
+    this._modeCarouselDialHandlers = null; // Store bound handlers so they can be removed when closing the carousel.
+    this._modeCarouselResizeObserver = null; // Observes layout changes to keep the carousel aligned with the dial.
+    this._modeCarouselWindowResizeHandler = null; // Window resize callback used for responsive alignment.
     this._metalRingIds = {
       gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'), // Unique IDs for CSS-only fallbacks (legacy support).
       sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
@@ -1030,6 +1054,11 @@ export default class ThermostatUI {
     if (!this._modeMenuList) {
       this._buildDialog();
     }
+    if (this._modeCarouselEnabled) {
+      this._ensureModeCarouselElements();
+      this._updateCarouselOptions(modes, hass);
+      return;
+    }
     const list = this._modeMenuList;
     if (!list) {
       return;
@@ -1111,6 +1140,17 @@ export default class ThermostatUI {
     if (this._modeMenuToggleBody) {
       this._modeMenuToggleBody.classList.toggle('mode-menu__toggler-body--open', expanded);
     }
+    if (this._root) {
+      SvgUtil.setClass(this._root, 'modec-open', expanded);
+    }
+    if (this._modeCarouselEnabled) {
+      if (this._modeMenuList) {
+        this._modeMenuList.setAttribute('aria-hidden', 'true');
+        this._modeMenuList.style.pointerEvents = 'none';
+      }
+      this._toggleCarouselOpen(expanded);
+      return;
+    }
     if (this._modeMenuList) {
       this._modeMenuList.setAttribute('aria-hidden', expanded ? 'false' : 'true');
       this._modeMenuList.style.pointerEvents = expanded ? 'auto' : 'none';
@@ -1123,14 +1163,502 @@ export default class ThermostatUI {
   }
 
   _setActiveMode(mode) {
-    if (!Array.isArray(this._modeMenuItems)) {
+    if (Array.isArray(this._modeMenuItems)) {
+      this._modeMenuItems.forEach((item) => {
+        const button = item.querySelector('.menu-item__button');
+        const isActive = button && button.dataset.mode === mode;
+        item.classList.toggle('menu-item--active', !!isActive);
+      });
+    }
+    if (this._modeCarouselEnabled) {
+      this._updateCarouselActiveFromState();
+      this._updateCarouselClasses();
+    }
+  }
+
+  _ensureModeCarouselElements() {
+    if (!this._modeCarouselEnabled) {
+      return null;
+    }
+    if (this._modeCarouselWrapper && this._modeCarouselWrapper.isConnected) {
+      this._positionModeCarousel();
+      return this._modeCarouselWrapper;
+    }
+    if (!this.c_body) {
+      return null;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mode-carousel';
+    wrapper.setAttribute('aria-hidden', 'true');
+    wrapper.style.pointerEvents = 'none';
+
+    const surface = document.createElement('div');
+    surface.className = 'mode-carousel__surface';
+    const track = document.createElement('div');
+    track.className = 'mode-carousel__track';
+    surface.appendChild(track);
+    wrapper.appendChild(surface);
+    this.c_body.appendChild(wrapper);
+
+    this._modeCarouselWrapper = wrapper;
+    this._modeCarouselSurface = surface;
+    this._modeCarouselTrack = track;
+
+    if (this._modeMenuList) {
+      this._modeMenuList.style.display = 'none';
+    }
+
+    if (!this._modeCarouselPointerHandlers) {
+      const pointerDown = (event) => {
+        if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+          return;
+        }
+        if (event.button !== undefined && event.button !== 0) {
+          return;
+        }
+        this._modeCarouselSwipeContext = {
+          pointerId: event.pointerId !== undefined ? event.pointerId : 'mouse',
+          startX: event.clientX,
+          lastX: event.clientX
+        };
+        if (track.setPointerCapture && event.pointerId !== undefined) {
+          try { track.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        }
+        event.stopPropagation();
+        event.preventDefault();
+        this._resetCarouselTimer();
+      };
+      const pointerMove = (event) => {
+        const ctx = this._modeCarouselSwipeContext;
+        const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+        if (!ctx || ctx.pointerId !== pointerId) {
+          return;
+        }
+        const totalDx = event.clientX - ctx.startX;
+        const threshold = 24;
+        if (Math.abs(totalDx) >= threshold) {
+          if (totalDx < 0) {
+            this._stepCarousel(1);
+          } else if (totalDx > 0) {
+            this._stepCarousel(-1);
+          }
+          ctx.startX = event.clientX;
+        }
+        ctx.lastX = event.clientX;
+        event.preventDefault();
+      };
+      const pointerUp = (event) => {
+        const ctx = this._modeCarouselSwipeContext;
+        const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+        if (ctx && ctx.pointerId === pointerId) {
+          this._modeCarouselSwipeContext = null;
+        }
+        if (track.releasePointerCapture && event.pointerId !== undefined) {
+          try { track.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        }
+      };
+      this._modeCarouselPointerHandlers = { pointerDown, pointerMove, pointerUp };
+      track.addEventListener('pointerdown', pointerDown);
+      track.addEventListener('pointermove', pointerMove);
+      track.addEventListener('pointerup', pointerUp);
+      track.addEventListener('pointercancel', pointerUp);
+      track.addEventListener('mouseleave', pointerUp);
+      track.addEventListener('click', (event) => event.stopPropagation());
+    }
+
+    if (typeof ResizeObserver !== 'undefined' && !this._modeCarouselResizeObserver) {
+      try {
+        this._modeCarouselResizeObserver = new ResizeObserver(() => this._positionModeCarousel());
+        this._modeCarouselResizeObserver.observe(this.c_body);
+      } catch (_) {
+        this._modeCarouselResizeObserver = null;
+      }
+    }
+    if (!this._modeCarouselWindowResizeHandler && typeof window !== 'undefined') {
+      this._modeCarouselWindowResizeHandler = () => this._positionModeCarousel();
+      window.addEventListener('resize', this._modeCarouselWindowResizeHandler, { passive: true });
+    }
+
+    this._positionModeCarousel();
+    return wrapper;
+  }
+
+  _positionModeCarousel() {
+    if (!this._modeCarouselEnabled) {
       return;
     }
-    this._modeMenuItems.forEach((item) => {
-      const button = item.querySelector('.menu-item__button');
-      const isActive = button && button.dataset.mode === mode;
-      item.classList.toggle('menu-item--active', !!isActive);
+    if (!this._modeCarouselSurface || !this._root || !this.c_body) {
+      return;
+    }
+    try {
+      const containerRect = this.c_body.getBoundingClientRect();
+      const dialRect = this._root.getBoundingClientRect();
+      const anchor = this._config && this._config._layeredAnchors && this._config._layeredAnchors.mode;
+      let left;
+      let top;
+      let width;
+      let height;
+      if (anchor) {
+        const diameter = Number(this._config && this._config.diameter) || 400;
+        const scaleX = dialRect.width / diameter;
+        const scaleY = dialRect.height / diameter;
+        left = dialRect.left - containerRect.left + anchor.x * scaleX;
+        top = dialRect.top - containerRect.top + anchor.y * scaleY;
+        width = Math.max(anchor.width * scaleX, 1);
+        height = Math.max(anchor.height * scaleY, 1);
+      } else {
+        width = dialRect.width * 0.56;
+        height = dialRect.height * 0.28;
+        left = dialRect.left - containerRect.left + (dialRect.width - width) / 2;
+        top = dialRect.top - containerRect.top + dialRect.height * 0.62;
+      }
+      this._modeCarouselSurface.style.left = `${left}px`;
+      this._modeCarouselSurface.style.top = `${top}px`;
+      this._modeCarouselSurface.style.width = `${width}px`;
+      this._modeCarouselSurface.style.height = `${height}px`;
+    } catch (_) {
+      // ignore layout errors
+    }
+  }
+
+  _updateCarouselOptions(modes, hass) { // eslint-disable-line no-unused-vars
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    const track = this._modeCarouselTrack;
+    if (!track) {
+      return;
+    }
+    while (track.firstChild) {
+      track.removeChild(track.firstChild);
+    }
+    this._modeCarouselItems = [];
+
+    const hvacModes = Array.isArray(modes) ? modes.slice() : [];
+    const hvacSet = new Set(hvacModes);
+    if (typeof this.hvac_state === 'string' && this.hvac_state.length) {
+      hvacSet.add(this.hvac_state);
+    }
+
+    const baseOrder = [
+      { mode: 'heat', label: 'Heat', type: 'hvac' },
+      { mode: 'cool', label: 'Cool', type: 'hvac' },
+      { mode: 'auto', label: 'Auto', type: 'hvac' },
+      { mode: 'heat_cool', label: 'Heat · Cool', type: 'hvac' },
+      { mode: 'fan_only', label: 'Fan', type: 'hvac' },
+    ];
+
+    const options = [];
+    baseOrder.forEach((entry) => {
+      if (hvacSet.has(entry.mode)) {
+        options.push(entry);
+        hvacSet.delete(entry.mode);
+      }
     });
+
+    const presetModes = this.entity && this.entity.attributes && Array.isArray(this.entity.attributes.preset_modes)
+      ? this.entity.attributes.preset_modes
+      : [];
+    if (presetModes.length) {
+      const prettyPreset = this.preset_mode ? this.preset_mode.replace(/_/g, ' ') : null;
+      options.push({ mode: 'preset', label: prettyPreset ? `Preset (${prettyPreset})` : 'Preset', type: 'preset' });
+    }
+
+    if (hvacSet.has('off')) {
+      options.push({ mode: 'off', label: 'Off', type: 'hvac' });
+      hvacSet.delete('off');
+    }
+
+    hvacSet.forEach((mode) => {
+      options.push({ mode, label: mode.replace(/_/g, ' '), type: 'hvac' });
+    });
+
+    if (!options.length) {
+      if (this._modeCarouselWrapper) {
+        this._modeCarouselWrapper.setAttribute('aria-hidden', 'true');
+        this._modeCarouselWrapper.classList.remove('mode-carousel--open');
+      }
+      return;
+    }
+
+    options.forEach((option, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'mode-carousel__item';
+      button.dataset.mode = option.mode;
+      button.dataset.type = option.type;
+      const iconName = option.type === 'preset'
+        ? 'tune'
+        : (this._iconForMode ? this._iconForMode(option.mode, 'help') : 'help');
+      button.innerHTML = `\
+<span class="mode-carousel__icon"><ha-icon icon="mdi:${iconName}"></ha-icon></span>\
+<span class="mode-carousel__label">${option.label}</span>\
+<span class="mode-carousel__reflection" aria-hidden="true"></span>`;
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this._modeCarouselActiveIndex = index;
+        this._updateCarouselClasses();
+        this._resetCarouselTimer();
+        this._commitCarouselSelection('item', option, event);
+      });
+      track.appendChild(button);
+      this._modeCarouselItems.push({
+        element: button,
+        mode: option.mode,
+        type: option.type
+      });
+    });
+
+    this._updateCarouselActiveFromState();
+    this._updateCarouselClasses();
+    this._positionModeCarousel();
+  }
+
+  _updateCarouselActiveFromState() {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      this._modeCarouselActiveIndex = 0;
+      return;
+    }
+    const hvacMode = this.hvac_state;
+    let nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'hvac' && item.mode === hvacMode);
+    if (nextIndex === -1 && this.preset_mode) {
+      nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'preset');
+    }
+    if (nextIndex === -1) {
+      nextIndex = Math.min(Math.max(this._modeCarouselActiveIndex, 0), this._modeCarouselItems.length - 1);
+    }
+    this._modeCarouselActiveIndex = nextIndex;
+  }
+
+  _updateCarouselClasses() {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      return;
+    }
+    const total = this._modeCarouselItems.length;
+    this._modeCarouselItems.forEach((item, index) => {
+      const element = item.element;
+      if (!element) {
+        return;
+      }
+      element.classList.remove('mode-carousel__item--active', 'mode-carousel__item--prev', 'mode-carousel__item--next', 'mode-carousel__item--away');
+      element.removeAttribute('aria-current');
+      let offset = index - this._modeCarouselActiveIndex;
+      if (offset > total / 2) {
+        offset -= total;
+      } else if (offset < -total / 2) {
+        offset += total;
+      }
+      element.dataset.offset = String(offset);
+      if (offset === 0) {
+        element.classList.add('mode-carousel__item--active');
+        element.setAttribute('aria-current', 'true');
+      } else if (offset === -1 || (total > 2 && offset === total - 1)) {
+        element.classList.add('mode-carousel__item--prev');
+      } else if (offset === 1 || (total > 2 && offset === -(total - 1))) {
+        element.classList.add('mode-carousel__item--next');
+      } else {
+        element.classList.add('mode-carousel__item--away');
+      }
+    });
+  }
+
+  _stepCarousel(direction) {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      return;
+    }
+    const total = this._modeCarouselItems.length;
+    if (direction > 0) {
+      this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex + 1) % total;
+    } else if (direction < 0) {
+      this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex - 1 + total) % total;
+    }
+    this._updateCarouselClasses();
+    this._resetCarouselTimer();
+  }
+
+  _resetCarouselTimer() {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._clearCarouselTimer();
+    if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+      return;
+    }
+    if (!Number.isFinite(this._modeCarouselAutoCloseMs) || this._modeCarouselAutoCloseMs <= 0) {
+      return;
+    }
+    this._modeCarouselTimer = setTimeout(() => {
+      this._modeCarouselTimer = null;
+      this._commitCarouselSelection('timeout');
+    }, this._modeCarouselAutoCloseMs);
+  }
+
+  _clearCarouselTimer() {
+    if (this._modeCarouselTimer) {
+      clearTimeout(this._modeCarouselTimer);
+      this._modeCarouselTimer = null;
+    }
+  }
+
+  _toggleCarouselOpen(expanded) {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._ensureModeCarouselElements();
+    const wrapper = this._modeCarouselWrapper;
+    if (!wrapper) {
+      return;
+    }
+    if (expanded) {
+      wrapper.classList.add('mode-carousel--open');
+      wrapper.setAttribute('aria-hidden', 'false');
+      wrapper.style.pointerEvents = 'auto';
+      this._positionModeCarousel();
+      this._updateCarouselActiveFromState();
+      this._updateCarouselClasses();
+      this._resetCarouselTimer();
+      this._attachCarouselDialControls();
+    } else {
+      wrapper.classList.remove('mode-carousel--open');
+      wrapper.setAttribute('aria-hidden', 'true');
+      wrapper.style.pointerEvents = 'none';
+      this._clearCarouselTimer();
+      this._detachCarouselDialControls();
+      this._modeCarouselSwipeContext = null;
+    }
+  }
+
+  _attachCarouselDialControls() {
+    if (!this._modeCarouselEnabled || !this._root || this._modeCarouselDialHandlersAttached) {
+      return;
+    }
+    const pointerDown = (event) => {
+      if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+        return;
+      }
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+      const angle = this._pointerNormalizedAngle(event);
+      if (angle === null) {
+        return;
+      }
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      this._modeCarouselDialContext = {
+        pointerId,
+        lastAngle: angle,
+        accumulator: 0
+      };
+      if (this._root.setPointerCapture && event.pointerId !== undefined) {
+        try { this._root.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+      }
+      event.preventDefault();
+      this._resetCarouselTimer();
+    };
+    const pointerMove = (event) => {
+      const ctx = this._modeCarouselDialContext;
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      if (!ctx || ctx.pointerId !== pointerId) {
+        return;
+      }
+      const angle = this._pointerNormalizedAngle(event);
+      if (angle === null) {
+        return;
+      }
+      let delta = angle - ctx.lastAngle;
+      if (delta > 180) {
+        delta -= 360;
+      } else if (delta < -180) {
+        delta += 360;
+      }
+      ctx.accumulator += delta;
+      ctx.lastAngle = angle;
+      const threshold = 18;
+      while (ctx.accumulator >= threshold) {
+        this._stepCarousel(-1);
+        ctx.accumulator -= threshold;
+      }
+      while (ctx.accumulator <= -threshold) {
+        this._stepCarousel(1);
+        ctx.accumulator += threshold;
+      }
+    };
+    const pointerUp = (event) => {
+      const ctx = this._modeCarouselDialContext;
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      if (ctx && ctx.pointerId === pointerId) {
+        this._modeCarouselDialContext = null;
+        if (this._root.releasePointerCapture && event.pointerId !== undefined) {
+          try { this._root.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        }
+      }
+    };
+    this._root.addEventListener('pointerdown', pointerDown, { passive: false });
+    this._root.addEventListener('pointermove', pointerMove);
+    this._root.addEventListener('pointerup', pointerUp);
+    this._root.addEventListener('pointercancel', pointerUp);
+    this._modeCarouselDialHandlersAttached = true;
+    this._modeCarouselDialHandlers = { pointerDown, pointerMove, pointerUp };
+  }
+
+  _detachCarouselDialControls() {
+    if (!this._modeCarouselDialHandlersAttached || !this._root || !this._modeCarouselDialHandlers) {
+      this._modeCarouselDialContext = null;
+      return;
+    }
+    const { pointerDown, pointerMove, pointerUp } = this._modeCarouselDialHandlers;
+    this._root.removeEventListener('pointerdown', pointerDown);
+    this._root.removeEventListener('pointermove', pointerMove);
+    this._root.removeEventListener('pointerup', pointerUp);
+    this._root.removeEventListener('pointercancel', pointerUp);
+    this._modeCarouselDialHandlersAttached = false;
+    this._modeCarouselDialHandlers = null;
+    this._modeCarouselDialContext = null;
+  }
+
+  _commitCarouselSelection(source, option, triggerEvent) { // eslint-disable-line no-unused-vars
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._clearCarouselTimer();
+    if (!option) {
+      if (!Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+        this._setModeMenuOpen(false);
+        return;
+      }
+      option = this._modeCarouselItems[this._modeCarouselActiveIndex] || null;
+    }
+    if (!option) {
+      this._setModeMenuOpen(false);
+      return;
+    }
+    if (option.type === 'preset') {
+      this._handlePresetSelection(triggerEvent);
+      this._setModeMenuOpen(false);
+      return;
+    }
+    const hass = this._lastHass;
+    if (hass) {
+      const event = triggerEvent || { stopPropagation() {} };
+      if (typeof event.stopPropagation !== 'function') {
+        event.stopPropagation = () => {};
+      }
+      this._setMode(event, option.mode, hass);
+    } else {
+      this._setModeMenuOpen(false);
+    }
+  }
+
+  _handlePresetSelection(triggerEvent) {
+    if (triggerEvent && typeof triggerEvent.stopPropagation === 'function') {
+      triggerEvent.stopPropagation();
+    }
+    if (typeof this._config.propWin === 'function' && this.entity && this.entity.entity_id) {
+      try {
+        this._config.propWin(this.entity.entity_id);
+      } catch (_) { /* ignore */ }
+    }
   }
   _buildCore(diameter) {
 
