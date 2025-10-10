@@ -212,7 +212,6 @@ export function cssData(user) {
   .c_body {
 
     padding: 5% 5% 5% 5%; /* Give the dial breathing room within the card. */
-    position: relative; /* Anchor absolute overlays like the HVAC mode button. */
 
   }
 
@@ -241,10 +240,6 @@ export function cssData(user) {
     max-width: 420px; /* Prevent the dial from becoming too large on wide dashboards. */
 
     margin: 0 auto; /* Center the dial horizontally. */
-
-    -ms-touch-action: none; /* Prevent legacy Edge from hijacking the gesture for panning. */
-
-    touch-action: none; /* Keep browsers from cancelling the drag to start scrolling. */
 
     user-select: none; /* Stop accidental text selection while dragging on the dial. */
 
