@@ -1,4 +1,4 @@
-/**
+﻿/**
  * The thermostat card is split into three files:
  *   - styles.js: returns a long CSS template literal that themes the widget.
  *   - thermostat_card.lib.js: builds and updates the SVG-based dial and mode controls.
@@ -10,7 +10,7 @@
  * the code changes instead of using an older cached copy.
  */
 import {cssData} from './styles.js?v=1.3.4';
-import ThermostatUI from './thermostat_card.lib.js?v=1.3.4';
+import ThermostatUI from './thermostat_card.lib.js?v=1.3.5';
 
 // This log statement helps identify the version of the card in the browser console.
 console.info("%c Thermostat Card \n%c  Version  1.3.4 ", "color: orange; font-weight: bold; background: black", "color: white; font-weight: bold; background: dimgray");
@@ -96,6 +96,10 @@ class ThermostatCard extends HTMLElement {
         this._saved_state.away != new_state.away)) {
       this._saved_state = new_state; // Cache the incoming state so we can detect future changes and avoid unnecessary redraws.
       this.thermostat.updateState(new_state,hass); // Hand the state data to the SVG/UI helper for rendering.
+      // Phase 2: apply optional anchor-aligned adjustments (no DOM moves)
+      try { this._applyLayeredAlignment(); } catch(_){}
+      // Optional: build/update the new mode carousel UI
+      try { if (this._config && this._config.mode_carousel_ui === true) this._buildOrUpdateModeCarousel(new_state, hass); } catch(_){}
      }
     this._hass = hass; // Always hold onto the latest Home Assistant object for future service calls.
   }
@@ -178,6 +182,11 @@ class ThermostatCard extends HTMLElement {
     const card = document.createElement('ha-card');
     const style = document.createElement('style');
     style.textContent = cssData();
+    try {
+      const s = document.createElement('style');
+      s.textContent = 'svg.dial.modec-open #ambient, svg.dial.modec-open #target, svg.dial.modec-open #low, svg.dial.modec-open #high { display: none !important; }';
+      this.shadowRoot.appendChild(s);
+    } catch(_) { }
     card.appendChild(style);
 
     const wrapper = document.createElement('div');
@@ -269,6 +278,11 @@ class ThermostatCard extends HTMLElement {
       card.className = "no_card";
       const style = document.createElement('style');
       style.textContent = cssData();
+    try {
+      const s = document.createElement('style');
+      s.textContent = 'svg.dial.modec-open #ambient, svg.dial.modec-open #target, svg.dial.modec-open #low, svg.dial.modec-open #high { display: none !important; }';
+      this.shadowRoot.appendChild(s);
+    } catch(_) { }
       card.appendChild(style);
       card.appendChild(this.thermostat.container);
       root.appendChild(card);
@@ -280,6 +294,11 @@ class ThermostatCard extends HTMLElement {
       const card = document.createElement('ha-card');
       const style = document.createElement('style');
       style.textContent = cssData();
+    try {
+      const s = document.createElement('style');
+      s.textContent = 'svg.dial.modec-open #ambient, svg.dial.modec-open #target, svg.dial.modec-open #low, svg.dial.modec-open #high { display: none !important; }';
+      this.shadowRoot.appendChild(s);
+    } catch(_) { }
       card.appendChild(style);
       card.appendChild(this.thermostat.container);
       root.appendChild(card);
@@ -292,6 +311,15 @@ class ThermostatCard extends HTMLElement {
     // without changing DOM or behaviour. Enable with both flags to avoid surprises.
     if (cardConfig.use_layered_anchors === true && cardConfig.debug_layered_anchors === true) {
       try { this._extractLayeredAnchors(); } catch(_){ /* ignore */ }
+    }
+
+    // If using the new carousel UI, force-hide the legacy mode menu via CSS
+    if (cardConfig.mode_carousel_ui === true) {
+      try{
+        const cssHide = document.createElement('style');
+        cssHide.textContent = `.mode-menu{ display: none !important; }`;
+        this.shadowRoot.appendChild(cssHide);
+      }catch(_){ }
     }
   }
 }
@@ -323,25 +351,19 @@ ThermostatCard.prototype.disconnectedCallback = function(){
   this._saved_state = null;
   this._cardEl = null;
   this._unavailableEl = null;
+  // Cleanup any cached polygons and holders
+  this._config && (this._config._modeClipPolygon = null);
+  this.__numbersPolyPx = null;
+  // Remove hidden layered SVG holder if any
+  try{ if(this.__layeredHolder && this.__layeredHolder.parentNode){ this.__layeredHolder.parentNode.removeChild(this.__layeredHolder); } }catch(_){ }
+  this.__layeredHolder = null;
+  this.__layeredSvg = null;
 }
 
 // Read anchor bboxes from /thermostat-layered.svg for future alignment
 ThermostatCard.prototype._extractLayeredAnchors = async function() {
   try {
-    const res = await fetch('/thermostat-layered.svg', { cache: 'no-cache' });
-    if (!res.ok) return;
-    const text = await res.text();
-    const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
-    const svg = doc.documentElement;
-    // Attach temporarily to measure bboxes in SVG user units
-    const holder = document.createElement('div');
-    holder.style.position = 'absolute';
-    holder.style.width = '0px';
-    holder.style.height = '0px';
-    holder.style.overflow = 'hidden';
-    holder.style.visibility = 'hidden';
-    this.shadowRoot.appendChild(holder);
-    holder.appendChild(svg);
+    const svg = await this._loadLayeredSvgDoc();
 
     const pickBBox = (id) => {
       const el = svg.querySelector('#' + id);
@@ -359,10 +381,275 @@ ThermostatCard.prototype._extractLayeredAnchors = async function() {
       glass: pickBBox('glass_main'),
       sensor: pickBBox('sensor_main'),
     };
-    // Remove measurement node
-    try { this.shadowRoot.removeChild(holder); } catch(_) {}
     this._config._layeredAnchors = anchors;
     // Helpful console for inspection during development only
     console.info('[thermostat-card] layered anchors:', anchors);
   } catch(_){ /* ignore */ }
 }
+
+// Resolve and attach a hidden layered SVG for geometry queries
+ThermostatCard.prototype._loadLayeredSvgDoc = async function(){
+  if (this.__layeredSvg && this.__layeredHolder && this.__layeredHolder.isConnected) {
+    return this.__layeredSvg;
+  }
+  const urls = [
+    '/local/community/lovelace-thermostat-card/thermostat-layered.svg',
+    '/hacsfiles/lovelace-thermostat-card/thermostat-layered.svg',
+    '/thermostat-layered.svg',
+    './thermostat-layered.svg'
+  ];
+  let text = null;
+  for (const u of urls) {
+    try{
+      const res = await fetch(u, { cache: 'no-cache' });
+      if (res.ok) { text = await res.text(); break; }
+    }catch(_){ }
+  }
+  if (!text) throw new Error('layered svg not found');
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  const svg = doc.documentElement;
+  const holder = document.createElement('div');
+  holder.style.position = 'absolute';
+  holder.style.width = '0px';
+  holder.style.height = '0px';
+  holder.style.overflow = 'hidden';
+  holder.style.visibility = 'hidden';
+  this.shadowRoot.appendChild(holder);
+  holder.appendChild(svg);
+  this.__layeredHolder = holder;
+  this.__layeredSvg = svg;
+  return svg;
+}
+
+// Phase 2 helpers: read-only alignment of labels and mode clip
+ThermostatCard.prototype._applyLayeredAlignment = function(){
+  try{
+    const cfg = this._config || {};
+    if (!cfg.use_layered_anchors) return;
+    // If debug flag set but anchors missing, attempt load
+    if (cfg.debug_layered_anchors && !cfg._layeredAnchors) {
+      this._extractLayeredAnchors().then(()=>{ try{ this._applyLayeredAlignment(); }catch(_){} });
+      return;
+    }
+    this._applyLayeredLabelAlignment();
+    this._applyModeClip();
+    this._applyChevronBounds();
+  }catch(_){ /* ignore */ }
+}
+
+ThermostatCard.prototype._applyLayeredLabelAlignment = function(){
+  try{
+    const cfg = this._config || {};
+    const anchors = cfg._layeredAnchors;
+    const root = this.shadowRoot;
+    if (!root) return;
+    const svg = root.querySelector('svg.dial');
+    if (!svg) return;
+    let cx, cy;
+    if (anchors && anchors.numbers) {
+      cx = anchors.numbers.x + anchors.numbers.width / 2;
+      // Slightly below the vertical center of the upper semicircle for better optical balance
+      cy = anchors.numbers.y + anchors.numbers.height * 0.58;
+    } else {
+      // Fallback to dial center, bias slightly upward
+      const r = (cfg.radius || 200);
+      cx = r; cy = r * 0.86;
+    }
+    const place = (id) => {
+      const node = svg.querySelector('#' + id);
+      if (!node) return;
+      node.setAttribute('x', String(cx));
+      node.setAttribute('y', String(cy));
+      node.setAttribute('text-anchor','middle');
+      node.setAttribute('dominant-baseline','middle');
+      const spans = node.querySelectorAll('tspan');
+      if (spans && spans.length > 1){
+        const main = spans[0];
+        const sup = spans[1];
+        // Measure the main tspan to position superscript just to its right and slightly above baseline
+        let supX, supY;
+        try {
+          const bb = main.getBBox();
+          supX = bb.x + bb.width + Math.max(6, (cfg.radius || 200) * 0.015);
+          supY = bb.y + (bb.height * 0.28);
+        } catch(_) {
+          const rx = (cfg.radius || 200);
+          supX = cx + (rx * 0.26);
+          supY = cy - (rx * 0.17);
+        }
+        sup.setAttribute('x', String(supX));
+        sup.setAttribute('y', String(supY));
+      }
+    };
+    place('ambient');
+    place('target');
+  }catch(_){ /* ignore */ }
+}
+
+ThermostatCard.prototype._applyModeClip = function(){
+  try{
+    const cfg = this._config || {};
+    const root = this.shadowRoot;
+    if (!root) return;
+    const menu = root.querySelector('.mode-menu');
+    const host = root.querySelector('#mode-carousel');
+    if (!cfg._modeClipPolygon) {
+      (async ()=>{
+        try{
+          const svg = await this._loadLayeredSvgDoc();
+          const vb = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal : { width: 400, height: 400 };
+          const p = svg.querySelector('#clip-layer-mode path');
+          if (!p || !p.getTotalLength) return;
+          const len = p.getTotalLength();
+          const steps = 96;
+          const pts = [];
+          for (let i=0;i<=steps;i++){
+            const pt = p.getPointAtLength(len * (i/steps));
+            pts.push([ (pt.x / vb.width) * 100, (pt.y / vb.height) * 100 ]);
+          }
+          const poly = 'polygon(' + pts.map(([x,y])=> x.toFixed(2)+'% '+y.toFixed(2)+'%').join(',') + ')';
+          this._config._modeClipPolygon = poly;
+          if (menu) { menu.style.clipPath = poly; menu.style.webkitClipPath = poly; }
+          if (host) { host.style.clipPath = poly; host.style.webkitClipPath = poly; }
+        }catch(_){ }
+      })();
+      return;
+    }
+    const poly = cfg._modeClipPolygon;
+    if (menu) { menu.style.clipPath = poly; menu.style.webkitClipPath = poly; }
+    if (host) { host.style.clipPath = poly; host.style.webkitClipPath = poly; }
+  }catch(_){ /* ignore */ }
+}
+
+// Hide chevrons that fall outside the numbers wedge (upper semicircle)
+ThermostatCard.prototype._applyChevronBounds = function(){
+  try{
+    const cfg = this._config || {};
+    const root = this.shadowRoot;
+    if (!root) return;
+    const svgDial = root.querySelector('svg.dial');
+    if (!svgDial) return;
+    const chevrons = svgDial.querySelectorAll('path.dial__chevron');
+    if (!chevrons || chevrons.length === 0) return;
+    const applyWithPoly = (polyPx) => {
+      if (!polyPx || polyPx.length < 3) return;
+      const pip = (x,y)=>{
+        let inside=false; for(let i=0,j=polyPx.length-1;i<polyPx.length;j=i++){
+          const xi=polyPx[i][0], yi=polyPx[i][1]; const xj=polyPx[j][0], yj=polyPx[j][1];
+          const intersect = ((yi>y)!==(yj>y)) && (x < (xj - xi) * (y - yi) / ((yj - yi)||1e-6) + xi);
+          if (intersect) inside = !inside;
+        } return inside;
+      };
+      chevrons.forEach((path)=>{
+        try{
+          const bb = path.getBBox();
+          const cx = bb.x + bb.width/2;
+          const cy = bb.y + bb.height/2;
+          const ok = pip(cx,cy);
+          path.style.visibility = ok ? 'visible' : 'hidden';
+        }catch(_){ }
+      });
+    };
+    if (this.__numbersPolyPx && Array.isArray(this.__numbersPolyPx)) {
+      applyWithPoly(this.__numbersPolyPx);
+      return;
+    }
+    // Compute from layered SVG clip path for numbers
+    (async ()=>{
+      try{
+        const svg = await this._loadLayeredSvgDoc();
+        const p = svg.querySelector('#clip-layer-numbers path');
+        if (!p || !p.getTotalLength) return;
+        const len = p.getTotalLength();
+        const steps = 96;
+        const pts = [];
+        for(let i=0;i<=steps;i++){
+          const pt = p.getPointAtLength(len * (i/steps));
+          pts.push([pt.x, pt.y]);
+        }
+        this.__numbersPolyPx = pts;
+        applyWithPoly(pts);
+      }catch(_){ }
+    })();
+  }catch(_){ /* ignore */ }
+}
+
+// Mode carousel removed
+ThermostatCard.prototype._blockDialDrag = function(block){
+  try{
+    const svg = this.shadowRoot && this.shadowRoot.querySelector('svg.dial');
+    if(!svg) return;
+    if(block){
+      if(!this.__dragBlocker){
+        this.__dragBlocker = (e)=>{ try{ e.stopImmediatePropagation(); e.stopPropagation(); e.preventDefault(); }catch(_){ } };
+      }
+      ['pointerdown','pointermove','mousedown','mousemove','touchstart','touchmove'].forEach((ev)=>{
+        try{ svg.addEventListener(ev, this.__dragBlocker, { capture:true, passive:false }); }catch(_){ }
+      });
+    }else{
+      if(this.__dragBlocker){
+        ['pointerdown','pointermove','mousedown','mousemove','touchstart','touchmove'].forEach((ev)=>{
+          try{ svg.removeEventListener(ev, this.__dragBlocker, { capture:true }); }catch(_){ }
+        });
+      }
+    }
+  }catch(_){ }
+}
+ThermostatCard.prototype._openModeCarousel = function(){ }
+ThermostatCard.prototype._closeModeCarousel = function(){ }
+ThermostatCard.prototype._armModeAutoClose = function(){ }
+ThermostatCard.prototype._clearModeAutoClose = function(){ }
+ThermostatCard.prototype._selectModeFromCarousel = function(){ }
+
+// Anchor the mode button to #mode_button_anchor in layered SVG
+ThermostatCard.prototype._positionModeButtonByAnchor = async function(){
+  return;
+};
+
+
+
+// Position the carousel items so they appear just above the mode button anchor
+ThermostatCard.prototype._positionCarouselItemsByAnchor = async function(){
+  return;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
