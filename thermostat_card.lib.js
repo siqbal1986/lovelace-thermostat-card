@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ThermostatUI builds the SVG dial, the metallic ring, the tick marks, and the
  * mode-selection dialog. The class does not talk directly to Home Assistant;
  * instead the outer card (main.js) feeds it data and supplies callbacks for
@@ -22,7 +22,7 @@ export default class ThermostatUI {
       low: this._low, // Current low setpoint shown in the UI (may be pending user edits).
       high: this._high, // Current high setpoint shown in the UI.
       target: this._target, // Single setpoint (used when dual mode is inactive).
-    };
+    }
   }
   get ambient() {
     return this._ambient; // Report the ambient room temperature the UI last received.
@@ -65,9 +65,7 @@ export default class ThermostatUI {
     this._limitFlash = null; // Placeholder for the visual flash shown when the user hits min/max limits.
 
     this._container = document.createElement('div'); // Wrapper that holds both the dial SVG and the mode controls.
-    try{ this._container.style.position = 'relative'; }catch(_){ }
-    this._modeMenuContainer = null; // legacy mode menu container no longer used
-// References the dialog container once it is built.
+    this._modeMenuContainer = null; // References the dialog container once it is built.
     this._modeMenuToggler = null; // References the hamburger button that opens/closes the mode carousel.
     this._modeMenuList = null; // References the list element that holds the individual mode buttons.
     this._modeMenuItems = []; // Keep the individual list items handy so we can toggle active states.
@@ -95,12 +93,14 @@ export default class ThermostatUI {
     if (outerShadow) {
       root.appendChild(outerShadow);
       this._outerShadow = outerShadow;
+    }
     root.appendChild(this._buildDial(config.radius)); // Draw the dark circular face of the thermostat.
     // Weather FX (storm) layer beneath texts
     const fxMode = (this._config && this._config.fx_weather) || 'storm';
     this._weatherFX = this._buildWeatherFX(config.radius, fxMode);
     if (this._weatherFX) {
       root.appendChild(this._weatherFX);
+    }
     root.appendChild(this._buildTicks(config.num_ticks)); // Add the group that will hold all tick marks.
     this._ringGroup = this._buildRing(config.radius); // Build the metallic ring and remember the group for later rotation.
     root.appendChild(this._ringGroup); // Place the ring on top of the dial background.
@@ -117,7 +117,7 @@ export default class ThermostatUI {
     root.appendChild(this._buildChevrons(config.radius, 0, 'low', 0.7, -config.radius / 2.5)); // Upward chevrons used to adjust the low setpoint.
     root.appendChild(this._buildChevrons(config.radius, 0, 'high', 0.7, config.radius / 3)); // Upward chevrons for the high setpoint.
     root.appendChild(this._buildChevrons(config.radius, 0, 'target', 1, 0)); // Upward chevrons when adjusting a single setpoint.
-    root.appendChild(this._buildChevrons(config.radius, 180, 'low', 0.7, -config.radius / 2.5)); // Downward chevrons (rotated 180Â°) for the low setpoint.
+    root.appendChild(this._buildChevrons(config.radius, 180, 'low', 0.7, -config.radius / 2.5)); // Downward chevrons (rotated 180°) for the low setpoint.
     root.appendChild(this._buildChevrons(config.radius, 180, 'high', 0.7, config.radius / 3)); // Downward chevrons for the high setpoint.
     root.appendChild(this._buildChevrons(config.radius, 180, 'target', 1, 0)); // Downward chevrons for the single setpoint.
 
@@ -157,8 +157,6 @@ export default class ThermostatUI {
     this._buildControls(config.radius); // Build invisible hit areas that react to click/tap adjustments.
     this._root.addEventListener('click', () => this._enableControls()); // Clicking the dial switches it into "editing" mode.
     this._buildDialog(); // Create the HVAC mode selector menu structure beneath the dial.
-    // Hide legacy mode menu if our overlay carousel is enabled later
-    try{ if(this._modeMenuContainer) this._modeMenuContainer.style.display = 'none'; }catch(_){ }
     this._updateText('title', config.title); // Initialize the title label now that text nodes exist.
     this._applyRingRotation(); // Make sure the metallic ring is drawn using the default rotation state.
     // Ensure only ambient is shown initially
@@ -211,7 +209,6 @@ export default class ThermostatUI {
     this._updateText('high', this.temperature.high);
     this._setActiveMode(this.hvac_state); // Highlight the active HVAC mode in the dialog carousel.
     this._updateColor(this.hvac_state, this.preset_mode); // Apply appropriate color theme to the dial.
-
   }
 
   _renderDial({ refreshDialog = false, hass = null, updateAmbient = true, resetEdit = false } = {}) {
@@ -334,9 +331,11 @@ export default class ThermostatUI {
       if (sortedSingleValues.length) {
         rotationReference = sortedSingleValues[sortedSingleValues.length - 1];
       }
+    }
 
     if (tickIndexes.length) {
       tickIndexes.sort((a, b) => a - b);
+    }
 
     this._updateTicks(fromIndex, toIndex, tickIndexes, this.hvac_state); // Paint the tick marks using the calculated ranges.
 
@@ -345,17 +344,21 @@ export default class ThermostatUI {
         this._ringRotation = this._computeRingRotationFromValue(rotationReference);
         this._applyRingRotation();
       }
+    }
 
     if (updateAmbient) {
       this._updateText('ambient', this.ambient);
+    }
 
     if (resetEdit) {
       this._in_control = false;
       this._updateEdit(false); // Remove edit styling when requested by the caller.
       this._updateClass('in_control', this.in_control);
+    }
 
     if (refreshDialog && hass) {
       this._updateDialog(this.hvac_modes, hass); // Rebuild the HVAC mode dialog using the latest list from the entity.
+    }
   }
 
 
@@ -429,6 +432,7 @@ export default class ThermostatUI {
       }
     } else {
       this._enableControls(); // If the dial was not yet in edit mode, first enable controls so the next tap adjusts values.
+    }
   }
 
   _updateEdit(show_edit) {
@@ -467,14 +471,18 @@ export default class ThermostatUI {
   _handleDialPointerDown(event) {
     if (event.button !== undefined && event.button !== 0) {
       return;
+    }
     if (this._dragDisabled) {
       return;
+    }
     if (!this._isWithinDragZone(event)) {
       return;
+    }
 
     const normalizedAngle = this._pointerNormalizedAngle(event);
     if (normalizedAngle === null) {
       return;
+    }
 
     if (!this.in_control) {
       this._enableControls();
@@ -482,6 +490,7 @@ export default class ThermostatUI {
       this._updateText('target', this.temperature.target);
       this._updateText('low', this.temperature.low);
       this._setActiveMode(this.hvac_state);
+    }
 
     const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
     const dragType = this._determineDragTarget(event);
@@ -500,6 +509,7 @@ export default class ThermostatUI {
       }
     } catch (err) {
       // ignore
+    }
 
     this._scheduleControlCommit();
 
@@ -510,18 +520,23 @@ export default class ThermostatUI {
   _handleDialPointerMove(event) {
     if (!this._dragContext) {
       return;
+    }
     if (event.pointerId !== undefined && event.pointerId !== this._dragContext.pointerId) {
       return;
+    }
 
     if (this._updateFromPointer(event)) {
       this._scheduleControlCommit();
+    }
   }
 
   _handleDialPointerUp(event) {
     if (!this._dragContext) {
       return;
+    }
     if (event.pointerId !== undefined && event.pointerId !== this._dragContext.pointerId) {
       return;
+    }
 
     try {
       if (this._root.releasePointerCapture) {
@@ -529,6 +544,7 @@ export default class ThermostatUI {
       }
     } catch (err) {
       // ignore
+    }
 
     this._dragContext = null;
     this._setDragging(false);
@@ -545,10 +561,12 @@ export default class ThermostatUI {
     const dualAllowed = this.dual && (this.hvac_state === 'heat_cool' || this.hvac_state === 'off' || this.hvac_state === 'auto');
     if (!dualAllowed || typeof this._low !== 'number' || typeof this._high !== 'number') {
       return 'target';
+    }
 
     const normalized = this._pointerNormalizedAngle(event);
     if (normalized === null) {
       return 'target';
+    }
 
     const config = this._config;
     const pointerIndex = SvgUtil.restrictToRange(Math.round((normalized / (config.tick_degrees || 1)) * config.num_ticks), 0, config.num_ticks - 1);
@@ -565,6 +583,7 @@ export default class ThermostatUI {
 
     if (lowIndex === null || highIndex === null) {
       return 'target';
+    }
 
     return Math.abs(pointerIndex - lowIndex) <= Math.abs(pointerIndex - highIndex) ? 'low' : 'high';
   }
@@ -577,6 +596,7 @@ export default class ThermostatUI {
     const dy = event.clientY - centerY;
     if (!dx && !dy) {
       return null;
+    }
 
     let angle = Math.atan2(dy, dx) * 180 / Math.PI;
     angle = (angle + 360) % 360;
@@ -586,6 +606,7 @@ export default class ThermostatUI {
       const gap = 360 - config.tick_degrees;
       const overflow = normalized - config.tick_degrees;
       normalized = overflow <= gap / 2 ? config.tick_degrees : 0;
+    }
     return SvgUtil.restrictToRange(normalized, 0, config.tick_degrees);
   }
 
@@ -605,6 +626,7 @@ export default class ThermostatUI {
   _computeRingRotationFromValue(value) {
     if (typeof value !== 'number' || Number.isNaN(value)) {
       return this._ringRotation || 0;
+    }
     const config = this._config;
     const totalRange = Math.max(this.max_value - this.min_value, Number.EPSILON);
     const normalized = (value - this.min_value) / totalRange;
@@ -617,6 +639,7 @@ export default class ThermostatUI {
     const target = this._ringSpinGroup || this._ringGroup;
     if (!target) {
       return;
+    }
     const angle = this._ringRotation || 0;
     target.setAttribute('transform', `rotate(${angle} ${this._config.radius} ${this._config.radius})`);
     // Subtle parallax on the glass highlights based on rotation
@@ -625,15 +648,18 @@ export default class ThermostatUI {
       const shiftX = Math.max(-maxShift, Math.min(maxShift, -angle * 0.02));
       const shiftY = Math.max(-maxShift, Math.min(maxShift, angle * 0.01));
       this._glassGroup.setAttribute('transform', `translate(${shiftX},${shiftY})`);
+    }
   }
 
   _updateFromPointer(event) {
     if (!this._dragContext) {
       return false;
+    }
 
     const normalizedAngle = this._pointerNormalizedAngle(event);
     if (normalizedAngle === null) {
       return false;
+    }
 
     const config = this._config;
     const context = this._dragContext;
@@ -697,6 +723,7 @@ export default class ThermostatUI {
       changed = applySteps('_high', minHigh, this.max_value, 'high');
     } else {
       changed = applySteps('_target', this.min_value, this.max_value, 'target');
+    }
 
     if (changed) {
       this._renderDial({
@@ -705,6 +732,7 @@ export default class ThermostatUI {
         updateAmbient: false,
         resetEdit: false
       });
+    }
 
     return changed;
   }
@@ -749,24 +777,28 @@ export default class ThermostatUI {
       } else {
         lblTarget[1].textContent = '';
       }
+    }
 
     if (this.in_control && id == 'target' && this.dual) {
-      lblTarget[0].textContent = 'Â·';
+      lblTarget[0].textContent = '·';
+    }
 
     if (id == 'title') {
       lblTarget[0].textContent = value;
       lblTarget[1].textContent = '';
+    }
     // Ensure correct glyph and clear fractional in dual edit mode
     if (this.in_control && id == 'target' && this.dual) {
-      lblTarget[0].textContent = 'Â·';
+      lblTarget[0].textContent = '·';
       lblTarget[1].textContent = '';
+    }
   }
 
   _updateTemperatureSlot(value, offset, slot) {
 
     const config = this._config;
     const lblSlot1 = this._root.querySelector(`#${slot}`)
-    lblSlot1.textContent = value != null ? (SvgUtil.superscript(value) + 'Â°') : '';
+    lblSlot1.textContent = value != null ? (SvgUtil.superscript(value) + '°') : '';
 
     const peggedValue = SvgUtil.restrictToRange(value, this.min_value, this.max_value);
     const position = [config.radius, config.ticks_outer_radius - (config.ticks_outer_radius - config.ticks_inner_radius) / 2];
@@ -784,6 +816,7 @@ export default class ThermostatUI {
 
       return;
 
+    }
 
     let hvacState = typeof state === 'string' && state.length ? state : 'off';
 
@@ -791,6 +824,7 @@ export default class ThermostatUI {
 
       hvacState = 'idle';
 
+    }
 
     const prefix = 'dial--state--';
 
@@ -858,13 +892,16 @@ export default class ThermostatUI {
   _updateDialog(modes, hass) {
     if (!this._modeMenuList) {
       this._buildDialog();
+    }
     const list = this._modeMenuList;
     if (!list) {
       return;
+    }
     list.innerHTML = '';
     this._modeMenuItems = [];
     if (!Array.isArray(modes) || modes.length === 0) {
       return;
+    }
     const total = modes.length;
     const radius = Math.max(82, Math.min(this._config.radius * 0.85, 140));
     const angleStep = 360 / total;
@@ -889,11 +926,13 @@ export default class ThermostatUI {
       item.style.setProperty('--menu-distance', radius + 'px');
       list.appendChild(item);
       this._modeMenuItems.push(item);
+    }
     this._setActiveMode(this.hvac_state);
   }
   _setModeMenuOpen(open) {
     if (!this._modeMenuContainer || !this._modeMenuToggler) {
       return;
+    }
     const expanded = !!open;
     if (expanded) {
       this._dragDisabled = true;
@@ -911,15 +950,18 @@ export default class ThermostatUI {
       }
     } else {
       this._dragDisabled = false;
+    }
     this._modeMenuContainer.classList.toggle('menu-open', expanded);
     this._modeMenuToggler.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     if (this._modeMenuList) {
       this._modeMenuList.setAttribute('aria-hidden', expanded ? 'false' : 'true');
+    }
   }
 
   _setActiveMode(mode) {
     if (!Array.isArray(this._modeMenuItems)) {
       return;
+    }
     this._modeMenuItems.forEach((item) => {
       const button = item.querySelector('.menu-item__button');
       const isActive = button && button.dataset.mode === mode;
@@ -1193,6 +1235,7 @@ export default class ThermostatUI {
         return 'power';
       default:
         return fallback;
+    }
   }
 
   openProp() {
@@ -1216,7 +1259,8 @@ export default class ThermostatUI {
       container.className = 'mode-menu';
       container.addEventListener('click', (event) => event.stopPropagation());
       this._modeMenuContainer = container;
-      this._container.appendChild(container);
+      this.c_body.appendChild(container);
+    }
 
     const container = this._modeMenuContainer;
     container.innerHTML = '';
@@ -1226,7 +1270,14 @@ export default class ThermostatUI {
     toggler.className = 'mode-menu__toggler';
     toggler.setAttribute('aria-label', 'Toggle HVAC modes');
     toggler.setAttribute('aria-expanded', 'false');
-    toggler.innerHTML = '<span></span><span></span><span></span>';
+
+    const radius = Number(this._config && this._config.radius);
+    if (Number.isFinite(radius) && radius > 0) {
+      const bottomOffset = radius * 0.2; // Desired offset from the rim based on the provided requirement.
+      const diameter = radius * 2;
+      const bottomOffsetPercent = diameter ? (bottomOffset / diameter) * 100 : 10;
+      toggler.style.setProperty('--mode-menu-bottom-offset', `${bottomOffsetPercent}%`);
+    }
 
     const list = document.createElement('ul');
     list.className = 'mode-menu__items';
@@ -1268,6 +1319,7 @@ export default class ThermostatUI {
         vignette.appendChild(SvgUtil.createSVGElement('stop', { offset, 'stop-color': color, 'stop-opacity': opacity }));
       });
       defs.appendChild(vignette);
+    }
     const vignetteCircle = SvgUtil.createSVGElement('circle', {
       cx: radius,
       cy: radius,
@@ -1317,6 +1369,7 @@ export default class ThermostatUI {
         rainGroup.appendChild(line);
       }
       fxGroup.appendChild(rainGroup);
+    }
     if (mode === 'storm') {
       const boltGroup = SvgUtil.createSVGElement('g', { class: 'weather__lightning' });
       // Simple zigzag bolt near right side
@@ -1326,6 +1379,7 @@ export default class ThermostatUI {
       const bolt = SvgUtil.createSVGElement('path', { d: path, class: 'lightning-bolt' });
       boltGroup.appendChild(bolt);
       fxGroup.appendChild(boltGroup);
+    }
     return fxGroup;
   }
   _buildOuterShadow(radius) {
@@ -1394,7 +1448,7 @@ export default class ThermostatUI {
     });
 
     const gripGroup = SvgUtil.createSVGElement('g', { class: 'dial__ring-grips' });
-    // True radial grooves: thin rectangles radiating from inner to outer edge around full 360Â°
+    // True radial grooves: thin rectangles radiating from inner to outer edge around full 360°
     const gripCount = 120;
     const angleStep = 360 / gripCount;
     const gripLength = (outerRadius - ringInnerRadius) * 0.72; // span most of rim
@@ -1417,6 +1471,7 @@ export default class ThermostatUI {
       });
       seg.style.mixBlendMode = 'screen';
       gripGroup.appendChild(seg);
+    }
 
     // Rotating reflection band that moves with ring rotation (subtle)
     const reflOuter = outerRadius - ringThickness * 0.05;
@@ -1440,6 +1495,7 @@ export default class ThermostatUI {
         highlightInner = mid - 0.75;
         highlightOuter = mid + 0.75;
       }
+    }
     const highlight = SvgUtil.createSVGElement('path', {
       d: SvgUtil.donutPath(radius, radius, highlightOuter, highlightInner), // Thin glowing band that appears when the dial is being edited.
       class: 'dial__editableIndicator'
@@ -1505,6 +1561,7 @@ export default class ThermostatUI {
       const tick = SvgUtil.createSVGElement('path', {}) // Create an empty SVG path; _updateTicks will fill in the geometry later.
       this._ticks.push(tick); // Save the reference for quick updates without rebuilding the DOM.
       tick_element.appendChild(tick); // Attach the path to the group immediately so it renders once updated.
+    }
     return tick_element;
   }
 
@@ -1578,6 +1635,7 @@ export default class ThermostatUI {
       path.addEventListener('click', () => this._temperatureControlClicked(index)); // Route taps to the handler that adjusts temperatures.
       this._root.appendChild(path);
       startAngle = startAngle + angle; // Move on to the next quadrant.
+    }
   }
 
 }
@@ -1591,6 +1649,7 @@ class SvgUtil {
   static attributes(element, attrs) {
     for (let i in attrs) {
       element.setAttribute(i, attrs[i]); // Assign each attribute key/value pair to the SVG node.
+    }
   }
   // Rotate a cartesian point about given origin by X degrees
   static rotatePoint(point, angle, origin) {
@@ -1680,13 +1739,17 @@ class SvgUtil {
     z = Math.sqrt(2 * radius * radius - (2 * radius * radius * Math.cos(aRad)));
     if (aCalc <= 90) {
       x = radius * Math.sin(aRad);
+    }
     else {
       x = radius * Math.sin((180 - aCalc) * Math.PI / 180);
+    }
     Y = Math.sqrt(z * z - x * x);
     if (angle <= 180) {
       X = radius + x;
+    }
     else {
       X = radius - x;
+    }
     return {
       L: radius,
       X: X,
@@ -1719,6 +1782,7 @@ if (!ThermostatUI.prototype.__textPatchedV2) {
       if (main) main.textContent = value != null ? String(value) : '';
       if (sup) sup.textContent = '';
       return;
+    }
     const n = Number(value);
     if (!Number.isFinite(n)) {
       if (main) main.textContent = '';
@@ -1729,11 +1793,13 @@ if (!ThermostatUI.prototype.__textPatchedV2) {
         const frac = n % 1;
         const fracText = frac !== 0 ? String(Math.round(frac * 10)) : '';
         const needsDeg = id === 'ambient' || id === 'target';
-        sup.textContent = fracText + (needsDeg ? 'Â°' : '');
+        sup.textContent = fracText + (needsDeg ? '°' : '');
       }
+    }
     if (this.in_control && id === 'target' && this.dual) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+    }
   };
   ThermostatUI.prototype._updateText = overrideUpdateText;
 }
@@ -1756,10 +1822,12 @@ if (!ThermostatUI.prototype.__textPatchedV3) {
       if (main) main.textContent = value != null ? String(value) : '';
       if (sup) sup.textContent = '';
       return;
+    }
     if (value === null || value === undefined) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
       return;
+    }
     const n = Number(value);
     if (!Number.isFinite(n)) {
       if (main) main.textContent = '';
@@ -1772,11 +1840,11 @@ if (!ThermostatUI.prototype.__textPatchedV3) {
         const needsDeg = id === 'ambient' || id === 'target';
         sup.textContent = fracText + (needsDeg ? '\u00B0' : '');
       }
+    }
     if (this.in_control && id === 'target' && this.dual) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+    }
   };
   ThermostatUI.prototype._updateText = overrideUpdateTextV3;
 }
-
-

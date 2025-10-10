@@ -212,6 +212,7 @@ export function cssData(user) {
   .c_body {
 
     padding: 5% 5% 5% 5%; /* Give the dial breathing room within the card. */
+    position: relative; /* Anchor absolute overlays like the HVAC mode button. */
 
   }
 
@@ -563,12 +564,9 @@ export function cssData(user) {
   }
 
   .mode-menu{
-    position: absolute; /* Anchor the menu in the middle of the dialog overlay. */
-    inset: 0; /* Stretch the container so menu items can radiate in any direction. */
-    display: flex; /* Center the toggler in the available space. */
-    align-items: center; /* Vertically center the toggler. */
-    justify-content: center; /* Horizontally center the toggler. */
-    pointer-events: none; /* Keep the container itself from capturing events. */
+    position: absolute; /* Anchor the menu overlay to the dial container. */
+    inset: 0; /* Stretch so the toggle button can be positioned relative to the dial bounds. */
+    pointer-events: none; /* Allow clicks to pass through except where explicitly re-enabled. */
     --menu-distance-scale: 0; /* Collapse radial items by default. */
     z-index: 40; /* Sit above the dial graphics like the legacy carousel. */
   }
@@ -577,7 +575,10 @@ export function cssData(user) {
     --menu-distance-scale: 1; /* Expand the radial layout. */
   }
   .mode-menu__toggler{
-    position: relative; /* Create a stacking context for the toggle button. */
+    position: absolute; /* Allow precise placement relative to the dial geometry. */
+    left: 50%; /* Anchor horizontally to the dial centerline. */
+    bottom: var(--mode-menu-bottom-offset, 10%); /* Raise the button slightly above the lower rim. */
+    transform: translate(-50%, 0); /* Center the circle around the anchor point. */
     z-index: 2; /* Sit above the fanned out menu items. */
     width: 58px; /* Provide a large tap target. */
     height: 58px; /* Match width to keep the control circular. */
@@ -587,10 +588,6 @@ export function cssData(user) {
     box-shadow: 0 12px 20px rgba(0, 0, 0, 0.55), inset 0 3px 6px rgba(255, 255, 255, 0.25), inset 0 -6px 10px rgba(0, 0, 0, 0.55); /* Layered shadows enhance realism. */
     cursor: pointer; /* Indicate the control is interactive. */
     pointer-events: auto; /* Allow clicks to pass through to the toggler. */
-    display: inline-flex; /* Center the decorative bars. */
-    align-items: center; /* Align internal spans vertically. */
-    justify-content: center; /* Align internal spans horizontally. */
-    gap: 6px; /* Even spacing for the bars. */
     padding: 0; /* Remove default button padding. */
     color: inherit; /* Inherit text/icon color. */
     -webkit-appearance: none; /* Reset browser button styles. */
@@ -598,25 +595,8 @@ export function cssData(user) {
     transition: transform 0.3s ease, box-shadow 0.3s ease; /* Smooth hover feedback. */
   }
   .mode-menu.menu-open .mode-menu__toggler{
-    transform: scale(0.95); /* Slightly compress when active. */
-    box-shadow: 0 10px 18px rgba(0, 0, 0, 0.5), inset 0 4px 8px rgba(255, 255, 255, 0.2), inset 0 -4px 8px rgba(0, 0, 0, 0.55); /* Adjust lighting while open. */
-  }
-  .mode-menu__toggler span{
-    display: block; /* Treat each bar as a block element. */
-    width: 18px; /* Consistent bar width. */
-    height: 2px; /* Thin bar to mimic a menu icon. */
-    border-radius: 2px; /* Slightly round the ends. */
-    background: rgba(28, 34, 48, 0.85); /* Dark accent against the bright button. */
-    transition: transform 0.3s ease, opacity 0.3s ease; /* Animate to an X when open. */
-  }
-  .mode-menu.menu-open .mode-menu__toggler span:nth-child(1){
-    transform: translateY(6px) rotate(45deg); /* Form the first arm of the close icon. */
-  }
-  .mode-menu.menu-open .mode-menu__toggler span:nth-child(2){
-    opacity: 0; /* Hide the middle bar while open. */
-  }
-  .mode-menu.menu-open .mode-menu__toggler span:nth-child(3){
-    transform: translateY(-6px) rotate(-45deg); /* Form the second arm of the close icon. */
+    transform: translate(-50%, 0) scale(0.95); /* Slightly compress when active while keeping alignment. */
+    box-shadow: 0 10px 18px rgba(0, 0, 0, 0.5), inset 0 4px 8px rgba(255, 255, 255, 0.2), inset 0 -4px 8px rgba(0, 0, 0, 0.55);/* Adjust lighting while open. */
   }
   .mode-menu__items{
     list-style: none; /* Remove default list bullets. */
