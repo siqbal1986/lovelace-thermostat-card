@@ -1,0 +1,4539 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="100%"
+   height="100%"
+   viewBox="0 0 400 400"
+   class="dial dial--state--heat"
+   data-hvac-state="heat"
+   style="--thermostat-off-fill: url(#dial-face-dark-1);"
+   sodipodi:docname="thermostat-layered.svg"
+   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
+   version="1.1"
+   id="svg404"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <sodipodi:namedview
+     id="namedview404"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.743125"
+     inkscape:cx="155.42473"
+     inkscape:cy="362.6577"
+     inkscape:window-width="1440"
+     inkscape:window-height="829"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="sensor" />
+  <xhtml:style
+     type="text/css">
+
+  @keyframes thermostat-flame {
+
+    0% {
+
+      transform: scale(0.92); /* Start the icon slightly smaller than normal. */
+
+      filter: drop-shadow(0 0 6px rgba(255, 142, 84, 0.55)); /* Add a dim fiery glow. */
+
+    }
+
+    50% {
+
+      transform: scale(1.06); /* Briefly enlarge the icon to simulate a flicker. */
+
+      filter: drop-shadow(0 0 10px rgba(255, 112, 67, 0.85)); /* Intensify the glow at the peak of the animation. */
+
+    }
+
+    100% {
+
+      transform: scale(0.92); /* Return to the original shrunken size. */
+
+      filter: drop-shadow(0 0 6px rgba(255, 142, 84, 0.55)); /* Fade the glow back to the initial subtle level. */
+
+    }
+
+  }
+
+  @keyframes thermostat-ice-spin {
+
+    from {
+
+      transform: rotate(0deg); /* Begin the snowflake in its default orientation. */
+
+    }
+
+    to {
+
+      transform: rotate(360deg); /* Spin the snowflake all the way around for a gentle rotation effect. */
+
+    }
+
+  }
+
+  @keyframes thermostat-dual {
+
+    0% {
+
+      color: #8acbff; /* Start with the cool blue hue. */
+
+      filter: drop-shadow(0 0 6px rgba(110, 198, 255, 0.55)); /* Give the icon a subtle blue aura. */
+
+    }
+
+    45% {
+
+      color: #ff9a6a; /* Midway through, shift to a warm orange tone. */
+
+      filter: drop-shadow(0 0 9px rgba(255, 146, 86, 0.65)); /* Highlight the warm tone with a brighter glow. */
+
+    }
+
+    100% {
+
+      color: #8acbff; /* Loop back to the original cool color. */
+
+      filter: drop-shadow(0 0 6px rgba(110, 198, 255, 0.55)); /* Reset the glow so the loop can repeat smoothly. */
+
+    }
+
+  }
+
+
+
+  
+
+  ha-card {
+
+    overflow: hidden; /* Hide anything that extends outside the rounded edges. */
+
+    --rail_border_color: transparent; /* Neutral default for optional UI rails. */
+
+    --auto_color: rgb(227, 99, 4, 1); /* Warm orange accent for automatic heat/cool mode. */
+
+    --cool_color: rgba(0, 122, 241, 0.6); /* Translucent cool blue used for inactive cool states. */
+
+    --cool_colorc: rgba(0, 122, 241, 1); /* Opaque cool blue for active cool highlights. */
+
+    --heat_color: #ff8100; /* Vibrant orange for heating state backgrounds. */
+
+    --heat_colorc: rgb(227, 99, 4, 1); /* Slightly darker orange for heating glows. */
+
+    --manual_color: #44739e; /* Muted blue-grey for manual mode. */
+
+    --off_color: #8a8a8a; /* Neutral grey when the system is off. */
+
+    --fan_only_color: #D7DBDD; /* Pale silver tone for fan-only mode. */
+
+    --dry_color: #efbd07; /* Golden hue representing dehumidify mode. */
+
+    --idle_color: #808080; /* Medium grey while the system is idle. */
+
+    --unknown_color: #bac; /* Soft lavender fallback for unknown states. */
+
+    --text-color: white; /* Default text color inside the card. */
+
+  }
+
+  ha-card.no_card{
+
+    background-color: transparent; /* Allow the card to sit directly on the dashboard background. */
+
+    border: none; /* Remove the standard material design outline. */
+
+    box-shadow: none; /* Remove the raised shadow so the widget blends in. */
+
+  }
+
+  ha-card.no_card .prop{
+
+    display: none; /* Hide the kebab/overflow menu when the wrapper is transparent. */
+
+  }
+
+  .auto, .heat_cool {
+
+    --mode_color: var(--auto_color); /* Share the automatic mode accent across auto and heat_cool classes. */
+
+  }
+
+
+
+  .cool {
+
+    --mode_color: var(--cool_color); /* Assign the blue highlight to cool mode elements. */
+
+  }
+
+
+
+  .heat {
+
+    --mode_color: var(--heat_color); /* Apply the orange highlight when heating. */
+
+  }
+
+
+
+  .manual {
+
+    --mode_color: var(--manual_color); /* Use the muted tone for manual operations. */
+
+  }
+
+  
+
+  .off {
+
+    --mode_color: var(--off_color); /* Default grey highlight when the system is powered down. */
+
+  }
+
+  .more {
+
+    --mode_color: var(--off_color); /* Reuse the neutral grey for the overflow state indicator. */
+
+  }
+
+  .fan_only {
+
+    --mode_color: var(--fan_only_color); /* Assign the pale tone to pure ventilation mode. */
+
+  }
+
+
+
+  .eco {
+
+    --mode_color: var(--auto_color); /* Treat eco mode similarly to automatic heat/cool for accents. */
+
+  }
+
+
+
+  .dry {
+
+    --mode_color: var(--dry_color); /* Use the gold color whenever dehumidification is active. */
+
+  }
+
+
+
+  .idle {
+
+    --mode_color: var(--idle_color); /* Soft grey for the idle-but-ready visual state. */
+
+  }
+
+
+
+  .unknown-mode {
+
+    --mode_color: var(--unknown_color); /* Apply the lavender fallback if the HVAC mode is unknown. */
+
+  }
+
+  .c_body {
+
+    padding: 5% 5% 5% 5%; /* Give the dial breathing room within the card. */
+
+  }
+
+  .c_icon{
+
+    position: absolute; /* Pin the kebab icon to the corner without affecting layout flow. */
+
+    cursor: pointer; /* Indicate the icon can be clicked. */
+
+    top: 0; /* Anchor the icon to the top edge of the card. */
+
+    right: 0; /* Anchor the icon to the right edge of the card. */
+
+    z-index: 25; /* Keep the icon above the SVG dial layers. */
+
+  }
+
+  .dial {
+
+    position: relative; /* Allow absolutely positioned overlays to align to the dial container. */
+
+    display: block; /* Ensure the SVG consumes the available width like a block-level element. */
+
+    width: 100%; /* Let the dial stretch to the container's width. */
+
+    max-width: 420px; /* Prevent the dial from becoming too large on wide dashboards. */
+
+    margin: 0 auto; /* Center the dial horizontally. */
+
+    user-select: none; /* Stop accidental text selection while dragging on the dial. */
+
+    --thermostat-off-fill: rgba(10, 16, 27, 0.92); /* Base face color when no heating/cooling glow is active. */
+
+    --thermostat-path-color: rgba(148, 163, 184, 0.2); /* Default muted color for inactive tick marks. */
+
+    --thermostat-path-active-color: rgba(241, 245, 249, 0.92); /* Bright highlight applied to the active tick arc. */
+
+    --thermostat-path-active-color-large: rgba(241, 245, 249, 0.98); /* Slightly brighter highlight used for the major ticks. */
+
+    --thermostat-text-color: rgba(244, 247, 254, 0.95); /* Gentle white tone for the dial's text labels. */
+
+    --dial-shape-shadow: drop-shadow(0 26px 46px rgba(7, 11, 18, 0.68)); /* Drop shadow that makes the dial appear 3D. */
+
+    --dial-shape-filter: var(--dial-shape-shadow); /* Placeholder for mode-specific glow filters. */
+
+  }
+
+  /* Remove any default focus/tap highlight artifacts on the SVG and its children */
+  .dial, .dial * {
+    outline: none;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+  }
+  svg.dial:focus { outline: none; }
+
+  /* Outer ground shadow beneath the dial */
+  .outer__shadow{
+    fill: rgba(0,0,0,0.6);
+    filter: blur(28px);
+    mix-blend-mode: multiply;
+    opacity: 0.35;
+    pointer-events: none;
+    transition: opacity 0.3s ease, filter 0.3s ease;
+  }
+
+  /* Inner face vignette for depth */
+  .face__vignette{
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    opacity: 0.85;
+    transition: opacity 0.3s ease;
+  }
+
+  /* Glass highlights */
+  .dial__glass{ pointer-events: none; }
+  .glass__diag{
+    fill: white;
+    mix-blend-mode: screen;
+    filter: blur(5px);
+    opacity: 0.20;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .glass__diag--tl{ opacity: 0.26; filter: blur(6px); }
+  .glass__diag--br{ opacity: 0.18; filter: blur(5px); }
+  .glass__bottom{
+    fill: white;
+    opacity: 0.18;
+    filter: blur(9px);
+    mix-blend-mode: screen;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+
+  /* Ring groups */
+  .dial__ring-static{ pointer-events: none; }
+  .dial__ring-spin{ pointer-events: none; }
+
+  .dial .dial__shape {
+
+    fill: var(--thermostat-off-fill); /* Apply the base dial face color. */
+
+    filter: var(--dial-shape-filter); /* Add the drop shadow or glow defined by the current mode. */
+
+    transition: fill 0.4s ease, filter 0.4s ease; /* Smoothly animate when the HVAC state changes. */
+
+  }
+
+  .dial__metal-ring {
+
+    fill: var(--dial-metal-ring-fill, radial-gradient(circle at 38% 34%, #fefefe 0%, #e7eaef 32%, #cdd1d8 55%, #a3a8b0 72%, #6c737b 88%, #464b52 100%)); /* Reapply the brushed metal base using the generated gradient or a close CSS fallback. */
+
+    stroke: var(--dial-metal-ring-stroke, rgba(243, 244, 247, 0.68)); /* Use the dynamic sheen gradient when available so the edge glints correctly. */
+
+    stroke-width: 1.4; /* Match the SVG stroke width set when constructing the path. */
+
+    filter: var(--dial-metal-ring-filter, drop-shadow(0 3px 7px rgba(0, 0, 0, 0.45)) drop-shadow(0 -1px 1.2px rgba(255, 255, 255, 0.6))); /* Stronger layered lighting for realism. */
+
+    transition: filter 0.35s ease, fill 0.45s ease, stroke 0.45s ease; /* Smooth the response when the ring gains active emphasis. */
+
+  }
+
+  .dial.in_control .dial__metal-ring {
+
+    filter: var(--dial-metal-ring-filter-active, drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45)) drop-shadow(0 -1px 1.5px rgba(255, 255, 255, 0.55))); /* Intensify the glow while the dial is actively being adjusted. */
+
+  }
+
+  .dial__metal-ring-sheen {
+
+    fill: var(--dial-metal-ring-stroke, linear-gradient(to bottom, rgba(255, 255, 255, 0.95) 0%, rgba(243, 244, 247, 0.5) 30%, rgba(182, 187, 195, 0.2) 60%, rgba(60, 65, 74, 0.7) 100%)); /* Tighter brighter specular falloff. */
+
+    mix-blend-mode: screen; /* Allow the sheen to brighten the metal subtly instead of obscuring it. */
+
+    opacity: 0.95; /* Brighter specular for chrome-like rim. */
+
+    pointer-events: none; /* Ensure the sheen never blocks pointer interactions with the dial. */
+
+  }
+
+  .dial__metal-ring-shadow {
+
+    fill: linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.35) 55%, rgba(0, 0, 0, 0.7) 100%); /* Deeper lower shadow for depth. */
+
+    mix-blend-mode: multiply; /* Let the shadow darken the existing tones rather than covering them. */
+
+    opacity: 0.75; /* Balance the shadow strength so the bevel stays readable. */
+
+    pointer-events: none; /* Prevent the shadow overlay from catching pointer events. */
+
+  }
+
+  .dial__ring-grip {
+    /* Use a solid fill; CSS gradients are not applied to SVG fill in all engines */
+    fill: rgba(255, 255, 255, 0.28);
+
+    stroke: rgba(0, 0, 0, 0.12); /* Softer outline to avoid darkening the rim. */
+
+    stroke-width: 0.15; /* Thinner stroke to keep bands bright. */
+
+    vector-effect: non-scaling-stroke; /* Maintain a consistent grip edge when the dial scales. */
+
+    mix-blend-mode: screen; /* Brighten the rim without muddying it. */
+
+    pointer-events: none; /* Prevent the grips from blocking drag gestures or darkening on hover. */
+
+  }
+
+  /* Rotating reflection band on ring */
+  .dial__ring-reflection{
+    fill: rgba(255,255,255,0.18);
+    filter: blur(2.2px);
+    mix-blend-mode: screen;
+    opacity: 0.22;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  /* Specular rim line */
+  .dial__rim-spec{
+    mix-blend-mode: screen;
+    filter: blur(0.6px);
+    opacity: 0.95;
+    pointer-events: none;
+  }
+  .dial__rim-spec--inner{ opacity: 0.6; filter: blur(0.4px); }
+
+  /* Inner bevel ring */
+  .dial__inner-bevel{
+    mix-blend-mode: multiply;
+    opacity: 0.9;
+    pointer-events: none;
+  }
+  .dial__metal-brush{ mix-blend-mode: overlay; opacity: 0.18; pointer-events: none; }
+
+  .dial__editableIndicator {
+    /* Use a solid semi-transparent fill; CSS gradients are not supported on SVG fills in all engines */
+    fill: rgba(255, 255, 255, 0.16); /* Light halo that appears when the dial enters edit mode. */
+
+    stroke: none; /* Avoid thin outline artifacts on press/focus. */
+
+    opacity: 0; /* Hidden by default until the dial becomes editable. */
+
+    pointer-events: none; /* Keep the halo from intercepting pointer actions. */
+
+    transition: opacity 0.3s ease; /* Fade the halo in and out smoothly. */
+
+  }
+
+  .dial.in_control .dial__editableIndicator {
+
+    opacity: 1; /* Reveal the halo while the user is actively manipulating the dial. */
+
+  }
+
+  .dial--state--off {
+
+    --dial-shape-filter: var(--dial-shape-shadow); /* Keep the base drop shadow without an extra glow. */
+
+    --mode_color: var(--off_color); /* Neutral grey accent while off. */
+
+  }
+
+  .dial--state--heat {
+
+    --dial-shape-filter: var(--dial-shape-shadow) drop-shadow(0 0 32px rgba(255, 129, 0, 0.4)); /* Surround the dial with a fiery halo. */
+
+    --mode_color: var(--heat_colorc); /* Strong orange accent while heating. */
+
+  }
+
+  .dial--state--cool {
+
+    --dial-shape-filter: var(--dial-shape-shadow) drop-shadow(0 0 30px rgba(0, 122, 241, 0.32)); /* Bathe the dial in a cool blue glow. */
+
+    --mode_color: var(--cool_colorc); /* Bright blue accent while cooling. */
+
+  }
+
+  .dial--state--auto,
+
+  .dial--state--heat_cool {
+
+    --dial-shape-filter: var(--dial-shape-shadow) drop-shadow(0 0 30px rgba(14, 165, 233, 0.32)); /* Teal glow signalling both heating and cooling readiness. */
+
+    --mode_color: var(--auto_color); /* Shared accent for the blended modes. */
+
+  }
+
+  .dial--state--fan_only {
+
+    --dial-shape-filter: var(--dial-shape-shadow) drop-shadow(0 0 28px rgba(215, 219, 221, 0.28)); /* Soft white halo for gentle airflow mode. */
+
+    --mode_color: var(--fan_only_color); /* Light metallic accent suited to ventilation. */
+
+  }
+
+  .dial--state--dry {
+
+    --dial-shape-filter: var(--dial-shape-shadow) drop-shadow(0 0 30px rgba(239, 189, 7, 0.35)); /* Warm gold glow for dehumidifying. */
+
+    --mode_color: var(--dry_color); /* Match the highlight to the dry mode colour. */
+
+  }
+
+  .dial--state--idle {
+
+    --dial-shape-filter: var(--dial-shape-shadow); /* No extra glow while the system waits on standby. */
+
+    --mode_color: var(--idle_color); /* Subtle grey accent to show readiness. */
+
+  }
+
+  .dial--state--unknown {
+
+    --dial-shape-filter: var(--dial-shape-shadow); /* Default to the neutral shadow when the mode is unknown. */
+
+    --mode_color: var(--unknown_color); /* Apply the lavender fallback accent. */
+
+  }
+
+  .dial--state--heat .dial__shape {
+
+    fill: var(--heat_colorc); /* Paint the disc with the heating accent colour. */
+
+  }
+
+  .dial--state--cool .dial__shape {
+
+    fill: var(--cool_colorc); /* Use the cooling accent while the AC runs. */
+
+  }
+
+  .dial--state--auto .dial__shape,
+
+  .dial--state--heat_cool .dial__shape {
+
+    fill: var(--auto_color); /* Share the blended accent for hybrid modes. */
+
+  }
+
+  .dial--state--fan_only .dial__shape {
+
+    fill: var(--fan_only_color); /* Present a silver tone when only the fan operates. */
+
+  }
+
+  .dial--state--dry .dial__shape {
+
+    fill: var(--dry_color); /* Highlight the disc with the drying gold. */
+
+  }
+
+  .dial--state--idle .dial__shape {
+
+    fill: var(--idle_color); /* Show a calm grey while idle. */
+
+  }
+
+  .dial--state--unknown .dial__shape {
+
+    fill: var(--unknown_color); /* Use the fallback colour when the state is unclear. */
+
+  }
+
+  .dial__ticks path {
+
+    fill: var(--thermostat-path-color); /* Default muted colour for inactive tick marks. */
+
+    opacity: 0.45; /* Darker, more subdued for glassy face. */
+
+    transition: fill 0.25s ease, opacity 0.25s ease; /* Smooth changes when ticks light up. */
+
+  }
+
+  .dial__ticks path.active {
+
+    fill: var(--mode_color); /* Highlight active ticks with the current mode colour. */
+
+    opacity: 1; /* Brighter for emphasis. */
+
+  }
+
+  .dial__ticks path.large {
+
+    opacity: 0.75; /* Major ticks a bit more prominent, still subtle. */
+
+  }
+
+  .mode-menu{
+    position: absolute; /* Anchor the menu in the middle of the dialog overlay. */
+    inset: 0; /* Stretch the container so menu items can radiate in any direction. */
+    display: flex; /* Center the toggler in the available space. */
+    align-items: center; /* Vertically center the toggler. */
+    justify-content: center; /* Horizontally center the toggler. */
+    pointer-events: none; /* Keep the container itself from capturing events. */
+    --menu-distance-scale: 0; /* Collapse radial items by default. */
+    z-index: 40; /* Sit above the dial graphics like the legacy carousel. */
+  }
+
+  /* New carousel overlay */
+  .mode-carousel{
+    position: absolute;
+    inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 90;
+    /* Shift the carousel overlay downward by a percentage of its height */
+    --carousel-offset-y: 20%;
+    transform: translateY(var(--carousel-offset-y));
+  }
+
+  /* Layer hooks */
+  .layer.layer--aura .aura__fill{ fill: var(--mode_color); opacity: 0.16; }
+  .layer.layer--glass{ pointer-events: none; }
+  .layer.layer--sensor{ pointer-events: auto; }
+  .mode-carousel.open{ pointer-events: auto; }
+  .mode-toggle{
+    position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%);
+    width: 68px; height: 68px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    background: radial-gradient(circle at 40% 30%, rgba(255,255,255,0.85), rgba(220,225,235,0.6) 45%, rgba(150,160,175,0.45) 70%, rgba(20,24,32,0.6) 100%);
+    box-shadow: inset 0 2px 6px rgba(255,255,255,0.6), inset 0 -6px 10px rgba(0,0,0,0.45), 0 8px 16px rgba(0,0,0,0.45);
+    transition: transform 0.2s ease, box-shadow 0.2s ease; pointer-events: auto;
+  }
+  .mode-carousel.open .mode-toggle{ transform: translateX(-50%) scale(0.96); box-shadow: inset 0 3px 8px rgba(255,255,255,0.55), inset 0 -4px 10px rgba(0,0,0,0.55), 0 6px 12px rgba(0,0,0,0.4); }
+  .mode-track{
+    position: absolute; top: 46%; left: 50%; transform: translate(-50%,-50%);
+    display: flex; gap: 2px; align-items: center; justify-content: center; min-width: 30%; pointer-events: auto;
+  }
+  .mode-item{ display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 64px; height: 64px; border: 0; background: transparent; color: rgba(240,245,255,0.85); transition: transform 0.25s ease, opacity 0.25s ease, filter 0.25s ease; filter: blur(1.4px); pointer-events: auto; cursor: pointer; }
+  .mode-item__icon ha-icon{ --mdc-icon-size: 42px; }
+  .mode-item--active{ opacity: 0.85 !important; filter: none !important; }
+  .mode-label{ position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 2px; color: rgba(240,245,255,0.9); font-size: 18px; letter-spacing: 0.3px; }
+  .mode-menu.menu-open{
+    pointer-events: auto; /* Allow menu items to receive interaction while open. */
+    --menu-distance-scale: 1; /* Expand the radial layout. */
+  }
+  .mode-menu__toggler{
+    position: relative; /* Create a stacking context for the toggle button. */
+    z-index: 2; /* Sit above the fanned out menu items. */
+    width: 58px; /* Provide a large tap target. */
+    height: 58px; /* Match width to keep the control circular. */
+    border-radius: 50%; /* Round shape echoes the dial. */
+    border: 1px solid rgba(255, 255, 255, 0.22); /* Subtle outline to lift the button. */
+    background: radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.65), rgba(44, 54, 72, 0.92)); /* Soft highlight for depth. */
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.55), inset 0 3px 6px rgba(255, 255, 255, 0.25), inset 0 -6px 10px rgba(0, 0, 0, 0.55); /* Layered shadows enhance realism. */
+    cursor: pointer; /* Indicate the control is interactive. */
+    pointer-events: auto; /* Allow clicks to pass through to the toggler. */
+    display: inline-flex; /* Center the decorative bars. */
+    align-items: center; /* Align internal spans vertically. */
+    justify-content: center; /* Align internal spans horizontally. */
+    gap: 2px; /* Even spacing for the bars. */
+    padding: 0; /* Remove default button padding. */
+    color: inherit; /* Inherit text/icon color. */
+    -webkit-appearance: none; /* Reset browser button styles. */
+    appearance: none; /* Reset browser button styles. */
+    transition: transform 0.3s ease, box-shadow 0.3s ease; /* Smooth hover feedback. */
+  }
+  .mode-menu.menu-open .mode-menu__toggler{
+    transform: scale(0.95); /* Slightly compress when active. */
+    box-shadow: 0 10px 18px rgba(0, 0, 0, 0.5), inset 0 4px 8px rgba(255, 255, 255, 0.2), inset 0 -4px 8px rgba(0, 0, 0, 0.55); /* Adjust lighting while open. */
+  }
+  .mode-menu__toggler span{
+    display: block; /* Treat each bar as a block element. */
+    width: 18px; /* Consistent bar width. */
+    height: 2px; /* Thin bar to mimic a menu icon. */
+    border-radius: 2px; /* Slightly round the ends. */
+    background: rgba(28, 34, 48, 0.85); /* Dark accent against the bright button. */
+    transition: transform 0.3s ease, opacity 0.3s ease; /* Animate to an X when open. */
+  }
+  .mode-menu.menu-open .mode-menu__toggler span:nth-child(1){
+    transform: translateY(6px) rotate(45deg); /* Form the first arm of the close icon. */
+  }
+  .mode-menu.menu-open .mode-menu__toggler span:nth-child(2){
+    opacity: 0; /* Hide the middle bar while open. */
+  }
+  .mode-menu.menu-open .mode-menu__toggler span:nth-child(3){
+    transform: translateY(-6px) rotate(-45deg); /* Form the second arm of the close icon. */
+  }
+  .mode__anchor{ pointer-events: none; }
+  .mode-menu__items{
+    list-style: none; /* Remove default list bullets. */
+    padding: 0; /* Strip default list padding. */
+    margin: 0; /* Strip default list margin. */
+    position: absolute; /* Allow radial positioning around the toggler. */
+    inset: 0; /* Fill the container so transforms pivot around the center. */
+    pointer-events: none; /* Only enable interaction when the container is open. */
+  }
+  .mode-menu.menu-open .mode-menu__items{
+    pointer-events: auto; /* Allow buttons to be clicked while the menu is expanded. */
+  }
+  .menu-item{
+    position: absolute; /* Absolute positioning lets each item fan out from the middle. */
+    top: 50%; /* Start centered vertically. */
+    left: 50%; /* Start centered horizontally. */
+    transform-origin: center; /* Keep transforms balanced around the button center. */
+    transform: translate(-50%, -50%) rotate(var(--menu-angle, 0deg)) translate(calc(var(--menu-distance, 0px) * var(--menu-distance-scale))) rotate(var(--menu-angle-negative, 0deg)); /* Rotate outwards and keep labels upright. */
+    opacity: 0; /* Hidden until the menu opens. */
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease; /* Smoothly animate the radial layout. */
+    pointer-events: none; /* Disable interaction until open. */
+  }
+  .mode-menu.menu-open .menu-item{
+    opacity: 1; /* Fade in when expanded. */
+    pointer-events: auto; /* Enable pointer interaction once visible. */
+  }
+  .menu-item__button{
+    display: inline-flex; /* Align icon and label vertically. */
+    flex-direction: column; /* Stack the icon over the label. */
+    align-items: center; /* Center contents horizontally. */
+    justify-content: center; /* Center contents vertically. */
+    gap: 8px; /* Space between icon and text. */
+    min-width: 86px; /* Provide a generous tap target. */
+    padding: 14px 18px; /* Comfortable touch padding. */
+    border-radius: 32px; /* Pill shape matches existing UI. */
+    border: none; /* Remove the native border. */
+    background: linear-gradient(155deg, rgba(54, 62, 78, 0.92), rgba(22, 26, 34, 0.88)); /* Soft gradient similar to legacy carousel. */
+    box-shadow: 0 16px 26px rgba(0, 0, 0, 0.55), inset 0 2px 4px rgba(255, 255, 255, 0.18), inset 0 -6px 12px rgba(0, 0, 0, 0.6); /* Depth to emphasize floating buttons. */
+    color: rgba(224, 232, 252, 0.78); /* Neutral label color. */
+    font-size: 12px; /* Legible but compact text. */
+    line-height: 1.35; /* Comfortable spacing for multi-line labels. */
+    letter-spacing: 0.08em; /* Slight tracking to mirror original design language. */
+    text-transform: uppercase; /* Preserve menu styling. */
+    cursor: pointer; /* Clarify interactivity. */
+    -webkit-appearance: none; /* Reset browser styles. */
+    appearance: none; /* Reset browser styles. */
+    transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease; /* Provide tactile feedback. */
+  }
+  .menu-item__button:hover,
+  .menu-item__button:focus{
+    outline: none; /* Remove default outlines while we style focus ourselves. */
+    transform: translateY(-4px); /* Lift slightly on hover/focus. */
+    box-shadow: 0 20px 30px rgba(0, 0, 0, 0.6), inset 0 3px 6px rgba(255, 255, 255, 0.22), inset 0 -6px 14px rgba(0, 0, 0, 0.6); /* Enhance shadow for depth. */
+    color: rgba(255, 255, 255, 0.92); /* Brighten label for accessibility. */
+  }
+  .menu-item--active .menu-item__button{
+    color: rgba(255, 255, 255, 0.95); /* Highlight active mode. */
+    box-shadow: 0 22px 34px rgba(0, 0, 0, 0.62), inset 0 4px 7px rgba(255, 255, 255, 0.24), inset 0 -6px 16px rgba(255, 146, 90, 0.55); /* Warm inner glow to signal selection. */
+  }
+  .menu-item__icon{
+    display: flex; /* Center the icon in its circular badge. */
+    align-items: center; /* Vertical centering. */
+    justify-content: center; /* Horizontal centering. */
+    width: 52px; /* Circular badge size. */
+    height: 52px; /* Match width for perfect circle. */
+    border-radius: 50%; /* Circular badge. */
+    background: radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.55), rgba(82, 92, 112, 0.28) 55%, rgba(10, 12, 18, 0.82) 100%); /* Metallic inspired highlight. */
+    box-shadow: inset 0 3px 5px rgba(255, 255, 255, 0.2), inset 0 -5px 10px rgba(0, 0, 0, 0.6), 0 8px 16px rgba(0, 0, 0, 0.55); /* Depth to match dial. */
+  }
+  .menu-item__icon ha-icon{
+    --mdc-icon-size: 30px; /* Balance icon within the badge. */
+    color: var(--mode_color); /* Match icon color to HVAC mode. */
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6)); /* Glow for readability. */
+    transition: color 0.25s ease, filter 0.25s ease; /* Animate when state changes. */
+  }
+  .menu-item--active .menu-item__icon ha-icon{
+    filter: drop-shadow(0 4px 9px rgba(255, 156, 98, 0.75)); /* Warmer glow when active. */
+  }
+  .menu-item__label{
+    color: inherit; /* Follow button color changes. */
+    text-align: center; /* Keep labels centered. */
+  }
+  .dial--blurred{
+    filter: blur(6px); /* Apply visual effects such as blur or drop shadows for depth cues. */
+    transform: scale(0.98); /* Documented property purpose for clarity. */
+    transform-origin: 50% 50%; /* Define the pivot point for transforms so rotations look natural. */
+    transform-box: fill-box; /* Documented property purpose for clarity. */
+    transition: filter 0.35s ease, transform 0.35s ease; /* Animate property changes smoothly for a polished feel. */
+  }
+  .dial__limit-flash{
+    opacity: 0; /* Adjust transparency to blend the layer into the dial. */
+    fill: rgba(218, 236, 255, 0.45); /* Set the SVG fill colour for this shape. */
+    pointer-events: none; /* Allow or block pointer interaction as appropriate for the layer. */
+    mix-blend-mode: screen; /* Blend this layer with those below for a glow effect. */
+    filter: blur(1.2px); /* Apply visual effects such as blur or drop shadows for depth cues. */
+  }
+  .dial__limit-flash.flash--min{
+    fill: rgba(255, 220, 200, 0.45); /* Set the SVG fill colour for this shape. */
+  }
+  .dial__limit-flash.flash--max{
+    fill: rgba(188, 226, 255, 0.45); /* Set the SVG fill colour for this shape. */
+  }
+  .dial__limit-flash.flash-active{
+    animation: dial-limit-flash 0.32s ease-out; /* Documented property purpose for clarity. */
+  }
+  @keyframes dial-limit-flash{
+    0% { opacity: 0.5; /* Start with a bright flash. */ }
+    100% { opacity: 0; /* Fade the flash to transparent. */ }
+  }
+  .dial__drag-overlay {
+
+    opacity: 0; /* Adjust transparency to blend the layer into the dial. */
+
+    fill: rgba(162, 196, 255, 0.18); /* Set the SVG fill colour for this shape. */
+
+    pointer-events: none; /* Allow or block pointer interaction as appropriate for the layer. */
+
+    transition: opacity 0.25s ease, fill 0.25s ease; /* Animate property changes smoothly for a polished feel. */
+
+    mix-blend-mode: screen; /* Blend this layer with those below for a glow effect. */
+
+  }
+
+  .dial--dragging .dial__drag-overlay {
+
+    opacity: 0.28; /* Adjust transparency to blend the layer into the dial. */
+
+    fill: rgba(162, 196, 255, 0.28); /* Set the SVG fill colour for this shape. */
+
+  }
+
+  .dial text, .dial text tspan {
+
+    fill: var(--thermostat-text-color); /* Set the SVG fill colour for this shape. */
+
+    text-anchor: middle; /* Align text relative to its anchor point. */
+
+    font-family: Helvetica, sans-serif; /* Select the typeface used for the dial labels. */
+
+    alignment-baseline: central; /* Align the baseline of the SVG text relative to the anchor. */
+
+    dominant-baseline: central; /* Control vertical alignment for SVG text. */
+
+  }
+
+  .dial__lbl--target {
+
+    font-size: 120px; /* Size the text appropriately for readability. */
+
+    font-weight: bold; /* Set the weight to emphasise important numbers. */
+
+    visibility: hidden; /* Toggle whether the element is visibly rendered. */
+
+  }
+
+  .dial__lbl--low, .dial__lbl--high {
+
+    font-size: 90px; /* Size the text appropriately for readability. */
+
+    font-weight: bold; /* Set the weight to emphasise important numbers. */
+
+    visibility: hidden; /* Toggle whether the element is visibly rendered. */
+
+  }
+
+  .dial.in_control .dial__lbl--target {
+
+    visibility: visible; /* Toggle whether the element is visibly rendered. */
+
+  }
+
+  .dial.in_control .dial__lbl--low {
+
+    visibility: visible; /* Toggle whether the element is visibly rendered. */
+
+  }
+
+  .dial.in_control .dial__lbl--high {
+
+    visibility: visible; /* Toggle whether the element is visibly rendered. */
+
+  }
+
+  .dial__lbl--ambient {
+
+    font-size: 120px; /* Size the text appropriately for readability. */
+
+    font-weight: bold; /* Set the weight to emphasise important numbers. */
+
+    visibility: visible; /* Toggle whether the element is visibly rendered. */
+
+  }
+  .dial__temperatureControl {
+
+    fill: transparent; /* Set the SVG fill colour for this shape. */
+
+    stroke: none; /* Prevent any focus/press outline from appearing. */
+
+    transition: fill 0.25s ease, opacity 0.25s ease; /* Animate property changes smoothly for a polished feel. */
+
+    pointer-events: auto; /* Allow or block pointer interaction as appropriate for the layer. */
+
+  }
+
+  .dial__temperatureControl.control-visible {
+
+    fill: rgba(255, 255, 255, 0.12); /* Light translucent fill to highlight the active control area. */
+
+  }
+
+
+  .dial.in_control.has_dual .dial__chevron--low,
+
+  .dial.in_control.has_dual .dial__chevron--high {
+
+    visibility: visible; /* Toggle whether the element is visibly rendered. */
+
+  }
+
+  .dial.in_control .dial__chevron--target {
+
+    visibility: visible; /* Toggle whether the element is visibly rendered. */
+
+  }
+
+  .dial.in_control.has_dual .dial__chevron--target {
+
+    visibility: hidden; /* Toggle whether the element is visibly rendered. */
+
+  }
+
+  .dial .dial__chevron {
+
+    visibility: hidden; /* Toggle whether the element is visibly rendered. */
+
+    fill: none; /* Set the SVG fill colour for this shape. */
+
+    stroke: var(--thermostat-text-color); /* Choose the stroke colour for the SVG outline. */
+
+    stroke-width: 4px; /* Define how thick the SVG outline appears. */
+
+    opacity: 0.3; /* Adjust transparency to blend the layer into the dial. */
+
+  }
+
+  .dial .dial__chevron.pressed {
+
+    opacity: 1; /* Adjust transparency to blend the layer into the dial. */
+
+  }
+
+  .dial.in_control .dial__lbl--ambient {
+
+    visibility: hidden; /* Toggle whether the element is visibly rendered. */
+
+  }
+
+  .dial__lbl--super--ambient, .dial__lbl--super--target {
+
+    font-size: 40px; /* Size the text appropriately for readability. */
+
+    font-weight: bold; /* Set the weight to emphasise important numbers. */
+
+  }
+
+  .dial__lbl--super--high, .dial__lbl--super--low {
+
+    font-size: 30px; /* Size the text appropriately for readability. */
+
+    font-weight: bold; /* Set the weight to emphasise important numbers. */
+
+  }
+
+  .dial__lbl--ring {
+
+    font-size: 22px; /* Size the text appropriately for readability. */
+
+    font-weight: bold; /* Set the weight to emphasise important numbers. */
+
+  }
+
+  .dial__lbl--title {
+
+    font-size: 24px; /* Size the text appropriately for readability. */
+
+  }
+
+  /* Always render face gradient regardless of hvac state */
+  .dial--state--heat .dial__shape,
+  .dial--state--cool .dial__shape,
+  .dial--state--auto .dial__shape,
+  .dial--state--heat_cool .dial__shape,
+  .dial--state--fan_only .dial__shape,
+  .dial--state--dry .dial__shape,
+  .dial--state--idle .dial__shape,
+  .dial--state--unknown .dial__shape {
+    fill: var(--thermostat-off-fill) !important;
+  }
+
+  /* Weather FX */
+  @keyframes rain-drop {
+    0%   { transform: translateY(-24%); opacity: 0.05; }
+    50%  { opacity: 0.35; }
+    100% { transform: translateY(24%); opacity: 0.05; }
+  }
+  @keyframes lightning-flicker {
+    0%, 96%, 100% { opacity: 0; }
+    97% { opacity: 1; }
+    98% { opacity: 0.2; }
+    99% { opacity: 1; }
+  }
+  .weather__rain .rain-drop{
+    stroke: rgba(255,255,255,0.35);
+    stroke-width: 1.2px;
+    stroke-linecap: round;
+    filter: blur(0.3px);
+    opacity: 0.25;
+    animation: rain-drop 1.9s linear infinite;
+  }
+  .weather__lightning .lightning-bolt{
+    fill: none;
+    stroke: rgba(255,255,255,0.9);
+    stroke-width: 2.4px;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.9)) blur(0.5px);
+    animation: lightning-flicker 3.7s steps(1,end) infinite;
+  }
+
+  /* Smooth fade for dial labels (ambient/target/low/high) */
+  .dial .dial__lbl { opacity: 1; transition: opacity 0.25s ease; }
+  .dial .dial__lbl.dial__lbl--hidden { opacity: 0; visibility: hidden; }
+
+  </xhtml:style>
+  <defs
+     id="defs40">
+    <radialGradient
+       id="dial-metal-gradient-1"
+       cx="50%"
+       cy="47%"
+       r="68%"
+       fx="38%"
+       fy="34%">
+      <stop
+         offset="0%"
+         stop-color="#ffffff"
+         stop-opacity="1"
+         id="stop1" />
+      <stop
+         offset="30%"
+         stop-color="#f5f7fa"
+         stop-opacity="1"
+         id="stop2" />
+      <stop
+         offset="55%"
+         stop-color="#dfe5ea"
+         stop-opacity="1"
+         id="stop3" />
+      <stop
+         offset="75%"
+         stop-color="#b9c1c9"
+         stop-opacity="1"
+         id="stop4" />
+      <stop
+         offset="90%"
+         stop-color="#80878f"
+         stop-opacity="1"
+         id="stop5" />
+      <stop
+         offset="100%"
+         stop-color="#5b6067"
+         stop-opacity="1"
+         id="stop6" />
+    </radialGradient>
+    <linearGradient
+       id="dial-metal-sheen-1"
+       x1="0%"
+       y1="0%"
+       x2="0%"
+       y2="100%">
+      <stop
+         offset="0%"
+         stop-color="#ffffff"
+         stop-opacity="0.85"
+         id="stop7" />
+      <stop
+         offset="35%"
+         stop-color="#f3f4f7"
+         stop-opacity="0.4"
+         id="stop8" />
+      <stop
+         offset="65%"
+         stop-color="#b6bbc3"
+         stop-opacity="0.15"
+         id="stop9" />
+      <stop
+         offset="100%"
+         stop-color="#6b7078"
+         stop-opacity="0.55"
+         id="stop10" />
+    </linearGradient>
+    <filter
+       id="dial-metal-shadow-1"
+       x="-20%"
+       y="-20%"
+       width="140%"
+       height="140%"
+       color-interpolation-filters="sRGB">
+      <feGaussianBlur
+         in="SourceAlpha"
+         stdDeviation="3"
+         result="outer-blur"
+         id="feGaussianBlur10" />
+      <feOffset
+         in="outer-blur"
+         dx="0"
+         dy="4"
+         result="outer-offset"
+         id="feOffset10" />
+      <feFlood
+         flood-color="#000000"
+         flood-opacity="0.35"
+         result="outer-flood"
+         id="feFlood10" />
+      <feComposite
+         in="outer-flood"
+         in2="outer-offset"
+         operator="in"
+         result="outer-shadow"
+         id="feComposite10" />
+      <feGaussianBlur
+         in="SourceAlpha"
+         stdDeviation="1.2"
+         result="highlight-blur"
+         id="feGaussianBlur11" />
+      <feOffset
+         in="highlight-blur"
+         dx="0"
+         dy="-1"
+         result="highlight-offset"
+         id="feOffset11" />
+      <feFlood
+         flood-color="#ffffff"
+         flood-opacity="0.55"
+         result="highlight-flood"
+         id="feFlood11" />
+      <feComposite
+         in="highlight-flood"
+         in2="highlight-offset"
+         operator="in"
+         result="edge-highlight"
+         id="feComposite11" />
+      <feGaussianBlur
+         in="SourceAlpha"
+         stdDeviation="1.4"
+         result="inner-blur"
+         id="feGaussianBlur12" />
+      <feOffset
+         in="inner-blur"
+         dx="0"
+         dy="0.75"
+         result="inner-offset"
+         id="feOffset12" />
+      <feComposite
+         in="SourceAlpha"
+         in2="inner-offset"
+         operator="arithmetic"
+         k2="-1"
+         k3="1"
+         result="inner-cutout"
+         id="feComposite12" />
+      <feFlood
+         flood-color="#000000"
+         flood-opacity="0.45"
+         result="inner-flood"
+         id="feFlood12" />
+      <feComposite
+         in="inner-flood"
+         in2="inner-cutout"
+         operator="in"
+         result="inner-shadow"
+         id="feComposite13" />
+      <feMerge
+         id="feMerge16">
+        <feMergeNode
+           in="outer-shadow"
+           id="feMergeNode13" />
+        <feMergeNode
+           in="edge-highlight"
+           id="feMergeNode14" />
+        <feMergeNode
+           in="inner-shadow"
+           id="feMergeNode15" />
+        <feMergeNode
+           in="SourceGraphic"
+           id="feMergeNode16" />
+      </feMerge>
+    </filter>
+    <radialGradient
+       id="dial-face-dark-1"
+       cx="50%"
+       cy="46%"
+       r="68%"
+       fx="50%"
+       fy="50%">
+      <stop
+         offset="0%"
+         stop-color="#0e1724"
+         stop-opacity="1"
+         id="stop16" />
+      <stop
+         offset="40%"
+         stop-color="#0a1420"
+         stop-opacity="1"
+         id="stop17" />
+      <stop
+         offset="70%"
+         stop-color="#090d14"
+         stop-opacity="1"
+         id="stop18" />
+      <stop
+         offset="100%"
+         stop-color="#05070b"
+         stop-opacity="1"
+         id="stop19" />
+    </radialGradient>
+    <linearGradient
+       id="dial-rim-spec-1"
+       gradientUnits="userSpaceOnUse"
+       x1="0"
+       y1="0"
+       x2="400"
+       y2="400">
+      <stop
+         offset="0%"
+         stop-color="#ffffff"
+         stop-opacity="0.85"
+         id="stop20" />
+      <stop
+         offset="15%"
+         stop-color="#ffffff"
+         stop-opacity="0.6"
+         id="stop21" />
+      <stop
+         offset="40%"
+         stop-color="#f5f5f5"
+         stop-opacity="0.18"
+         id="stop22" />
+      <stop
+         offset="65%"
+         stop-color="#eaeaea"
+         stop-opacity="0.08"
+         id="stop23" />
+      <stop
+         offset="100%"
+         stop-color="#ffffff"
+         stop-opacity="0"
+         id="stop24" />
+    </linearGradient>
+    <linearGradient
+       id="dial-rim-spec-inner-1"
+       gradientUnits="userSpaceOnUse"
+       x1="400"
+       y1="0"
+       x2="0"
+       y2="400">
+      <stop
+         offset="0%"
+         stop-color="#ffffff"
+         stop-opacity="0.7"
+         id="stop25" />
+      <stop
+         offset="25%"
+         stop-color="#f2f2f2"
+         stop-opacity="0.15"
+         id="stop26" />
+      <stop
+         offset="60%"
+         stop-color="#dddddd"
+         stop-opacity="0.05"
+         id="stop27" />
+      <stop
+         offset="100%"
+         stop-color="#ffffff"
+         stop-opacity="0"
+         id="stop28" />
+    </linearGradient>
+    <linearGradient
+       id="dial-inner-bevel-1"
+       gradientUnits="userSpaceOnUse"
+       x1="0"
+       y1="0"
+       x2="0"
+       y2="400">
+      <stop
+         offset="0%"
+         stop-color="rgba(255,255,255,0.6)"
+         id="stop29" />
+      <stop
+         offset="35%"
+         stop-color="rgba(200,205,215,0.15)"
+         id="stop30" />
+      <stop
+         offset="100%"
+         stop-color="rgba(0,0,0,0.55)"
+         id="stop31" />
+    </linearGradient>
+    <filter
+       id="dial-metal-brush-1"
+       x="-0.0024181361"
+       y="-0.0024181361"
+       width="1.0048363"
+       height="1.0048363">
+      <feTurbulence
+         type="fractalNoise"
+         baseFrequency="0.8 0.03"
+         numOctaves="2"
+         seed="7"
+         result="noise"
+         id="feTurbulence31" />
+      <feGaussianBlur
+         in="noise"
+         stdDeviation="0.4"
+         result="noiseBlur"
+         id="feGaussianBlur31" />
+      <feComposite
+         in="noiseBlur"
+         in2="SourceAlpha"
+         operator="in"
+         result="masked"
+         id="feComposite31" />
+    </filter>
+    <clipPath
+       id="clip-layer-base"
+       clipPathUnits="userSpaceOnUse">
+      <circle
+         cx="200"
+         cy="200"
+         r="200"
+         id="circle31" />
+    </clipPath>
+    <clipPath
+       id="clip-layer-weather"
+       clipPathUnits="userSpaceOnUse">
+      <circle
+         cx="200"
+         cy="200"
+         r="140"
+         id="circle32" />
+    </clipPath>
+    <clipPath
+       id="clip-layer-numbers"
+       clipPathUnits="userSpaceOnUse">
+      <path
+         d="M 200,200 L 96.07695154586737,140 A 120,120 0 0,1 303.92304845413264,139.99999999999994 Z"
+         id="path32" />
+    </clipPath>
+    <clipPath
+       id="clip-layer-mode"
+       clipPathUnits="userSpaceOnUse">
+      <path
+         d="M 200,200 L 321.24355652982143,270 A 140,140 0 0,1 78.75644347017858,270 Z"
+         id="path33" />
+    </clipPath>
+    <clipPath
+       id="clip-layer-ticks"
+       clipPathUnits="userSpaceOnUse">
+      <path
+         d="M 20,200 a 180,180 0 1,1 360,0 a 180,180 0 1,1 -360,0 Z M 60,200 a 140,140 0 1,0 280,0 a 140,140 0 1,0 -280,0 Z"
+         id="path34" />
+    </clipPath>
+    <clipPath
+       id="clip-layer-rim"
+       clipPathUnits="userSpaceOnUse">
+      <path
+         d="M 10,200 a 190,190 0 1,1 380,0 a 190,190 0 1,1 -380,0 Z M 20,200 a 180,180 0 1,0 360,0 a 180,180 0 1,0 -360,0 Z"
+         id="path35" />
+    </clipPath>
+    <clipPath
+       id="clip-layer-aura"
+       clipPathUnits="userSpaceOnUse">
+      <path
+         d="M 0,200 a 200,200 0 1,1 400,0 a 200,200 0 1,1 -400,0 Z M 8,200 a 192,192 0 1,0 384,0 a 192,192 0 1,0 -384,0 Z"
+         id="path36" />
+    </clipPath>
+    <clipPath
+       id="clip-layer-glass"
+       clipPathUnits="userSpaceOnUse">
+      <circle
+         cx="200"
+         cy="200"
+         r="180"
+         id="circle36" />
+    </clipPath>
+    <clipPath
+       id="clip-layer-sensor"
+       clipPathUnits="userSpaceOnUse">
+      <circle
+         cx="200"
+         cy="200"
+         r="200"
+         id="circle37" />
+    </clipPath>
+    <radialGradient
+       id="dial__face-vignette-3p93avbwp"
+       cx="200"
+       cy="200"
+       r="235.20001"
+       fx="200"
+       fy="200"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#000000"
+         stop-opacity="0"
+         id="stop37" />
+      <stop
+         offset="60%"
+         stop-color="#000000"
+         stop-opacity="0"
+         id="stop38" />
+      <stop
+         offset="85%"
+         stop-color="#000000"
+         stop-opacity="0.45"
+         id="stop39" />
+      <stop
+         offset="100%"
+         stop-color="#000000"
+         stop-opacity="0.65"
+         id="stop40" />
+    </radialGradient>
+  </defs>
+  <g
+     class="layer layer--base"
+     id="base"
+     inkscape:groupmode="layer"
+     inkscape:label="base"
+     clip-path="url(#clip-layer-base)"
+     style="display:none">
+    <title
+       id="title40">base</title>
+    <circle
+       cx="200"
+       cy="200"
+       r="200"
+       id="base_main"
+       class="layer__main"
+       fill="none"
+       stroke="none"
+       pointer-events="none"
+       style="display:inline">
+      <title
+         id="title41">base_main</title>
+    </circle>
+    <ellipse
+       cx="208"
+       cy="236"
+       rx="196"
+       ry="176"
+       class="outer__shadow"
+       id="base_outer_shadow"
+       pointer-events="none"
+       style="display:inline">
+      <title
+         id="title42">base_outer_shadow</title>
+    </ellipse>
+    <circle
+       cx="200"
+       cy="200"
+       r="200"
+       class="dial__shape"
+       id="base_dial"
+       style="display:inline">
+      <title
+         id="title43">base_dial</title>
+    </circle>
+    <path
+       class="dial__ico__thermo"
+       d="M 25.332667,25.507333 V 4.6666667 C 25.332667,2.094 23.238667,0 20.666,0 18.093333,0 15.999333,2.094 15.999333,4.6666667 V 25.507333 c -2.363333,1.698 -3.614,4.512667 -3.279333,7.434 0.419333,3.654667 3.377333,6.602 7.034,7.008 0.298,0.03333 0.596667,0.04933 0.892667,0.04933 1.970666,0 3.882666,-0.72 5.353333,-2.036667 1.694667,-1.516667 2.666,-3.69 2.666,-5.962 0,-2.588 -1.239333,-4.988 -3.333333,-6.492667 z m -0.222,11.461334 C 23.68,38.249333 21.824667,38.835333 19.901333,38.623333 16.857333,38.286 14.394,35.832 14.044667,32.788667 13.754,30.25 14.898,27.808 17.030667,26.415333 l 0.302,-0.197333 v -0.884667 h 0.666666 c 0.368667,0 0.666667,-0.298 0.666667,-0.666666 C 18.666,24.298 18.368,24 17.999333,24 h -0.666666 v -2 h 0.666666 C 18.368,22 18.666,21.702 18.666,21.333333 c 0,-0.368666 -0.298,-0.666666 -0.666667,-0.666666 h -0.666666 v -2 h 0.666666 c 0.368667,0 0.666667,-0.298 0.666667,-0.666667 0,-0.368667 -0.298,-0.666667 -0.666667,-0.666667 h -0.666666 v -2 h 0.666666 c 0.368667,0 0.666667,-0.298 0.666667,-0.666666 C 18.666,14.298 18.368,14 17.999333,14 h -0.666666 v -2 h 0.666666 C 18.368,12 18.666,11.702 18.666,11.333333 c 0,-0.368666 -0.298,-0.666666 -0.666667,-0.666666 H 17.332667 V 8.6666667 h 0.666666 C 18.368,8.6666667 18.666,8.3686667 18.666,8 c 0,-0.3686667 -0.298,-0.6666667 -0.666667,-0.6666667 h -0.666666 v -2 h 0.666666 c 0.368667,0 0.666667,-0.298 0.666667,-0.6666666 C 18.666,4.298 18.368,4 17.999333,4 H 17.4 c 0.31,-1.5193333 1.656,-2.6666667 3.266,-2.6666667 1.838,0 3.333333,1.4953334 3.333333,3.3333334 V 5.3333333 H 23.332667 C 22.964,5.3333333 22.666,5.6313333 22.666,6 c 0,0.3686667 0.298,0.6666667 0.666667,0.6666667 h 0.666666 v 2 h -0.666666 c -0.368667,0 -0.666667,0.298 -0.666667,0.6666666 C 22.666,9.702 22.964,10 23.332667,10 h 0.666666 v 2 H 23.332667 C 22.964,12 22.666,12.298 22.666,12.666667 c 0,0.368666 0.298,0.666666 0.666667,0.666666 h 0.666666 v 2 H 23.332667 C 22.964,15.333333 22.666,15.631333 22.666,16 c 0,0.368667 0.298,0.666667 0.666667,0.666667 h 0.666666 v 2 h -0.666666 c -0.368667,0 -0.666667,0.298 -0.666667,0.666666 C 22.666,19.702 22.964,20 23.332667,20 h 0.666666 v 2 H 23.332667 C 22.964,22 22.666,22.298 22.666,22.666667 c 0,0.368666 0.298,0.666666 0.666667,0.666666 h 0.666666 v 2.886 l 0.302,0.197334 C 26.2,27.654667 27.332667,29.742 27.332667,32 c 0,1.894 -0.81,3.704667 -2.222,4.968667 z"
+       transform="translate(180,330)"
+       id="base_thermo_icon"
+       style="display:inline">
+      <title
+         id="title44">base_thermo_icon</title>
+    </path>
+  </g>
+  <g
+     class="layer layer--weather"
+     id="weather"
+     inkscape:groupmode="layer"
+     inkscape:label="weather"
+     clip-path="url(#clip-layer-weather)"
+     style="display:inline">
+    <title
+       id="title45">weather</title>
+    <circle
+       cx="200"
+       cy="200"
+       r="140"
+       id="weather_main"
+       class="layer__main"
+       fill="none"
+       stroke="none"
+       pointer-events="none">
+      <title
+         id="title46">weather_main</title>
+    </circle>
+    <g
+       class="weather__fx"
+       id="weather_fx"
+       pointer-events="none">
+      <title
+         id="title47">weather_fx</title>
+      <g
+         class="weather__rain"
+         id="weather_rain">
+        <title
+           id="title48">weather_rain</title>
+        <line
+           x1="218.3663"
+           y1="150.71016"
+           x2="218.3663"
+           y2="176.76405"
+           class="rain-drop"
+           id="weather_drop_0">
+          <title
+             id="title49">weather_drop_0</title>
+        </line>
+        <line
+           x1="110.9186"
+           y1="315.25818"
+           x2="110.9186"
+           y2="345.04858"
+           class="rain-drop"
+           id="weather_drop_1">
+          <title
+             id="title50">weather_drop_1</title>
+        </line>
+        <line
+           x1="251.15756"
+           y1="326.31061"
+           x2="251.15756"
+           y2="349.32431"
+           class="rain-drop"
+           id="weather_drop_2">
+          <title
+             id="title51">weather_drop_2</title>
+        </line>
+        <line
+           x1="163.6869"
+           y1="211.44872"
+           x2="163.6869"
+           y2="222.55321"
+           class="rain-drop"
+           id="weather_drop_3">
+          <title
+             id="title52">weather_drop_3</title>
+        </line>
+        <line
+           x1="322.41806"
+           y1="190.49678"
+           x2="322.41806"
+           y2="223.47078"
+           class="rain-drop"
+           id="weather_drop_4">
+          <title
+             id="title53">weather_drop_4</title>
+        </line>
+        <line
+           x1="244.23627"
+           y1="215.00607"
+           x2="244.23627"
+           y2="235.65321"
+           class="rain-drop"
+           id="weather_drop_5">
+          <title
+             id="title54">weather_drop_5</title>
+        </line>
+        <line
+           x1="256.74329"
+           y1="313.86853"
+           x2="256.74329"
+           y2="335.67392"
+           class="rain-drop"
+           id="weather_drop_6">
+          <title
+             id="title55">weather_drop_6</title>
+        </line>
+        <line
+           x1="252.72148"
+           y1="114.1503"
+           x2="252.72148"
+           y2="147.93622"
+           class="rain-drop"
+           id="weather_drop_7">
+          <title
+             id="title56">weather_drop_7</title>
+        </line>
+        <line
+           x1="163.77145"
+           y1="60.414951"
+           x2="163.77145"
+           y2="71.195175"
+           class="rain-drop"
+           id="weather_drop_8">
+          <title
+             id="title57">weather_drop_8</title>
+        </line>
+        <line
+           x1="187.13907"
+           y1="125.47705"
+           x2="187.13907"
+           y2="149.3345"
+           class="rain-drop"
+           id="weather_drop_9">
+          <title
+             id="title58">weather_drop_9</title>
+        </line>
+        <line
+           x1="287.86987"
+           y1="146.11156"
+           x2="287.86987"
+           y2="174.99434"
+           class="rain-drop"
+           id="weather_drop_10">
+          <title
+             id="title59">weather_drop_10</title>
+        </line>
+        <line
+           x1="222.22093"
+           y1="134.30843"
+           x2="222.22093"
+           y2="151.77075"
+           class="rain-drop"
+           id="weather_drop_11">
+          <title
+             id="title60">weather_drop_11</title>
+        </line>
+        <line
+           x1="96.1791"
+           y1="117.1436"
+           x2="96.1791"
+           y2="129.99359"
+           class="rain-drop"
+           id="weather_drop_12">
+          <title
+             id="title61">weather_drop_12</title>
+        </line>
+        <line
+           x1="112.80204"
+           y1="115.60387"
+           x2="112.80204"
+           y2="134.93758"
+           class="rain-drop"
+           id="weather_drop_13">
+          <title
+             id="title62">weather_drop_13</title>
+        </line>
+        <line
+           x1="146.79338"
+           y1="138.21832"
+           x2="146.79338"
+           y2="158.87788"
+           class="rain-drop"
+           id="weather_drop_14">
+          <title
+             id="title63">weather_drop_14</title>
+        </line>
+        <line
+           x1="138.83693"
+           y1="85.090645"
+           x2="138.83693"
+           y2="96.019073"
+           class="rain-drop"
+           id="weather_drop_15">
+          <title
+             id="title64">weather_drop_15</title>
+        </line>
+        <line
+           x1="309.03833"
+           y1="86.57325"
+           x2="309.03833"
+           y2="116.81625"
+           class="rain-drop"
+           id="weather_drop_16">
+          <title
+             id="title65">weather_drop_16</title>
+        </line>
+        <line
+           x1="116.38081"
+           y1="221.4532"
+           x2="116.38081"
+           y2="249.42422"
+           class="rain-drop"
+           id="weather_drop_17">
+          <title
+             id="title66">weather_drop_17</title>
+        </line>
+        <line
+           x1="263.43338"
+           y1="313.29709"
+           x2="263.43338"
+           y2="334.37552"
+           class="rain-drop"
+           id="weather_drop_18">
+          <title
+             id="title67">weather_drop_18</title>
+        </line>
+        <line
+           x1="93.341217"
+           y1="159.98045"
+           x2="93.341217"
+           y2="178.63077"
+           class="rain-drop"
+           id="weather_drop_19">
+          <title
+             id="title68">weather_drop_19</title>
+        </line>
+        <line
+           x1="125.54029"
+           y1="194.92064"
+           x2="125.54029"
+           y2="213.31731"
+           class="rain-drop"
+           id="weather_drop_20">
+          <title
+             id="title69">weather_drop_20</title>
+        </line>
+        <line
+           x1="199.68076"
+           y1="139.35088"
+           x2="199.68076"
+           y2="152.19389"
+           class="rain-drop"
+           id="weather_drop_21">
+          <title
+             id="title70">weather_drop_21</title>
+        </line>
+        <line
+           x1="212.03581"
+           y1="314.4913"
+           x2="212.03581"
+           y2="340.79794"
+           class="rain-drop"
+           id="weather_drop_22">
+          <title
+             id="title71">weather_drop_22</title>
+        </line>
+        <line
+           x1="204.10318"
+           y1="142.49983"
+           x2="204.10318"
+           y2="171.3232"
+           class="rain-drop"
+           id="weather_drop_23">
+          <title
+             id="title72">weather_drop_23</title>
+        </line>
+        <line
+           x1="191.15401"
+           y1="229.82857"
+           x2="191.15401"
+           y2="251.90054"
+           class="rain-drop"
+           id="weather_drop_24">
+          <title
+             id="title73">weather_drop_24</title>
+        </line>
+        <line
+           x1="180.10493"
+           y1="95.194092"
+           x2="180.10493"
+           y2="114.55519"
+           class="rain-drop"
+           id="weather_drop_25">
+          <title
+             id="title74">weather_drop_25</title>
+        </line>
+        <line
+           x1="171.54868"
+           y1="317.47607"
+           x2="171.54868"
+           y2="332.07211"
+           class="rain-drop"
+           id="weather_drop_26">
+          <title
+             id="title75">weather_drop_26</title>
+        </line>
+        <line
+           x1="87.167419"
+           y1="103.61111"
+           x2="87.167419"
+           y2="131.7283"
+           class="rain-drop"
+           id="weather_drop_27">
+          <title
+             id="title76">weather_drop_27</title>
+        </line>
+      </g>
+      <g
+         class="weather__lightning"
+         id="weather_lightning">
+        <title
+           id="title77">weather_lightning</title>
+        <path
+           d="m 236,180 -18,28 h 22 l -26,42"
+           class="lightning-bolt"
+           id="weather_bolt">
+          <title
+             id="title78">weather_bolt</title>
+        </path>
+      </g>
+    </g>
+  </g>
+  <g
+     class="layer layer--numbers"
+     id="numbers"
+     inkscape:groupmode="layer"
+     inkscape:label="numbers"
+     clip-path="url(#clip-layer-numbers)"
+     style="display:inline">
+    <title
+       id="title79">numbers</title>
+    <path
+       d="M 200,200 96.076952,140 a 120,120 0 0 1 207.846098,0 z"
+       id="numbers_main"
+       class="layer__main"
+       fill="none"
+       stroke="none"
+       pointer-events="none">
+      <title
+         id="title80">numbers_main</title>
+    </path>
+    <text
+       x="200"
+       y="100"
+       class="dial__lbl dial__lbl--title"
+       id="title"><title
+         id="title81">title</title><tspan
+         id="tspan81" /><tspan
+         x="264.51614"
+         y="166.66667"
+         class="dial__lbl--super--title"
+         id="tspan82" /></text>
+    <text
+       x="200"
+       y="200"
+       class="dial__lbl dial__lbl--ambient"
+       id="ambient"
+       style="visibility:visible"><title
+         id="title82">ambient</title><tspan
+         id="tspan83">74</tspan><tspan
+         x="284.51614"
+         y="166.66667"
+         class="dial__lbl--super--ambient"
+         id="tspan84">°</tspan></text>
+    <text
+       x="200"
+       y="200"
+       class="dial__lbl dial__lbl--target"
+       id="target"
+       style="visibility:hidden"><title
+         id="title84">target</title><tspan
+         id="tspan85">71</tspan><tspan
+         x="284.51614"
+         y="166.66667"
+         class="dial__lbl--super--target"
+         id="tspan86">°</tspan></text>
+    <path
+       class="dial__chevron dial__chevron--low"
+       d="M 0,0 11.9,7.14 23.8,0"
+       transform="translate(108.1,253.9)"
+       id="chevron_low_up">
+      <title
+         id="title86">chevron_low_up</title>
+    </path>
+    <path
+       class="dial__chevron dial__chevron--high"
+       d="M 0,0 11.9,7.14 23.8,0"
+       transform="translate(254.76667,253.9)"
+       id="chevron_high_up">
+      <title
+         id="title87">chevron_high_up</title>
+    </path>
+    <path
+       class="dial__chevron dial__chevron--target"
+       d="M 0,0 17,10.2 34,0"
+       transform="translate(183,277)"
+       id="chevron_target_up">
+      <title
+         id="title88">chevron_target_up</title>
+    </path>
+    <path
+       class="dial__chevron dial__chevron--low"
+       d="M 0,0 11.9,7.14 23.8,0"
+       transform="rotate(180,65.95,73.05)"
+       id="chevron_low_down">
+      <title
+         id="title89">chevron_low_down</title>
+    </path>
+    <path
+       class="dial__chevron dial__chevron--high"
+       d="M 0,0 11.9,7.14 23.8,0"
+       transform="rotate(180,139.28333,73.05)"
+       id="chevron_high_down">
+      <title
+         id="title90">chevron_high_down</title>
+    </path>
+    <path
+       class="dial__chevron dial__chevron--target"
+       d="M 0,0 17,10.2 34,0"
+       transform="rotate(180,108.5,61.5)"
+       id="chevron_target_down">
+      <title
+         id="title91">chevron_target_down</title>
+    </path>
+  </g>
+  <g
+     class="layer layer--ticks"
+     id="ticks"
+     inkscape:groupmode="layer"
+     inkscape:label="ticks"
+     clip-path="url(#clip-layer-ticks)"
+     style="display:inline;opacity:0.154">
+    <title
+       id="title95">ticks</title>
+    <path
+       d="m 20,200 a 180,180 0 1 1 360,0 180,180 0 1 1 -360,0 z m 40,0 a 140,140 0 1 0 280,0 140,140 0 1 0 -280,0 z"
+       id="ticks_main"
+       class="layer__main"
+       fill="none"
+       stroke="none"
+       pointer-events="none">
+      <title
+         id="title96">ticks_main</title>
+    </path>
+    <g
+       class="dial__ticks"
+       id="ticks_group">
+      <title
+         id="title97">ticks_group</title>
+      <path
+         id="tick_0"
+         d="m 107.53269,362.15808 -1.73205,-1 18.33333,-31.75427 1.73206,1 z"
+         class="">
+        <title
+           id="title98">tick_0</title>
+      </path>
+      <path
+         id="tick_1"
+         d="m 101.92979,358.83223 -1.6961,-1.05984 19.43037,-31.09509 1.6961,1.05983 z"
+         class="">
+        <title
+           id="title99">tick_1</title>
+      </path>
+      <path
+         id="tick_2"
+         d="m 96.446362,355.31287 -1.658075,-1.11838 20.503743,-30.39805 1.65807,1.11839 z"
+         class="">
+        <title
+           id="title100">tick_2</title>
+      </path>
+      <path
+         id="tick_3"
+         d="m 91.089103,351.60429 -1.618034,-1.17557 21.552131,-29.66396 1.61803,1.17557 z"
+         class="">
+        <title
+           id="title101">tick_3</title>
+      </path>
+      <path
+         id="tick_4"
+         d="m 85.864535,347.711 -1.576021,-1.23132 22.574256,-28.89373 1.57602,1.23132 z"
+         class="">
+        <title
+           id="title102">tick_4</title>
+      </path>
+      <path
+         id="tick_5"
+         d="m 80.779024,343.63775 -1.532089,-1.28557 23.568875,-28.0883 1.53209,1.28557 z"
+         class="">
+        <title
+           id="title103">tick_5</title>
+      </path>
+      <path
+         id="tick_6"
+         d="m 75.838765,339.3895 -1.48629,-1.33826 24.534789,-27.24865 1.486286,1.33826 z"
+         class="">
+        <title
+           id="title104">tick_6</title>
+      </path>
+      <path
+         id="tick_7"
+         d="m 71.049777,334.97142 -1.438679,-1.38932 25.470807,-26.37579 1.438679,1.38932 z"
+         class="">
+        <title
+           id="title105">tick_7</title>
+      </path>
+      <path
+         id="tick_8"
+         d="m 66.417896,330.3889 -1.389317,-1.43868 26.375793,-25.4708 1.389316,1.43868 z"
+         class="">
+        <title
+           id="title106">tick_8</title>
+      </path>
+      <path
+         id="tick_9"
+         d="m 61.948763,325.64752 -1.338261,-1.48628 27.248644,-24.53479 1.338261,1.48629 z"
+         class="">
+        <title
+           id="title107">tick_9</title>
+      </path>
+      <path
+         id="tick_10"
+         d="m 57.647825,320.75306 -1.285575,-1.53208 28.088296,-23.56888 1.285575,1.53209 z"
+         class="">
+        <title
+           id="title108">tick_10</title>
+      </path>
+      <path
+         id="tick_11"
+         d="m 53.520321,315.71149 -1.231323,-1.57603 28.893727,-22.57425 1.231323,1.57602 z"
+         class="">
+        <title
+           id="title109">tick_11</title>
+      </path>
+      <path
+         id="tick_12"
+         d="m 49.57128,310.52893 -1.175571,-1.61803 29.663957,-21.55213 1.17557,1.61803 z"
+         class="">
+        <title
+           id="title110">tick_12</title>
+      </path>
+      <path
+         id="tick_13"
+         d="m 45.805513,305.21171 -1.118386,-1.65807 30.398044,-20.50374 1.118386,1.65807 z"
+         class="">
+        <title
+           id="title111">tick_13</title>
+      </path>
+      <path
+         id="tick_14"
+         d="m 42.227608,299.76631 -1.059839,-1.6961 31.095097,-19.43037 1.059839,1.6961 z"
+         class="">
+        <title
+           id="title112">tick_14</title>
+      </path>
+      <path
+         id="tick_15"
+         d="m 38.841925,294.19936 -1,-1.73205 31.754264,-18.33334 1,1.73206 z"
+         class="">
+        <title
+           id="title113">tick_15</title>
+      </path>
+      <path
+         id="tick_16"
+         d="m 35.652588,288.51764 -0.938944,-1.7659 32.374746,-17.21395 0.938943,1.76589 z"
+         class="">
+        <title
+           id="title114">tick_16</title>
+      </path>
+      <path
+         id="tick_17"
+         d="m 32.663483,282.72807 -0.876743,-1.79758 32.955782,-16.07361 0.876742,1.79759 z"
+         class="">
+        <title
+           id="title115">tick_17</title>
+      </path>
+      <path
+         id="tick_18"
+         d="m 29.878251,276.83772 -0.813473,-1.82709 33.496667,-14.91368 0.813473,1.82709 z"
+         class="">
+        <title
+           id="title116">tick_18</title>
+      </path>
+      <path
+         id="tick_19"
+         d="m 27.300287,270.85375 -0.749213,-1.85437 33.996741,-13.73557 0.749213,1.85436 z"
+         class="">
+        <title
+           id="title117">tick_19</title>
+      </path>
+      <path
+         id="tick_20"
+         d="m 24.932731,264.78345 -0.68404,-1.87938 34.455396,-12.54074 0.68404,1.87938 z"
+         class="">
+        <title
+           id="title118">tick_20</title>
+      </path>
+      <path
+         id="tick_21"
+         d="m 22.778467,258.63423 -0.618034,-1.90211 34.872073,-11.33063 0.618034,1.90212 z"
+         class="">
+        <title
+           id="title119">tick_21</title>
+      </path>
+      <path
+         id="tick_22"
+         d="m 20.840121,252.41357 -0.551275,-1.92253 35.246262,-10.1067 0.551275,1.92253 z"
+         class="">
+        <title
+           id="title120">tick_22</title>
+      </path>
+      <path
+         id="tick_23"
+         d="m 19.120053,246.12905 -0.483844,-1.94059 35.57751,-8.87047 0.483844,1.94059 z"
+         class="">
+        <title
+           id="title121">tick_23</title>
+      </path>
+      <path
+         id="tick_24"
+         d="m 17.62036,239.78833 -0.415824,-1.9563 35.865412,-7.62342 0.415824,1.95629 z"
+         class="">
+        <title
+           id="title122">tick_24</title>
+      </path>
+      <path
+         id="tick_25"
+         d="m 16.342868,233.39913 -0.347297,-1.96961 36.109618,-6.3671 0.347296,1.96961 z"
+         class="">
+        <title
+           id="title123">tick_25</title>
+      </path>
+      <path
+         id="tick_26"
+         d="m 15.289134,226.96925 -0.278347,-1.98054 36.30983,-5.10301 0.278346,1.98053 z"
+         class="">
+        <title
+           id="title124">tick_26</title>
+      </path>
+      <path
+         id="tick_27"
+         d="m 14.460441,220.5065 -0.209057,-1.98904 36.465803,-3.83271 0.209057,1.98904 z"
+         class="">
+        <title
+           id="title125">tick_27</title>
+      </path>
+      <path
+         id="tick_28"
+         d="m 13.8578,214.01877 -0.139513,-1.99513 36.577349,-2.55773 0.139513,1.99513 z"
+         class="">
+        <title
+           id="title126">tick_28</title>
+      </path>
+      <path
+         id="tick_29"
+         d="m 13.481945,207.51396 -0.0698,-1.99878 36.64433,-1.27965 0.0698,1.99879 z"
+         class="">
+        <title
+           id="title127">tick_29</title>
+      </path>
+      <path
+         id="tick_30"
+         d="m 13.333333,201 v -2 H 50 v 2 z"
+         class="">
+        <title
+           id="title128">tick_30</title>
+      </path>
+      <path
+         id="tick_31"
+         d="m 13.412146,194.48482 0.0698,-1.99878 36.64433,1.27964 -0.0698,1.99879 z"
+         class="">
+        <title
+           id="title129">tick_31</title>
+      </path>
+      <path
+         id="tick_32"
+         d="m 13.718287,187.97636 0.139513,-1.99513 36.577349,2.55773 -0.139513,1.99513 z"
+         class="">
+        <title
+           id="title130">tick_32</title>
+      </path>
+      <path
+         id="tick_33"
+         d="m 14.251384,181.48254 0.209057,-1.98904 36.465803,3.83271 -0.209057,1.98904 z"
+         class="">
+        <title
+           id="title131">tick_33</title>
+      </path>
+      <path
+         id="tick_34"
+         d="m 15.010787,175.01129 0.278347,-1.98054 36.309829,5.10302 -0.278346,1.98053 z"
+         class="">
+        <title
+           id="title132">tick_34</title>
+      </path>
+      <path
+         id="tick_35"
+         d="m 15.995571,168.57048 0.347297,-1.96961 36.109617,6.3671 -0.347296,1.96961 z"
+         class="">
+        <title
+           id="title133">tick_35</title>
+      </path>
+      <path
+         id="tick_36"
+         d="m 17.204536,162.16797 0.415824,-1.9563 35.865412,7.62343 -0.415824,1.95629 z"
+         class="">
+        <title
+           id="title134">tick_36</title>
+      </path>
+      <path
+         id="tick_37"
+         d="m 18.636209,155.81154 0.483844,-1.94059 35.57751,8.87047 -0.483844,1.94059 z"
+         class="">
+        <title
+           id="title135">tick_37</title>
+      </path>
+      <path
+         id="tick_38"
+         d="m 20.288846,149.50896 0.551275,-1.92253 35.246262,10.1067 -0.551275,1.92253 z"
+         class="">
+        <title
+           id="title136">tick_38</title>
+      </path>
+      <path
+         id="tick_39"
+         d="m 22.160433,143.26788 0.618034,-1.90211 34.872073,11.33062 -0.618034,1.90212 z"
+         class="">
+        <title
+           id="title137">tick_39</title>
+      </path>
+      <path
+         id="tick_40"
+         d="m 24.248691,137.09593 0.68404,-1.87938 34.455396,12.54074 -0.68404,1.87938 z"
+         class="">
+        <title
+           id="title138">tick_40</title>
+      </path>
+      <path
+         id="tick_41"
+         d="m 26.551074,131.00062 0.749213,-1.85437 33.996741,13.73558 -0.749213,1.85436 z"
+         class="">
+        <title
+           id="title139">tick_41</title>
+      </path>
+      <path
+         id="tick_42"
+         d="m 29.064778,124.98937 0.813473,-1.82709 33.496667,14.91368 -0.813473,1.82709 z"
+         class="">
+        <title
+           id="title140">tick_42</title>
+      </path>
+      <path
+         id="tick_43"
+         d="m 31.78674,119.06951 0.876743,-1.79758 32.955781,16.0736 -0.876742,1.79759 z"
+         class="">
+        <title
+           id="title141">tick_43</title>
+      </path>
+      <path
+         id="tick_44"
+         d="m 34.713644,113.24826 0.938944,-1.7659 32.374745,17.21396 -0.938943,1.76589 z"
+         class="">
+        <title
+           id="title142">tick_44</title>
+      </path>
+      <path
+         id="tick_45"
+         d="m 37.841925,107.53269 1,-1.73205 31.754264,18.33333 -1,1.73206 z"
+         class="">
+        <title
+           id="title143">tick_45</title>
+      </path>
+      <path
+         id="tick_46"
+         d="m 41.167769,101.92979 1.059839,-1.6961 31.095097,19.43037 -1.059839,1.6961 z"
+         class="">
+        <title
+           id="title144">tick_46</title>
+      </path>
+      <path
+         id="tick_47"
+         d="m 44.687127,96.446362 1.118386,-1.658075 30.398044,20.503743 -1.118386,1.65807 z"
+         class="">
+        <title
+           id="title145">tick_47</title>
+      </path>
+      <path
+         id="tick_48"
+         d="m 48.395709,91.089103 1.175571,-1.618034 29.663956,21.552131 -1.17557,1.61803 z"
+         class="">
+        <title
+           id="title146">tick_48</title>
+      </path>
+      <path
+         id="tick_49"
+         d="m 52.288998,85.864535 1.231323,-1.576021 28.893727,22.574256 -1.231323,1.57602 z"
+         class="">
+        <title
+           id="title147">tick_49</title>
+      </path>
+      <path
+         id="tick_50"
+         d="m 56.36225,80.779024 1.285575,-1.532089 28.088296,23.568875 -1.285575,1.53209 z"
+         class="">
+        <title
+           id="title148">tick_50</title>
+      </path>
+      <path
+         id="tick_51"
+         d="m 60.610502,75.838765 1.338261,-1.48629 27.248644,24.534789 -1.338261,1.486286 z"
+         class="">
+        <title
+           id="title149">tick_51</title>
+      </path>
+      <path
+         id="tick_52"
+         d="m 65.028579,71.049777 1.389317,-1.438679 26.375792,25.470807 -1.389316,1.438679 z"
+         class="">
+        <title
+           id="title150">tick_52</title>
+      </path>
+      <path
+         id="tick_53"
+         d="m 69.611098,66.417896 1.438679,-1.389317 25.470807,26.375793 -1.438679,1.389316 z"
+         class="">
+        <title
+           id="title151">tick_53</title>
+      </path>
+      <path
+         id="tick_54"
+         d="m 74.352475,61.948763 1.48629,-1.338261 24.534785,27.248644 -1.486286,1.338261 z"
+         class="">
+        <title
+           id="title152">tick_54</title>
+      </path>
+      <path
+         id="tick_55"
+         d="m 79.246935,57.647825 1.532089,-1.285575 23.568876,28.088296 -1.53209,1.285575 z"
+         class="">
+        <title
+           id="title153">tick_55</title>
+      </path>
+      <path
+         id="tick_56"
+         d="m 84.288514,53.520321 1.576021,-1.231323 22.574255,28.893727 -1.57602,1.231323 z"
+         class="">
+        <title
+           id="title154">tick_56</title>
+      </path>
+      <path
+         id="tick_57"
+         d="m 89.471069,49.57128 1.618034,-1.175571 21.552127,29.663957 -1.61803,1.17557 z"
+         class="">
+        <title
+           id="title155">tick_57</title>
+      </path>
+      <path
+         id="tick_58"
+         d="m 94.788287,45.805513 1.658075,-1.118386 20.503738,30.398044 -1.65807,1.118386 z"
+         class="">
+        <title
+           id="title156">tick_58</title>
+      </path>
+      <path
+         id="tick_59"
+         d="m 100.23369,42.227608 1.6961,-1.059839 19.43037,31.095097 -1.6961,1.059839 z"
+         class="">
+        <title
+           id="title157">tick_59</title>
+      </path>
+      <path
+         id="tick_60"
+         d="m 105.80064,38.841925 1.73205,-1 18.33334,31.754264 -1.73206,1 z"
+         class="">
+        <title
+           id="title158">tick_60</title>
+      </path>
+      <path
+         id="tick_61"
+         d="m 111.48236,35.652588 1.7659,-0.938944 17.21395,32.374746 -1.76589,0.938943 z"
+         class="">
+        <title
+           id="title159">tick_61</title>
+      </path>
+      <path
+         id="tick_62"
+         d="m 117.27193,32.663483 1.79758,-0.876743 16.07361,32.955782 -1.79759,0.876742 z"
+         class="">
+        <title
+           id="title160">tick_62</title>
+      </path>
+      <path
+         id="tick_63"
+         d="m 123.16228,29.878251 1.82709,-0.813473 14.91368,33.496667 -1.82709,0.813473 z"
+         class="">
+        <title
+           id="title161">tick_63</title>
+      </path>
+      <path
+         id="tick_64"
+         d="m 129.14625,27.300287 1.85437,-0.749213 13.73557,33.996741 -1.85436,0.749213 z"
+         class="">
+        <title
+           id="title162">tick_64</title>
+      </path>
+      <path
+         id="tick_65"
+         d="m 135.21655,24.932731 1.87938,-0.68404 12.54074,34.455396 -1.87938,0.68404 z"
+         class="">
+        <title
+           id="title163">tick_65</title>
+      </path>
+      <path
+         id="tick_66"
+         d="m 141.36577,22.778467 1.90211,-0.618034 11.33063,34.872073 -1.90212,0.618034 z"
+         class="">
+        <title
+           id="title164">tick_66</title>
+      </path>
+      <path
+         id="tick_67"
+         d="m 147.58643,20.840121 1.92253,-0.551275 10.1067,35.246262 -1.92253,0.551275 z"
+         class="">
+        <title
+           id="title165">tick_67</title>
+      </path>
+      <path
+         id="tick_68"
+         d="m 153.87095,19.120053 1.94059,-0.483844 8.87047,35.57751 -1.94059,0.483844 z"
+         class="">
+        <title
+           id="title166">tick_68</title>
+      </path>
+      <path
+         id="tick_69"
+         d="m 160.21167,17.62036 1.9563,-0.415824 7.62342,35.865412 -1.95629,0.415824 z"
+         class="">
+        <title
+           id="title167">tick_69</title>
+      </path>
+      <path
+         id="tick_70"
+         d="m 166.60087,16.342868 1.96961,-0.347297 6.3671,36.109618 -1.96961,0.347296 z"
+         class="">
+        <title
+           id="title168">tick_70</title>
+      </path>
+      <path
+         id="tick_71"
+         d="m 173.03075,15.289134 1.98054,-0.278347 5.10301,36.30983 -1.98053,0.278346 z"
+         class="">
+        <title
+           id="title169">tick_71</title>
+      </path>
+      <path
+         id="tick_72"
+         d="m 179.4935,14.460441 1.98904,-0.209057 3.83271,36.465803 -1.98904,0.209057 z"
+         class="">
+        <title
+           id="title170">tick_72</title>
+      </path>
+      <path
+         id="tick_73"
+         d="m 185.98123,13.8578 1.99513,-0.139513 2.55773,36.577349 -1.99513,0.139513 z"
+         class="">
+        <title
+           id="title171">tick_73</title>
+      </path>
+      <path
+         id="tick_74"
+         d="m 192.48604,13.481945 1.99878,-0.0698 1.27965,36.64433 -1.99879,0.0698 z"
+         class="">
+        <title
+           id="title172">tick_74</title>
+      </path>
+      <path
+         id="tick_75"
+         d="m 199,13.333333 h 2 V 50 h -2 z"
+         class="">
+        <title
+           id="title173">tick_75</title>
+      </path>
+      <path
+         id="tick_76"
+         d="m 205.51518,13.412146 1.99878,0.0698 -1.27964,36.64433 -1.99879,-0.0698 z"
+         class="">
+        <title
+           id="title174">tick_76</title>
+      </path>
+      <path
+         id="tick_77"
+         d="m 212.02364,13.718287 1.99513,0.139513 -2.55773,36.577349 -1.99513,-0.139513 z"
+         class="">
+        <title
+           id="title175">tick_77</title>
+      </path>
+      <path
+         id="tick_78"
+         d="m 218.51746,14.251384 1.98904,0.209057 -3.83271,36.465803 -1.98904,-0.209057 z"
+         class="">
+        <title
+           id="title176">tick_78</title>
+      </path>
+      <path
+         id="tick_79"
+         d="m 224.98871,15.010787 1.98054,0.278347 -5.10302,36.309829 -1.98053,-0.278346 z"
+         class="">
+        <title
+           id="title177">tick_79</title>
+      </path>
+      <path
+         id="tick_80"
+         d="m 231.42952,15.995571 1.96961,0.347297 -6.3671,36.109617 -1.96961,-0.347296 z"
+         class="">
+        <title
+           id="title178">tick_80</title>
+      </path>
+      <path
+         id="tick_81"
+         d="m 237.83203,17.204536 1.9563,0.415824 -7.62343,35.865412 -1.95629,-0.415824 z"
+         class="">
+        <title
+           id="title179">tick_81</title>
+      </path>
+      <path
+         id="tick_82"
+         d="m 244.18846,18.636209 1.94059,0.483844 -8.87047,35.57751 -1.94059,-0.483844 z"
+         class="">
+        <title
+           id="title180">tick_82</title>
+      </path>
+      <path
+         id="tick_83"
+         d="m 250.49104,20.288846 1.92253,0.551275 -10.1067,35.246262 -1.92253,-0.551275 z"
+         class="">
+        <title
+           id="title181">tick_83</title>
+      </path>
+      <path
+         id="tick_84"
+         d="m 256.73212,22.160433 1.90211,0.618034 -11.33062,34.872073 -1.90212,-0.618034 z"
+         class="">
+        <title
+           id="title182">tick_84</title>
+      </path>
+      <path
+         id="tick_85"
+         d="m 262.90407,24.248691 1.87938,0.68404 -12.54074,34.455396 -1.87938,-0.68404 z"
+         class="">
+        <title
+           id="title183">tick_85</title>
+      </path>
+      <path
+         id="tick_86"
+         d="m 268.99938,26.551074 1.85437,0.749213 -13.73558,33.996741 -1.85436,-0.749213 z"
+         class="">
+        <title
+           id="title184">tick_86</title>
+      </path>
+      <path
+         id="tick_87"
+         d="m 275.01063,29.064778 1.82709,0.813473 -14.91368,33.496667 -1.82709,-0.813473 z"
+         class="">
+        <title
+           id="title185">tick_87</title>
+      </path>
+      <path
+         id="tick_88"
+         d="m 280.93049,31.78674 1.79758,0.876743 -16.0736,32.955781 -1.79759,-0.876742 z"
+         class="">
+        <title
+           id="title186">tick_88</title>
+      </path>
+      <path
+         id="tick_89"
+         d="m 286.75174,34.713644 1.7659,0.938944 -17.21396,32.374745 -1.76589,-0.938943 z"
+         class="">
+        <title
+           id="title187">tick_89</title>
+      </path>
+      <path
+         id="tick_90"
+         d="m 292.46731,37.841925 1.73205,1 -18.33333,31.754264 -1.73206,-1 z"
+         class="">
+        <title
+           id="title188">tick_90</title>
+      </path>
+      <path
+         id="tick_91"
+         d="m 298.07021,41.167769 1.6961,1.059839 -19.43037,31.095097 -1.6961,-1.059839 z"
+         class="">
+        <title
+           id="title189">tick_91</title>
+      </path>
+      <path
+         id="tick_92"
+         d="m 303.55364,44.687127 1.65807,1.118386 -20.50374,30.398044 -1.65807,-1.118386 z"
+         class="">
+        <title
+           id="title190">tick_92</title>
+      </path>
+      <path
+         id="tick_93"
+         d="m 308.9109,48.395709 1.61803,1.175571 -21.55213,29.663956 -1.61803,-1.17557 z"
+         class="">
+        <title
+           id="title191">tick_93</title>
+      </path>
+      <path
+         id="tick_94"
+         d="m 314.13546,52.288998 1.57603,1.231323 -22.57426,28.893727 -1.57602,-1.231323 z"
+         class="">
+        <title
+           id="title192">tick_94</title>
+      </path>
+      <path
+         id="tick_95"
+         d="m 319.22098,56.36225 1.53208,1.285575 -23.56887,28.088296 -1.53209,-1.285575 z"
+         class="">
+        <title
+           id="title193">tick_95</title>
+      </path>
+      <path
+         id="tick_96"
+         d="m 324.16124,60.610502 1.48628,1.338261 -24.53478,27.248644 -1.48629,-1.338261 z"
+         class="">
+        <title
+           id="title194">tick_96</title>
+      </path>
+      <path
+         id="tick_97"
+         d="m 328.95022,65.028579 1.43868,1.389317 -25.4708,26.375792 -1.43868,-1.389316 z"
+         class="">
+        <title
+           id="title195">tick_97</title>
+      </path>
+      <path
+         id="tick_98"
+         d="m 333.5821,69.611098 1.38932,1.438679 -26.37579,25.470807 -1.38932,-1.438679 z"
+         class="">
+        <title
+           id="title196">tick_98</title>
+      </path>
+      <path
+         id="tick_99"
+         d="m 338.05124,74.352475 1.33826,1.48629 -27.24865,24.534785 -1.33826,-1.486286 z"
+         class="">
+        <title
+           id="title197">tick_99</title>
+      </path>
+      <path
+         id="tick_100"
+         d="m 342.35218,79.246935 1.28557,1.532089 -28.0883,23.568876 -1.28557,-1.53209 z"
+         class="">
+        <title
+           id="title198">tick_100</title>
+      </path>
+      <path
+         id="tick_101"
+         d="m 346.47968,84.288514 1.23132,1.576021 -28.89373,22.574255 -1.23132,-1.57602 z"
+         class="">
+        <title
+           id="title199">tick_101</title>
+      </path>
+      <path
+         id="tick_102"
+         d="m 350.42872,89.471069 1.17557,1.618034 -29.66396,21.552127 -1.17557,-1.61803 z"
+         class="">
+        <title
+           id="title200">tick_102</title>
+      </path>
+      <path
+         id="tick_103"
+         d="m 354.19449,94.788287 1.11838,1.658075 -30.39804,20.503738 -1.11839,-1.65807 z"
+         class="">
+        <title
+           id="title201">tick_103</title>
+      </path>
+      <path
+         id="tick_104"
+         d="m 357.77239,100.23369 1.05984,1.6961 -31.0951,19.43037 -1.05983,-1.6961 z"
+         class="">
+        <title
+           id="title202">tick_104</title>
+      </path>
+      <path
+         id="tick_105"
+         d="m 361.15808,105.80064 1,1.73205 -31.75427,18.33334 -1,-1.73206 z"
+         class="">
+        <title
+           id="title203">tick_105</title>
+      </path>
+      <path
+         id="tick_106"
+         d="m 364.34741,111.48236 0.93895,1.7659 -32.37475,17.21395 -0.93894,-1.76589 z"
+         class="">
+        <title
+           id="title204">tick_106</title>
+      </path>
+      <path
+         id="tick_107"
+         d="m 367.33652,117.27193 0.87674,1.79758 -32.95578,16.07361 -0.87674,-1.79759 z"
+         class="">
+        <title
+           id="title205">tick_107</title>
+      </path>
+      <path
+         id="tick_108"
+         d="m 370.12175,123.16228 0.81347,1.82709 -33.49666,14.91368 -0.81348,-1.82709 z"
+         class="">
+        <title
+           id="title206">tick_108</title>
+      </path>
+      <path
+         id="tick_109"
+         d="m 372.69971,129.14625 0.74922,1.85437 -33.99675,13.73557 -0.74921,-1.85436 z"
+         class="">
+        <title
+           id="title207">tick_109</title>
+      </path>
+      <path
+         id="tick_110"
+         d="m 375.06727,135.21655 0.68404,1.87938 -34.4554,12.54074 -0.68404,-1.87938 z"
+         class="">
+        <title
+           id="title208">tick_110</title>
+      </path>
+      <path
+         id="tick_111"
+         d="m 377.22153,141.36577 0.61804,1.90211 -34.87208,11.33063 -0.61803,-1.90212 z"
+         class="">
+        <title
+           id="title209">tick_111</title>
+      </path>
+      <path
+         id="tick_112"
+         d="m 379.15988,147.58643 0.55127,1.92253 -35.24626,10.1067 -0.55127,-1.92253 z"
+         class="">
+        <title
+           id="title210">tick_112</title>
+      </path>
+      <path
+         id="tick_113"
+         d="m 380.87995,153.87095 0.48384,1.94059 -35.57751,8.87047 -0.48384,-1.94059 z"
+         class="">
+        <title
+           id="title211">tick_113</title>
+      </path>
+      <path
+         id="tick_114"
+         d="m 382.37964,160.21167 0.41582,1.9563 -35.86541,7.62342 -0.41582,-1.95629 z"
+         class="">
+        <title
+           id="title212">tick_114</title>
+      </path>
+      <path
+         id="tick_115"
+         d="m 383.65713,166.60087 0.3473,1.96961 -36.10962,6.3671 -0.3473,-1.96961 z"
+         class="">
+        <title
+           id="title213">tick_115</title>
+      </path>
+      <path
+         id="tick_116"
+         d="m 384.64128,172.53562 0.41752,2.9708 -56.11519,7.88648 -0.41752,-2.97081 z"
+         class="active heat large">
+        <title
+           id="title214">tick_116</title>
+      </path>
+      <path
+         id="tick_117"
+         d="m 385.53956,179.4935 0.20906,1.98904 -36.46581,3.83271 -0.20905,-1.98904 z"
+         class="active heat">
+        <title
+           id="title215">tick_117</title>
+      </path>
+      <path
+         id="tick_118"
+         d="m 386.1422,185.98123 0.13951,1.99513 -36.57735,2.55773 -0.13951,-1.99513 z"
+         class="active heat">
+        <title
+           id="title216">tick_118</title>
+      </path>
+      <path
+         id="tick_119"
+         d="m 386.51805,192.48604 0.0698,1.99878 -36.64433,1.27965 -0.0698,-1.99879 z"
+         class="active heat">
+        <title
+           id="title217">tick_119</title>
+      </path>
+      <path
+         id="tick_120"
+         d="m 386.66667,199 v 2 H 350 v -2 z"
+         class="active heat">
+        <title
+           id="title218">tick_120</title>
+      </path>
+      <path
+         id="tick_121"
+         d="m 386.58785,205.51518 -0.0698,1.99878 -36.64433,-1.27964 0.0698,-1.99879 z"
+         class="active heat">
+        <title
+           id="title219">tick_121</title>
+      </path>
+      <path
+         id="tick_122"
+         d="m 386.28171,212.02364 -0.13951,1.99513 -36.57735,-2.55773 0.13951,-1.99513 z"
+         class="active heat">
+        <title
+           id="title220">tick_122</title>
+      </path>
+      <path
+         id="tick_123"
+         d="m 385.74862,218.51746 -0.20906,1.98904 -36.4658,-3.83271 0.20905,-1.98904 z"
+         class="active heat">
+        <title
+           id="title221">tick_123</title>
+      </path>
+      <path
+         id="tick_124"
+         d="m 384.98921,224.98871 -0.27834,1.98054 -36.30983,-5.10302 0.27834,-1.98053 z"
+         class="active heat">
+        <title
+           id="title222">tick_124</title>
+      </path>
+      <path
+         id="tick_125"
+         d="m 384.00443,231.42952 -0.3473,1.96961 -36.10962,-6.3671 0.3473,-1.96961 z"
+         class="active heat">
+        <title
+           id="title223">tick_125</title>
+      </path>
+      <path
+         id="tick_126"
+         d="m 382.79546,237.83203 -0.41582,1.9563 -35.86541,-7.62343 0.41582,-1.95629 z"
+         class="active heat">
+        <title
+           id="title224">tick_126</title>
+      </path>
+      <path
+         id="tick_127"
+         d="m 381.36379,244.18846 -0.48384,1.94059 -35.57751,-8.87047 0.48384,-1.94059 z"
+         class="active heat">
+        <title
+           id="title225">tick_127</title>
+      </path>
+      <path
+         id="tick_128"
+         d="m 379.84897,250.01041 -0.82691,2.88379 -54.4715,-15.61945 0.82692,-2.88379 z"
+         class="active heat large">
+        <title
+           id="title226">tick_128</title>
+      </path>
+      <path
+         id="tick_129"
+         d="m 377.83957,256.73212 -0.61804,1.90211 -34.87207,-11.33062 0.61803,-1.90212 z"
+         class="">
+        <title
+           id="title227">tick_129</title>
+      </path>
+      <path
+         id="tick_130"
+         d="m 375.75131,262.90407 -0.68404,1.87938 -34.4554,-12.54074 0.68404,-1.87938 z"
+         class="">
+        <title
+           id="title228">tick_130</title>
+      </path>
+      <path
+         id="tick_131"
+         d="m 373.44893,268.99938 -0.74922,1.85437 -33.99674,-13.73558 0.74921,-1.85436 z"
+         class="">
+        <title
+           id="title229">tick_131</title>
+      </path>
+      <path
+         id="tick_132"
+         d="m 370.93522,275.01063 -0.81347,1.82709 -33.49667,-14.91368 0.81348,-1.82709 z"
+         class="">
+        <title
+           id="title230">tick_132</title>
+      </path>
+      <path
+         id="tick_133"
+         d="m 368.21326,280.93049 -0.87674,1.79758 -32.95578,-16.0736 0.87674,-1.79759 z"
+         class="">
+        <title
+           id="title231">tick_133</title>
+      </path>
+      <path
+         id="tick_134"
+         d="m 365.28636,286.75174 -0.93895,1.7659 -32.37474,-17.21396 0.93894,-1.76589 z"
+         class="">
+        <title
+           id="title232">tick_134</title>
+      </path>
+      <path
+         id="tick_135"
+         d="m 362.15808,292.46731 -1,1.73205 -31.75427,-18.33333 1,-1.73206 z"
+         class="">
+        <title
+           id="title233">tick_135</title>
+      </path>
+      <path
+         id="tick_136"
+         d="m 358.83223,298.07021 -1.05984,1.6961 -31.09509,-19.43037 1.05983,-1.6961 z"
+         class="">
+        <title
+           id="title234">tick_136</title>
+      </path>
+      <path
+         id="tick_137"
+         d="m 355.31287,303.55364 -1.11838,1.65807 -30.39805,-20.50374 1.11839,-1.65807 z"
+         class="">
+        <title
+           id="title235">tick_137</title>
+      </path>
+      <path
+         id="tick_138"
+         d="m 351.60429,308.9109 -1.17557,1.61803 -29.66396,-21.55213 1.17557,-1.61803 z"
+         class="">
+        <title
+           id="title236">tick_138</title>
+      </path>
+      <path
+         id="tick_139"
+         d="m 347.711,314.13546 -1.23132,1.57603 -28.89373,-22.57426 1.23132,-1.57602 z"
+         class="">
+        <title
+           id="title237">tick_139</title>
+      </path>
+      <path
+         id="tick_140"
+         d="m 343.63775,319.22098 -1.28557,1.53208 -28.0883,-23.56887 1.28557,-1.53209 z"
+         class="">
+        <title
+           id="title238">tick_140</title>
+      </path>
+      <path
+         id="tick_141"
+         d="m 339.3895,324.16124 -1.33826,1.48628 -27.24865,-24.53478 1.33826,-1.48629 z"
+         class="">
+        <title
+           id="title239">tick_141</title>
+      </path>
+      <path
+         id="tick_142"
+         d="m 334.97142,328.95022 -1.38932,1.43868 -26.37579,-25.4708 1.38932,-1.43868 z"
+         class="">
+        <title
+           id="title240">tick_142</title>
+      </path>
+      <path
+         id="tick_143"
+         d="m 330.3889,333.5821 -1.43868,1.38932 -25.4708,-26.37579 1.43868,-1.38932 z"
+         class="">
+        <title
+           id="title241">tick_143</title>
+      </path>
+      <path
+         id="tick_144"
+         d="m 325.64752,338.05124 -1.48628,1.33826 -24.53479,-27.24865 1.48629,-1.33826 z"
+         class="">
+        <title
+           id="title242">tick_144</title>
+      </path>
+      <path
+         id="tick_145"
+         d="m 320.75306,342.35218 -1.53208,1.28557 -23.56888,-28.0883 1.53209,-1.28557 z"
+         class="">
+        <title
+           id="title243">tick_145</title>
+      </path>
+      <path
+         id="tick_146"
+         d="m 315.71149,346.47968 -1.57603,1.23132 -22.57425,-28.89373 1.57602,-1.23132 z"
+         class="">
+        <title
+           id="title244">tick_146</title>
+      </path>
+      <path
+         id="tick_147"
+         d="m 310.52893,350.42872 -1.61803,1.17557 -21.55213,-29.66396 1.61803,-1.17557 z"
+         class="">
+        <title
+           id="title245">tick_147</title>
+      </path>
+      <path
+         id="tick_148"
+         d="m 305.21171,354.19449 -1.65807,1.11838 -20.50374,-30.39804 1.65807,-1.11839 z"
+         class="">
+        <title
+           id="title246">tick_148</title>
+      </path>
+      <path
+         id="tick_149"
+         d="m 299.76631,357.77239 -1.6961,1.05984 -19.43037,-31.0951 1.6961,-1.05983 z"
+         class="">
+        <title
+           id="title247">tick_149</title>
+      </path>
+    </g>
+    <text
+       class="dial__lbl dial__lbl--ring"
+       id="temperature_slot_1"
+       x="362.21112"
+       y="155.01488">71°</text>
+    <text
+       class="dial__lbl dial__lbl--ring"
+       id="temperature_slot_2"
+       x="354.95166"
+       y="265.77307">74°</text>
+    <text
+       class="dial__lbl dial__lbl--ring"
+       id="temperature_slot_3"><title
+         id="title248">temperature_slot_3</title></text>
+    <text
+       x="120"
+       y="200"
+       class="dial__lbl dial__lbl--low"
+       id="low"><title
+         id="title249">low</title><tspan
+         id="tspan249" /><tspan
+         x="184.51613"
+         y="166.66667"
+         class="dial__lbl--super--low"
+         id="tspan250" /></text>
+    <text
+       x="266.66666"
+       y="200"
+       class="dial__lbl dial__lbl--high"
+       id="high"><title
+         id="title250">high</title><tspan
+         id="tspan251" /><tspan
+         x="331.1828"
+         y="166.66667"
+         class="dial__lbl--super--high"
+         id="tspan252" /></text>
+  </g>
+  <g
+     class="layer layer--mode"
+     id="mode"
+     inkscape:groupmode="layer"
+     inkscape:label="mode"
+     clip-path="url(#clip-layer-mode)"
+     style="display:inline;opacity:0.154"
+     transform="matrix(1,0,0,0.94953742,0,10.092515)">
+    <title
+       id="title92">mode</title>
+    <path
+       d="m 200,200 77.84575,21.46147 c 135.46239,5.0522 -27.82856,155.3853 -77.84575,155.3853 -50.01718,0 -115.410744,-79.11963 -140.419335,-122.43579 z"
+       id="mode_main"
+       class="layer__main"
+       fill="none"
+       stroke="none"
+       pointer-events="none"
+       style="display:none;mix-blend-mode:hue;fill:#000000;fill-opacity:1"
+       sodipodi:nodetypes="ccscc">
+      <title
+         id="title93">mode_main</title>
+    </path>
+    <ellipse
+       cx="202.01852"
+       cy="328.52435"
+       class="mode__anchor"
+       id="mode_button_anchor"
+       rx="10.317915"
+       ry="9.1656342">
+      <title
+         id="title94">mode_button_anchor</title>
+    </ellipse>
+  </g>
+  <g
+     class="layer layer--rim"
+     id="rim"
+     inkscape:groupmode="layer"
+     inkscape:label="rim"
+     clip-path="url(#clip-layer-rim)"
+     style="display:none;opacity:0.174">
+    <title
+       id="title252">rim</title>
+    <path
+       d="m 10,200 a 190,190 0 1 1 380,0 190,190 0 1 1 -380,0 z m 10,0 a 180,180 0 1 0 360,0 180,180 0 1 0 -360,0 z"
+       id="rim_main"
+       class="layer__main"
+       fill="none"
+       stroke="none"
+       pointer-events="none">
+      <title
+         id="title253">rim_main</title>
+    </path>
+    <g
+       class="dial__ring"
+       id="rim_group">
+      <title
+         id="title254">rim_group</title>
+      <g
+         class="dial__ring-static"
+         id="rim_static">
+        <title
+           id="title255">rim_static</title>
+        <path
+           d="m 1.5,200 a 198.5,198.5 0 1 1 397,0 198.5,198.5 0 1 1 -397,0 z m 9.833333,0 a 188.66667,188.66667 0 1 0 377.333337,0 188.66667,188.66667 0 1 0 -377.333337,0 z"
+           class="dial__metal-ring"
+           id="rim_surface"
+           fill="url(#dial-metal-gradient-1)"
+           stroke="url(#dial-metal-sheen-1)"
+           stroke-width="1.4">
+          <title
+             id="title256">rim_surface</title>
+        </path>
+        <path
+           d="M 1.6966667,200 A 198.30333,198.30333 0 1 1 398.30333,200 198.30333,198.30333 0 1 1 1.6966667,200 Z m 8.1616666,0 A 190.14167,190.14167 0 1 0 390.14167,200 190.14167,190.14167 0 1 0 9.8583333,200 Z"
+           class="dial__metal-ring-shadow"
+           id="rim_shadow">
+          <title
+             id="title257">rim_shadow</title>
+        </path>
+        <path
+           d="m 2.68,200 a 197.32,197.32 0 1 1 394.64,0 197.32,197.32 0 1 1 -394.64,0 z m 3.245,0 a 194.075,194.075 0 1 0 388.15,0 194.075,194.075 0 1 0 -388.15,0 z"
+           class="dial__metal-ring-sheen"
+           id="rim_sheen">
+          <title
+             id="title258">rim_sheen</title>
+        </path>
+        <path
+           d="m 2.3,200 a 197.7,197.7 0 1 1 395.4,0 197.7,197.7 0 1 1 -395.4,0 z"
+           class="dial__rim-spec"
+           id="rim_spec_outer"
+           fill="none"
+           stroke="url(#dial-rim-spec-1)"
+           stroke-width="1.2"
+           stroke-linecap="round">
+          <title
+             id="title259">rim_spec_outer</title>
+        </path>
+        <path
+           d="M 8.5333333,200 A 191.46667,191.46667 0 1 1 391.46667,200 191.46667,191.46667 0 1 1 8.5333333,200 Z m 2.1999997,0 a 189.26667,189.26667 0 1 0 378.533337,0 189.26667,189.26667 0 1 0 -378.533337,0 z"
+           class="dial__inner-bevel"
+           id="rim_inner_bevel"
+           fill="url(#dial-inner-bevel-1)">
+          <title
+             id="title260">rim_inner_bevel</title>
+        </path>
+        <path
+           d="m 10.133333,200 a 189.86667,189.86667 0 1 1 379.733337,0 189.86667,189.86667 0 1 1 -379.733337,0 z"
+           class="dial__rim-spec dial__rim-spec--inner"
+           id="rim_spec_inner"
+           fill="none"
+           stroke="url(#dial-rim-spec-inner-1)"
+           stroke-width="0.9"
+           stroke-linecap="round">
+          <title
+             id="title261">rim_spec_inner</title>
+        </path>
+        <path
+           d="m 1.5,200 a 198.5,198.5 0 1 1 397,0 198.5,198.5 0 1 1 -397,0 z m 9.833333,0 a 188.66667,188.66667 0 1 0 377.333337,0 188.66667,188.66667 0 1 0 -377.333337,0 z"
+           class="dial__metal-brush"
+           id="rim_brush_overlay"
+           filter="url(#dial-metal-brush-1)">
+          <title
+             id="title262">rim_brush_overlay</title>
+        </path>
+      </g>
+      <g
+         class="dial__ring-spin"
+         id="rim_spin"
+         transform="rotate(52.5,200,200)">
+        <title
+           id="title263">rim_spin</title>
+        <g
+           class="dial__ring-grips"
+           id="rim_grips">
+          <title
+             id="title264">rim_grips</title>
+          <path
+             d="m 199.50833,2.8766667 h 0.98334 v 7.08 h -0.98334 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_0"
+             style="mix-blend-mode:screen">
+            <title
+               id="title265">rim_grip_0</title>
+          </path>
+          <path
+             d="m 209.82565,3.1210855 0.98198,0.051464 -0.37054,7.0702965 -0.98198,-0.05146 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_1"
+             style="mix-blend-mode:screen">
+            <title
+               id="title266">rim_grip_1</title>
+          </path>
+          <path
+             d="m 220.11603,3.9051358 0.97794,0.1027863 -0.74006,7.0412149 -0.97795,-0.102786 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_2"
+             style="mix-blend-mode:screen">
+            <title
+               id="title267">rim_grip_2</title>
+          </path>
+          <path
+             d="m 230.35127,5.2266684 0.97123,0.1538272 -1.10756,6.9928334 -0.97123,-0.153827 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_3"
+             style="mix-blend-mode:screen">
+            <title
+               id="title268">rim_grip_3</title>
+          </path>
+          <path
+             d="m 240.50332,7.0820612 0.96185,0.2044465 -1.47202,6.9252853 -0.96184,-0.204447 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_4"
+             style="mix-blend-mode:screen">
+            <title
+               id="title269">rim_grip_4</title>
+          </path>
+          <path
+             d="m 250.54436,9.4662287 0.94983,0.2545054 -1.83244,6.8387549 -0.94983,-0.254505 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_5"
+             style="mix-blend-mode:screen">
+            <title
+               id="title270">rim_grip_5</title>
+          </path>
+          <path
+             d="m 260.44686,12.372636 0.9352,0.303867 -2.18784,6.73348 -0.9352,-0.303867 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_6"
+             style="mix-blend-mode:screen">
+            <title
+               id="title271">rim_grip_6</title>
+          </path>
+          <path
+             d="m 270.18367,15.793317 0.91803,0.352395 -2.53725,6.609749 -0.91802,-0.352395 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_7"
+             style="mix-blend-mode:screen">
+            <title
+               id="title272">rim_grip_7</title>
+          </path>
+          <path
+             d="m 279.72812,19.718895 0.89832,0.399958 -2.87969,6.467902 -0.89832,-0.399958 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_8"
+             style="mix-blend-mode:screen">
+            <title
+               id="title273">rim_grip_8</title>
+          </path>
+          <path
+             d="m 289.05404,24.138612 0.87616,0.446424 -3.21425,6.308326 -0.87616,-0.446424 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_9"
+             style="mix-blend-mode:screen">
+            <title
+               id="title274">rim_grip_9</title>
+          </path>
+          <path
+             d="m 298.13587,29.040352 0.85159,0.491667 -3.54,6.13146 -0.85159,-0.491667 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_10"
+             style="mix-blend-mode:screen">
+            <title
+               id="title275">rim_grip_10</title>
+          </path>
+          <path
+             d="m 306.94872,34.410681 0.82469,0.535562 -3.85605,5.937788 -0.82469,-0.535562 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_11"
+             style="mix-blend-mode:screen">
+            <title
+               id="title276">rim_grip_11</title>
+          </path>
+          <path
+             d="m 315.46842,40.234879 0.79553,0.577989 -4.16151,5.72784 -0.79554,-0.577989 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_12"
+             style="mix-blend-mode:screen">
+            <title
+               id="title277">rim_grip_12</title>
+          </path>
+          <path
+             d="m 323.67164,46.496982 0.76419,0.618831 -4.45559,5.502194 -0.76419,-0.618832 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_13"
+             style="mix-blend-mode:screen">
+            <title
+               id="title278">rim_grip_13</title>
+          </path>
+          <path
+             d="m 331.53588,53.179826 0.73076,0.657978 -4.73745,5.261465 -0.73076,-0.657978 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_14"
+             style="mix-blend-mode:screen">
+            <title
+               id="title279">rim_grip_14</title>
+          </path>
+          <path
+             d="m 339.03958,60.265093 0.69533,0.695322 -5.00632,5.006316 -0.69532,-0.695322 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_15"
+             style="mix-blend-mode:screen">
+            <title
+               id="title280">rim_grip_15</title>
+          </path>
+          <path
+             d="m 346.1622,67.733365 0.65797,0.730759 -5.26146,4.737445 -0.65798,-0.730759 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_16"
+             style="mix-blend-mode:screen">
+            <title
+               id="title281">rim_grip_16</title>
+          </path>
+          <path
+             d="m 352.88419,75.56417 0.61883,0.764194 -5.5022,4.455588 -0.61883,-0.764194 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_17"
+             style="mix-blend-mode:screen">
+            <title
+               id="title282">rim_grip_17</title>
+          </path>
+          <path
+             d="m 359.18713,83.736045 0.57799,0.795533 -5.72784,4.16152 -0.57799,-0.795533 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_18"
+             style="mix-blend-mode:screen">
+            <title
+               id="title283">rim_grip_18</title>
+          </path>
+          <path
+             d="m 365.05376,92.226592 0.53556,0.824692 -5.93779,3.856045 -0.53556,-0.824693 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_19"
+             style="mix-blend-mode:screen">
+            <title
+               id="title284">rim_grip_19</title>
+          </path>
+          <path
+             d="m 370.46798,101.01254 0.49167,0.85159 -6.13146,3.54 -0.49167,-0.85159 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_20"
+             style="mix-blend-mode:screen">
+            <title
+               id="title285">rim_grip_20</title>
+          </path>
+          <path
+             d="m 375.41496,110.0698 0.44643,0.87616 -6.30833,3.21425 -0.44642,-0.87616 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_21"
+             style="mix-blend-mode:screen">
+            <title
+               id="title286">rim_grip_21</title>
+          </path>
+          <path
+             d="m 379.88115,119.37356 0.39995,0.89832 -6.4679,2.87969 -0.39995,-0.89832 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_22"
+             style="mix-blend-mode:screen">
+            <title
+               id="title287">rim_grip_22</title>
+          </path>
+          <path
+             d="m 383.85429,128.8983 0.35239,0.91803 -6.60975,2.53724 -0.35239,-0.91802 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_23"
+             style="mix-blend-mode:screen">
+            <title
+               id="title288">rim_grip_23</title>
+          </path>
+          <path
+             d="m 387.3235,138.61794 0.30386,0.9352 -6.73348,2.18784 -0.30386,-0.9352 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_24"
+             style="mix-blend-mode:screen">
+            <title
+               id="title289">rim_grip_24</title>
+          </path>
+          <path
+             d="m 390.27927,148.50581 0.2545,0.94983 -6.83875,1.83244 -0.25451,-0.94983 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_25"
+             style="mix-blend-mode:screen">
+            <title
+               id="title290">rim_grip_25</title>
+          </path>
+          <path
+             d="m 392.71349,158.53483 0.20445,0.96185 -6.92529,1.47201 -0.20444,-0.96184 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_26"
+             style="mix-blend-mode:screen">
+            <title
+               id="title291">rim_grip_26</title>
+          </path>
+          <path
+             d="m 394.6195,168.6775 0.15383,0.97123 -6.99283,1.10756 -0.15383,-0.97123 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_27"
+             style="mix-blend-mode:screen">
+            <title
+               id="title292">rim_grip_27</title>
+          </path>
+          <path
+             d="m 395.99208,178.90603 0.10278,0.97794 -7.04121,0.74007 -0.10279,-0.97795 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_28"
+             style="mix-blend-mode:screen">
+            <title
+               id="title293">rim_grip_28</title>
+          </path>
+          <path
+             d="m 396.82745,189.19237 0.0515,0.98198 -7.07029,0.37054 -0.0515,-0.98198 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_29"
+             style="mix-blend-mode:screen">
+            <title
+               id="title294">rim_grip_29</title>
+          </path>
+          <path
+             d="m 397.12333,199.50833 v 0.98334 h -7.08 v -0.98334 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_30"
+             style="mix-blend-mode:screen">
+            <title
+               id="title295">rim_grip_30</title>
+          </path>
+          <path
+             d="m 396.87891,209.82565 -0.0515,0.98198 -7.0703,-0.37054 0.0515,-0.98198 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_31"
+             style="mix-blend-mode:screen">
+            <title
+               id="title296">rim_grip_31</title>
+          </path>
+          <path
+             d="m 396.09486,220.11603 -0.10278,0.97794 -7.04122,-0.74006 0.10279,-0.97795 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_32"
+             style="mix-blend-mode:screen">
+            <title
+               id="title297">rim_grip_32</title>
+          </path>
+          <path
+             d="m 394.77333,230.35127 -0.15383,0.97123 -6.99283,-1.10756 0.15383,-0.97123 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_33"
+             style="mix-blend-mode:screen">
+            <title
+               id="title298">rim_grip_33</title>
+          </path>
+          <path
+             d="m 392.91794,240.50332 -0.20445,0.96185 -6.92528,-1.47202 0.20444,-0.96184 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_34"
+             style="mix-blend-mode:screen">
+            <title
+               id="title299">rim_grip_34</title>
+          </path>
+          <path
+             d="m 390.53377,250.54436 -0.2545,0.94983 -6.83876,-1.83244 0.25451,-0.94983 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_35"
+             style="mix-blend-mode:screen">
+            <title
+               id="title300">rim_grip_35</title>
+          </path>
+          <path
+             d="m 387.62736,260.44686 -0.30386,0.9352 -6.73348,-2.18784 0.30386,-0.9352 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_36"
+             style="mix-blend-mode:screen">
+            <title
+               id="title301">rim_grip_36</title>
+          </path>
+          <path
+             d="m 384.20668,270.18367 -0.35239,0.91803 -6.60975,-2.53725 0.35239,-0.91802 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_37"
+             style="mix-blend-mode:screen">
+            <title
+               id="title302">rim_grip_37</title>
+          </path>
+          <path
+             d="m 380.2811,279.72812 -0.39995,0.89832 -6.4679,-2.87969 0.39995,-0.89832 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_38"
+             style="mix-blend-mode:screen">
+            <title
+               id="title303">rim_grip_38</title>
+          </path>
+          <path
+             d="m 375.86139,289.05404 -0.44643,0.87616 -6.30832,-3.21425 0.44642,-0.87616 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_39"
+             style="mix-blend-mode:screen">
+            <title
+               id="title304">rim_grip_39</title>
+          </path>
+          <path
+             d="m 370.95965,298.13587 -0.49167,0.85159 -6.13146,-3.54 0.49167,-0.85159 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_40"
+             style="mix-blend-mode:screen">
+            <title
+               id="title305">rim_grip_40</title>
+          </path>
+          <path
+             d="m 365.58932,306.94872 -0.53556,0.82469 -5.93779,-3.85605 0.53556,-0.82469 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_41"
+             style="mix-blend-mode:screen">
+            <title
+               id="title306">rim_grip_41</title>
+          </path>
+          <path
+             d="m 359.76512,315.46842 -0.57799,0.79553 -5.72784,-4.16151 0.57799,-0.79554 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_42"
+             style="mix-blend-mode:screen">
+            <title
+               id="title307">rim_grip_42</title>
+          </path>
+          <path
+             d="m 353.50302,323.67164 -0.61883,0.76419 -5.5022,-4.45559 0.61883,-0.76419 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_43"
+             style="mix-blend-mode:screen">
+            <title
+               id="title308">rim_grip_43</title>
+          </path>
+          <path
+             d="m 346.82017,331.53588 -0.65797,0.73076 -5.26147,-4.73745 0.65798,-0.73076 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_44"
+             style="mix-blend-mode:screen">
+            <title
+               id="title309">rim_grip_44</title>
+          </path>
+          <path
+             d="m 339.73491,339.03958 -0.69533,0.69533 -5.00631,-5.00632 0.69532,-0.69532 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_45"
+             style="mix-blend-mode:screen">
+            <title
+               id="title310">rim_grip_45</title>
+          </path>
+          <path
+             d="m 332.26664,346.1622 -0.73076,0.65797 -4.73745,-5.26146 0.73076,-0.65798 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_46"
+             style="mix-blend-mode:screen">
+            <title
+               id="title311">rim_grip_46</title>
+          </path>
+          <path
+             d="m 324.43583,352.88419 -0.76419,0.61883 -4.45559,-5.5022 0.76419,-0.61883 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_47"
+             style="mix-blend-mode:screen">
+            <title
+               id="title312">rim_grip_47</title>
+          </path>
+          <path
+             d="m 316.26395,359.18713 -0.79553,0.57799 -4.16152,-5.72784 0.79554,-0.57799 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_48"
+             style="mix-blend-mode:screen">
+            <title
+               id="title313">rim_grip_48</title>
+          </path>
+          <path
+             d="m 307.77341,365.05376 -0.82469,0.53556 -3.85605,-5.93779 0.82469,-0.53556 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_49"
+             style="mix-blend-mode:screen">
+            <title
+               id="title314">rim_grip_49</title>
+          </path>
+          <path
+             d="m 298.98746,370.46798 -0.85159,0.49167 -3.54,-6.13146 0.85159,-0.49167 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_50"
+             style="mix-blend-mode:screen">
+            <title
+               id="title315">rim_grip_50</title>
+          </path>
+          <path
+             d="m 289.9302,375.41496 -0.87616,0.44643 -3.21425,-6.30833 0.87616,-0.44642 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_51"
+             style="mix-blend-mode:screen">
+            <title
+               id="title316">rim_grip_51</title>
+          </path>
+          <path
+             d="m 280.62644,379.88115 -0.89832,0.39995 -2.87969,-6.4679 0.89832,-0.39995 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_52"
+             style="mix-blend-mode:screen">
+            <title
+               id="title317">rim_grip_52</title>
+          </path>
+          <path
+             d="m 271.1017,383.85429 -0.91803,0.35239 -2.53724,-6.60975 0.91802,-0.35239 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_53"
+             style="mix-blend-mode:screen">
+            <title
+               id="title318">rim_grip_53</title>
+          </path>
+          <path
+             d="m 261.38206,387.3235 -0.9352,0.30386 -2.18784,-6.73348 0.9352,-0.30386 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_54"
+             style="mix-blend-mode:screen">
+            <title
+               id="title319">rim_grip_54</title>
+          </path>
+          <path
+             d="m 251.49419,390.27927 -0.94983,0.2545 -1.83244,-6.83875 0.94983,-0.25451 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_55"
+             style="mix-blend-mode:screen">
+            <title
+               id="title320">rim_grip_55</title>
+          </path>
+          <path
+             d="m 241.46517,392.71349 -0.96185,0.20445 -1.47201,-6.92529 0.96184,-0.20444 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_56"
+             style="mix-blend-mode:screen">
+            <title
+               id="title321">rim_grip_56</title>
+          </path>
+          <path
+             d="m 231.3225,394.6195 -0.97123,0.15383 -1.10756,-6.99283 0.97123,-0.15383 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_57"
+             style="mix-blend-mode:screen">
+            <title
+               id="title322">rim_grip_57</title>
+          </path>
+          <path
+             d="m 221.09397,395.99208 -0.97794,0.10278 -0.74007,-7.04121 0.97795,-0.10279 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_58"
+             style="mix-blend-mode:screen">
+            <title
+               id="title323">rim_grip_58</title>
+          </path>
+          <path
+             d="m 210.80763,396.82745 -0.98198,0.0515 -0.37054,-7.07029 0.98198,-0.0515 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_59"
+             style="mix-blend-mode:screen">
+            <title
+               id="title324">rim_grip_59</title>
+          </path>
+          <path
+             d="m 200.49167,397.12333 h -0.98334 v -7.08 h 0.98334 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_60"
+             style="mix-blend-mode:screen">
+            <title
+               id="title325">rim_grip_60</title>
+          </path>
+          <path
+             d="m 190.17435,396.87891 -0.98198,-0.0515 0.37054,-7.0703 0.98198,0.0515 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_61"
+             style="mix-blend-mode:screen">
+            <title
+               id="title326">rim_grip_61</title>
+          </path>
+          <path
+             d="m 179.88397,396.09486 -0.97794,-0.10278 0.74006,-7.04122 0.97795,0.10279 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_62"
+             style="mix-blend-mode:screen">
+            <title
+               id="title327">rim_grip_62</title>
+          </path>
+          <path
+             d="m 169.64873,394.77333 -0.97123,-0.15383 1.10756,-6.99283 0.97123,0.15383 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_63"
+             style="mix-blend-mode:screen">
+            <title
+               id="title328">rim_grip_63</title>
+          </path>
+          <path
+             d="m 159.49668,392.91794 -0.96185,-0.20445 1.47202,-6.92528 0.96184,0.20444 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_64"
+             style="mix-blend-mode:screen">
+            <title
+               id="title329">rim_grip_64</title>
+          </path>
+          <path
+             d="m 149.45564,390.53377 -0.94983,-0.2545 1.83244,-6.83876 0.94983,0.25451 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_65"
+             style="mix-blend-mode:screen">
+            <title
+               id="title330">rim_grip_65</title>
+          </path>
+          <path
+             d="m 139.55314,387.62736 -0.9352,-0.30386 2.18784,-6.73348 0.9352,0.30386 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_66"
+             style="mix-blend-mode:screen">
+            <title
+               id="title331">rim_grip_66</title>
+          </path>
+          <path
+             d="m 129.81633,384.20668 -0.91803,-0.35239 2.53725,-6.60975 0.91802,0.35239 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_67"
+             style="mix-blend-mode:screen">
+            <title
+               id="title332">rim_grip_67</title>
+          </path>
+          <path
+             d="m 120.27188,380.2811 -0.89832,-0.39995 2.87969,-6.4679 0.89832,0.39995 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_68"
+             style="mix-blend-mode:screen">
+            <title
+               id="title333">rim_grip_68</title>
+          </path>
+          <path
+             d="m 110.94596,375.86139 -0.87616,-0.44643 3.21425,-6.30832 0.87616,0.44642 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_69"
+             style="mix-blend-mode:screen">
+            <title
+               id="title334">rim_grip_69</title>
+          </path>
+          <path
+             d="m 101.86413,370.95965 -0.85159,-0.49167 3.54,-6.13146 0.85159,0.49167 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_70"
+             style="mix-blend-mode:screen">
+            <title
+               id="title335">rim_grip_70</title>
+          </path>
+          <path
+             d="m 93.051284,365.58932 -0.824692,-0.53556 3.856044,-5.93779 0.824693,0.53556 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_71"
+             style="mix-blend-mode:screen">
+            <title
+               id="title336">rim_grip_71</title>
+          </path>
+          <path
+             d="m 84.531578,359.76512 -0.795533,-0.57799 4.16152,-5.72784 0.795533,0.57799 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_72"
+             style="mix-blend-mode:screen">
+            <title
+               id="title337">rim_grip_72</title>
+          </path>
+          <path
+             d="m 76.328364,353.50302 -0.764194,-0.61883 4.455588,-5.5022 0.764194,0.61883 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_73"
+             style="mix-blend-mode:screen">
+            <title
+               id="title338">rim_grip_73</title>
+          </path>
+          <path
+             d="m 68.464124,346.82017 -0.730759,-0.65797 4.737445,-5.26147 0.730759,0.65798 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_74"
+             style="mix-blend-mode:screen">
+            <title
+               id="title339">rim_grip_74</title>
+          </path>
+          <path
+             d="m 60.960415,339.73491 -0.695322,-0.69533 5.006316,-5.00631 0.695322,0.69532 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_75"
+             style="mix-blend-mode:screen">
+            <title
+               id="title340">rim_grip_75</title>
+          </path>
+          <path
+             d="m 53.837804,332.26664 -0.657978,-0.73076 5.261465,-4.73745 0.657978,0.73076 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_76"
+             style="mix-blend-mode:screen">
+            <title
+               id="title341">rim_grip_76</title>
+          </path>
+          <path
+             d="m 47.115813,324.43583 -0.618831,-0.76419 5.502193,-4.45559 0.618832,0.76419 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_77"
+             style="mix-blend-mode:screen">
+            <title
+               id="title342">rim_grip_77</title>
+          </path>
+          <path
+             d="m 40.812868,316.26395 -0.577989,-0.79553 5.72784,-4.16152 0.577989,0.79554 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_78"
+             style="mix-blend-mode:screen">
+            <title
+               id="title343">rim_grip_78</title>
+          </path>
+          <path
+             d="m 34.946243,307.77341 -0.535562,-0.82469 5.937788,-3.85605 0.535562,0.82469 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_79"
+             style="mix-blend-mode:screen">
+            <title
+               id="title344">rim_grip_79</title>
+          </path>
+          <path
+             d="m 29.532019,298.98746 -0.491667,-0.85159 6.13146,-3.54 0.491667,0.85159 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_80"
+             style="mix-blend-mode:screen">
+            <title
+               id="title345">rim_grip_80</title>
+          </path>
+          <path
+             d="m 24.585036,289.9302 -0.446424,-0.87616 6.308326,-3.21425 0.446424,0.87616 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_81"
+             style="mix-blend-mode:screen">
+            <title
+               id="title346">rim_grip_81</title>
+          </path>
+          <path
+             d="m 20.118853,280.62644 -0.399958,-0.89832 6.467902,-2.87969 0.399958,0.89832 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_82"
+             style="mix-blend-mode:screen">
+            <title
+               id="title347">rim_grip_82</title>
+          </path>
+          <path
+             d="m 16.145712,271.1017 -0.352395,-0.91803 6.609749,-2.53724 0.352395,0.91802 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_83"
+             style="mix-blend-mode:screen">
+            <title
+               id="title348">rim_grip_83</title>
+          </path>
+          <path
+             d="m 12.676503,261.38206 -0.303867,-0.9352 6.73348,-2.18784 0.303867,0.9352 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_84"
+             style="mix-blend-mode:screen">
+            <title
+               id="title349">rim_grip_84</title>
+          </path>
+          <path
+             d="m 9.7207341,251.49419 -0.2545054,-0.94983 6.8387553,-1.83244 0.254505,0.94983 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_85"
+             style="mix-blend-mode:screen">
+            <title
+               id="title350">rim_grip_85</title>
+          </path>
+          <path
+             d="m 7.2865077,241.46517 -0.2044465,-0.96185 6.9252848,-1.47201 0.204447,0.96184 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_86"
+             style="mix-blend-mode:screen">
+            <title
+               id="title351">rim_grip_86</title>
+          </path>
+          <path
+             d="m 5.3804956,231.3225 -0.1538272,-0.97123 6.9928336,-1.10756 0.153827,0.97123 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_87"
+             style="mix-blend-mode:screen">
+            <title
+               id="title352">rim_grip_87</title>
+          </path>
+          <path
+             d="m 4.0079221,221.09397 -0.1027863,-0.97794 7.0412152,-0.74007 0.102786,0.97795 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_88"
+             style="mix-blend-mode:screen">
+            <title
+               id="title353">rim_grip_88</title>
+          </path>
+          <path
+             d="m 3.1725492,210.80763 -0.051464,-0.98198 7.0702978,-0.37054 0.05146,0.98198 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_89"
+             style="mix-blend-mode:screen">
+            <title
+               id="title354">rim_grip_89</title>
+          </path>
+          <path
+             d="m 2.8766667,200.49167 v -0.98334 h 7.08 v 0.98334 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_90"
+             style="mix-blend-mode:screen">
+            <title
+               id="title355">rim_grip_90</title>
+          </path>
+          <path
+             d="m 3.1210855,190.17435 0.051464,-0.98198 7.0702965,0.37054 -0.05146,0.98198 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_91"
+             style="mix-blend-mode:screen">
+            <title
+               id="title356">rim_grip_91</title>
+          </path>
+          <path
+             d="m 3.9051358,179.88397 0.1027863,-0.97794 7.0412149,0.74006 -0.102786,0.97795 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_92"
+             style="mix-blend-mode:screen">
+            <title
+               id="title357">rim_grip_92</title>
+          </path>
+          <path
+             d="m 5.2266684,169.64873 0.1538272,-0.97123 6.9928334,1.10756 -0.153827,0.97123 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_93"
+             style="mix-blend-mode:screen">
+            <title
+               id="title358">rim_grip_93</title>
+          </path>
+          <path
+             d="m 7.0820612,159.49668 0.2044465,-0.96185 6.9252853,1.47202 -0.204447,0.96184 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_94"
+             style="mix-blend-mode:screen">
+            <title
+               id="title359">rim_grip_94</title>
+          </path>
+          <path
+             d="m 9.4662287,149.45564 0.2545054,-0.94983 6.8387549,1.83244 -0.254505,0.94983 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_95"
+             style="mix-blend-mode:screen">
+            <title
+               id="title360">rim_grip_95</title>
+          </path>
+          <path
+             d="m 12.372636,139.55314 0.303867,-0.9352 6.73348,2.18784 -0.303867,0.9352 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_96"
+             style="mix-blend-mode:screen">
+            <title
+               id="title361">rim_grip_96</title>
+          </path>
+          <path
+             d="m 15.793317,129.81633 0.352395,-0.91803 6.609749,2.53725 -0.352395,0.91802 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_97"
+             style="mix-blend-mode:screen">
+            <title
+               id="title362">rim_grip_97</title>
+          </path>
+          <path
+             d="m 19.718895,120.27188 0.399958,-0.89832 6.467902,2.87969 -0.399958,0.89832 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_98"
+             style="mix-blend-mode:screen">
+            <title
+               id="title363">rim_grip_98</title>
+          </path>
+          <path
+             d="m 24.138612,110.94596 0.446424,-0.87616 6.308326,3.21425 -0.446424,0.87616 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_99"
+             style="mix-blend-mode:screen">
+            <title
+               id="title364">rim_grip_99</title>
+          </path>
+          <path
+             d="m 29.040352,101.86413 0.491667,-0.85159 6.13146,3.54 -0.491667,0.85159 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_100"
+             style="mix-blend-mode:screen">
+            <title
+               id="title365">rim_grip_100</title>
+          </path>
+          <path
+             d="m 34.410681,93.051284 0.535562,-0.824692 5.937788,3.856044 -0.535562,0.824693 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_101"
+             style="mix-blend-mode:screen">
+            <title
+               id="title366">rim_grip_101</title>
+          </path>
+          <path
+             d="m 40.234879,84.531578 0.577989,-0.795533 5.72784,4.16152 -0.577989,0.795533 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_102"
+             style="mix-blend-mode:screen">
+            <title
+               id="title367">rim_grip_102</title>
+          </path>
+          <path
+             d="m 46.496982,76.328364 0.618831,-0.764194 5.502194,4.455588 -0.618832,0.764194 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_103"
+             style="mix-blend-mode:screen">
+            <title
+               id="title368">rim_grip_103</title>
+          </path>
+          <path
+             d="m 53.179826,68.464124 0.657978,-0.730759 5.261465,4.737445 -0.657978,0.730759 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_104"
+             style="mix-blend-mode:screen">
+            <title
+               id="title369">rim_grip_104</title>
+          </path>
+          <path
+             d="m 60.265093,60.960415 0.695322,-0.695322 5.006316,5.006316 -0.695322,0.695322 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_105"
+             style="mix-blend-mode:screen">
+            <title
+               id="title370">rim_grip_105</title>
+          </path>
+          <path
+             d="m 67.733365,53.837804 0.730759,-0.657978 4.737445,5.261465 -0.730759,0.657978 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_106"
+             style="mix-blend-mode:screen">
+            <title
+               id="title371">rim_grip_106</title>
+          </path>
+          <path
+             d="m 75.56417,47.115813 0.764194,-0.618831 4.455588,5.502193 -0.764194,0.618832 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_107"
+             style="mix-blend-mode:screen">
+            <title
+               id="title372">rim_grip_107</title>
+          </path>
+          <path
+             d="m 83.736045,40.812868 0.795533,-0.577989 4.16152,5.72784 -0.795533,0.577989 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_108"
+             style="mix-blend-mode:screen">
+            <title
+               id="title373">rim_grip_108</title>
+          </path>
+          <path
+             d="m 92.226592,34.946243 0.824692,-0.535562 3.856045,5.937788 -0.824693,0.535562 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_109"
+             style="mix-blend-mode:screen">
+            <title
+               id="title374">rim_grip_109</title>
+          </path>
+          <path
+             d="m 101.01254,29.532019 0.85159,-0.491667 3.54,6.13146 -0.85159,0.491667 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_110"
+             style="mix-blend-mode:screen">
+            <title
+               id="title375">rim_grip_110</title>
+          </path>
+          <path
+             d="m 110.0698,24.585036 0.87616,-0.446424 3.21425,6.308326 -0.87616,0.446424 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_111"
+             style="mix-blend-mode:screen">
+            <title
+               id="title376">rim_grip_111</title>
+          </path>
+          <path
+             d="m 119.37356,20.118853 0.89832,-0.399958 2.87969,6.467902 -0.89832,0.399958 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_112"
+             style="mix-blend-mode:screen">
+            <title
+               id="title377">rim_grip_112</title>
+          </path>
+          <path
+             d="m 128.8983,16.145712 0.91803,-0.352395 2.53724,6.609749 -0.91802,0.352395 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_113"
+             style="mix-blend-mode:screen">
+            <title
+               id="title378">rim_grip_113</title>
+          </path>
+          <path
+             d="m 138.61794,12.676503 0.9352,-0.303867 2.18784,6.73348 -0.9352,0.303867 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_114"
+             style="mix-blend-mode:screen">
+            <title
+               id="title379">rim_grip_114</title>
+          </path>
+          <path
+             d="m 148.50581,9.7207341 0.94983,-0.2545054 1.83244,6.8387553 -0.94983,0.254505 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_115"
+             style="mix-blend-mode:screen">
+            <title
+               id="title380">rim_grip_115</title>
+          </path>
+          <path
+             d="m 158.53483,7.2865077 0.96185,-0.2044465 1.47201,6.9252848 -0.96184,0.204447 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_116"
+             style="mix-blend-mode:screen">
+            <title
+               id="title381">rim_grip_116</title>
+          </path>
+          <path
+             d="m 168.6775,5.3804956 0.97123,-0.1538272 1.10756,6.9928336 -0.97123,0.153827 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_117"
+             style="mix-blend-mode:screen">
+            <title
+               id="title382">rim_grip_117</title>
+          </path>
+          <path
+             d="m 178.90603,4.0079221 0.97794,-0.1027863 0.74007,7.0412152 -0.97795,0.102786 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_118"
+             style="mix-blend-mode:screen">
+            <title
+               id="title383">rim_grip_118</title>
+          </path>
+          <path
+             d="m 189.19237,3.1725492 0.98198,-0.051464 0.37054,7.0702978 -0.98198,0.05146 z"
+             class="dial__ring-grip"
+             fill="rgba(255,255,255,0.26)"
+             stroke="rgba(0,0,0,0.12)"
+             id="rim_grip_119"
+             style="mix-blend-mode:screen">
+            <title
+               id="title384">rim_grip_119</title>
+          </path>
+        </g>
+        <path
+           d="m 386.06697,132.27716 a 198.00833,198.00833 0 0 1 0,135.44568 l -6.46822,-2.35424 a 191.125,191.125 0 0 0 0,-130.7372 z"
+           class="dial__ring-reflection"
+           id="rim_reflection">
+          <title
+             id="title385">rim_reflection</title>
+        </path>
+        <path
+           d="m 5,200 a 195,195 0 1 1 390,0 195,195 0 1 1 -390,0 z m 1.8333333,0 A 193.16667,193.16667 0 1 0 393.16667,200 193.16667,193.16667 0 1 0 6.8333333,200 Z"
+           class="dial__editableIndicator"
+           id="rim_highlight">
+          <title
+             id="title386">rim_highlight</title>
+        </path>
+      </g>
+    </g>
+  </g>
+  <g
+     class="layer layer--aura"
+     id="aura"
+     inkscape:groupmode="layer"
+     inkscape:label="aura"
+     clip-path="url(#clip-layer-aura)"
+     style="display:none;opacity:0.128">
+    <title
+       id="title387">aura</title>
+    <path
+       d="m 0,200 a 200,200 0 1 1 400,0 200,200 0 1 1 -400,0 z m 8,0 a 192,192 0 1 0 384,0 192,192 0 1 0 -384,0 z"
+       id="aura_main"
+       class="layer__main"
+       fill="none"
+       stroke="none"
+       pointer-events="none">
+      <title
+         id="title388">aura_main</title>
+    </path>
+    <path
+       d="m 0,200 a 200,200 0 1 1 400,0 200,200 0 1 1 -400,0 z m 8,0 a 192,192 0 1 0 384,0 192,192 0 1 0 -384,0 z"
+       class="aura__fill"
+       id="aura_fill">
+      <title
+         id="title389">aura_fill</title>
+    </path>
+  </g>
+  <g
+     class="layer layer--glass"
+     id="glass"
+     inkscape:groupmode="layer"
+     inkscape:label="glass"
+     clip-path="url(#clip-layer-glass)"
+     style="display:none;opacity:0">
+    <title
+       id="title390">glass</title>
+    <circle
+       cx="200"
+       cy="200"
+       r="180"
+       id="glass_main"
+       class="layer__main"
+       fill="none"
+       stroke="none"
+       pointer-events="none">
+      <title
+         id="title391">glass_main</title>
+    </circle>
+    <circle
+       cx="200"
+       cy="200"
+       r="200"
+       class="dial__drag-overlay"
+       id="glass_drag_overlay">
+      <title
+         id="title392">glass_drag_overlay</title>
+    </circle>
+    <circle
+       cx="200"
+       cy="200"
+       r="200"
+       class="dial__limit-flash"
+       id="glass_limit_flash">
+      <title
+         id="title393">glass_limit_flash</title>
+    </circle>
+    <g
+       class="dial__glass"
+       id="glass_overlays"
+       pointer-events="none"
+       transform="translate(0.29566863,-6.8761775)">
+      <title
+         id="title394">glass_overlays</title>
+      <circle
+         cx="200"
+         cy="200"
+         r="196"
+         class="face__vignette"
+         fill="url(#dial__face-vignette-3p93avbwp)"
+         id="glass_vignette"
+         style="fill:url(#dial__face-vignette-3p93avbwp)">
+        <title
+           id="title395">glass_vignette</title>
+      </circle>
+      <path
+         d="M 48.3232,327.27195 A 198,198 0 0 1 2.7534498,217.25684 L 14.707786,216.21097 A 186,186 0 0 0 57.515734,319.5585 Z"
+         class="glass__diag glass__diag--tl"
+         id="glass_diag_tl">
+        <title
+           id="title396">glass_diag_tl</title>
+      </path>
+      <path
+         d="m 379.44894,283.67842 a 198,198 0 0 1 -65.88081,78.51368 l -6.88291,-9.82982 A 186,186 0 0 0 368.57325,278.607 Z"
+         class="glass__diag glass__diag--br"
+         id="glass_diag_br">
+        <title
+           id="title397">glass_diag_br</title>
+      </path>
+      <path
+         d="m 159.0414,7.3049227 a 197,197 0 0 1 81.9172,0 l -3.5345,16.6285093 a 180,180 0 0 0 -74.8482,0 z"
+         class="glass__bottom"
+         id="glass_bottom_glow">
+        <title
+           id="title398">glass_bottom_glow</title>
+      </path>
+    </g>
+  </g>
+  <g
+     class="layer layer--sensor"
+     id="sensor"
+     inkscape:groupmode="layer"
+     inkscape:label="sensor"
+     clip-path="url(#clip-layer-sensor)"
+     style="display:none;opacity:0.154">
+    <title
+       id="title399">sensor</title>
+    <circle
+       cx="200"
+       cy="200"
+       r="200"
+       id="sensor_main"
+       class="layer__main"
+       fill="none"
+       stroke="none"
+       pointer-events="none"
+       style="display:none">
+      <title
+         id="title400">sensor_main</title>
+    </circle>
+    <path
+       class="dial__temperatureControl"
+       fill="transparent"
+       d="M 200,200 V 0 a 200,200 1 0 1 200,200 z"
+       transform="rotate(-90,200,200)"
+       id="sensor_control_top_left">
+      <title
+         id="title401">sensor_control_top_left</title>
+    </path>
+    <path
+       class="dial__temperatureControl"
+       fill="transparent"
+       d="M 200,200 V 0 a 200,200 1 0 1 200,200 z"
+       id="sensor_control_top_right">
+      <title
+         id="title402">sensor_control_top_right</title>
+    </path>
+    <path
+       class="dial__temperatureControl"
+       fill="transparent"
+       d="M 200,200 V 0 a 200,200 1 0 1 200,200 z"
+       transform="rotate(90,200,200)"
+       id="sensor_control_bottom_right">
+      <title
+         id="title403">sensor_control_bottom_right</title>
+    </path>
+    <path
+       class="dial__temperatureControl"
+       fill="transparent"
+       d="M 200,200 V 0 a 200,200 1 0 1 200,200 z"
+       transform="rotate(180,200,200)"
+       id="sensor_control_bottom_left">
+      <title
+         id="title404">sensor_control_bottom_left</title>
+    </path>
+  </g>
+  <namedview
+     id="namedview"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1" />
+</svg>
