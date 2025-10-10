@@ -191,6 +191,7 @@ export default class ThermostatUILayered {
         host.style.width = '100%';
         host.style.height = '100%';
         host.style.position = 'relative';
+
         host.style.pointerEvents = 'auto';
         const ignoreMenuEvent = (event) => {
           const target = event && event.target;
@@ -216,6 +217,7 @@ export default class ThermostatUILayered {
         };
         host.addEventListener('pointerup', handlePointerEnd);
         host.addEventListener('pointercancel', handlePointerEnd);
+
         // Inline minimal CSS to ensure styling inside foreignObject
         const styleEl = document.createElementNS('http://www.w3.org/1999/xhtml','style');
         styleEl.textContent = `
