@@ -191,7 +191,33 @@ export default class ThermostatUILayered {
         host.style.width = '100%';
         host.style.height = '100%';
         host.style.position = 'relative';
-        host.style.pointerEvents = 'none';
+
+        host.style.pointerEvents = 'auto';
+        const ignoreMenuEvent = (event) => {
+          const target = event && event.target;
+          return !!(target && typeof target.closest === 'function' && target.closest('.mode-menu'));
+        };
+        host.addEventListener('pointerdown', (event) => {
+          if (ignoreMenuEvent(event)) return;
+          if (this._ui && typeof this._ui._handleDialPointerDown === 'function') {
+            this._ui._handleDialPointerDown(event);
+          }
+        }, { passive: false });
+        host.addEventListener('pointermove', (event) => {
+          if (ignoreMenuEvent(event)) return;
+          if (this._ui && typeof this._ui._handleDialPointerMove === 'function') {
+            this._ui._handleDialPointerMove(event);
+          }
+        });
+        const handlePointerEnd = (event) => {
+          if (ignoreMenuEvent(event)) return;
+          if (this._ui && typeof this._ui._handleDialPointerUp === 'function') {
+            this._ui._handleDialPointerUp(event);
+          }
+        };
+        host.addEventListener('pointerup', handlePointerEnd);
+        host.addEventListener('pointercancel', handlePointerEnd);
+
         // Inline minimal CSS to ensure styling inside foreignObject
         const styleEl = document.createElementNS('http://www.w3.org/1999/xhtml','style');
         styleEl.textContent = `
