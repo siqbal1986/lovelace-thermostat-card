@@ -8,6 +8,138 @@ export default class ThermostatUI {
   get container() {
     return this._container // Expose the main DOM node so the card can insert it into the shadow DOM.
   }
+  _computeModeMenuGeometry(radius) {
+    const safeRadius = Number.isFinite(radius) ? radius : 0;
+    const diameter = safeRadius * 2;
+    const buttonRadius = Math.max(24, Math.min(safeRadius * 0.18, 34));
+    const bottomOffset = safeRadius * 0.2;
+    const minCenterY = safeRadius + buttonRadius * 0.15;
+    const proposedCenterY = diameter - bottomOffset - buttonRadius;
+    const centerY = Math.max(minCenterY, proposedCenterY);
+    return {
+      radius: safeRadius,
+      diameter,
+      buttonRadius,
+      bottomOffset,
+      centerX: safeRadius,
+      centerY,
+    };
+  }
+  _buildModeButton(radius) {
+    const geometry = this._computeModeMenuGeometry(radius);
+    const container = SvgUtil.createSVGElement('g', { class: 'mode-menu' });
+
+    const toggler = SvgUtil.createSVGElement('g', {
+      class: 'mode-menu__toggler',
+      role: 'button',
+      tabindex: '0',
+      'aria-label': 'Toggle HVAC modes',
+      'aria-expanded': 'false',
+      transform: `translate(${geometry.centerX}, ${geometry.centerY})`
+    });
+    toggler.dataset.bottomOffset = String(geometry.bottomOffset);
+
+    const toggleBody = SvgUtil.createSVGElement('g', { class: 'mode-menu__toggler-body' });
+    const circle = SvgUtil.createSVGElement('circle', {
+      class: 'mode-menu__toggler-circle',
+      cx: 0,
+      cy: 0,
+      r: geometry.buttonRadius
+    });
+    const inner = SvgUtil.createSVGElement('circle', {
+      class: 'mode-menu__toggler-inner',
+      cx: 0,
+      cy: 0,
+      r: Math.max(4, geometry.buttonRadius - 4)
+    });
+    const gloss = SvgUtil.createSVGElement('ellipse', {
+      class: 'mode-menu__toggler-gloss',
+      cx: -geometry.buttonRadius * 0.25,
+      cy: -geometry.buttonRadius * 0.45,
+      rx: geometry.buttonRadius * 0.7,
+      ry: geometry.buttonRadius * 0.55
+    });
+    const icon = SvgUtil.createSVGElement('g', { class: 'mode-menu__toggler-icon' });
+    const barOffsets = [-geometry.buttonRadius * 0.35, 0, geometry.buttonRadius * 0.35];
+    barOffsets.forEach((offset, index) => {
+      const roleClass = index === 0 ? 'top' : index === 1 ? 'middle' : 'bottom';
+      const bar = SvgUtil.createSVGElement('rect', {
+        class: `mode-menu__toggler-bar mode-menu__toggler-bar--${roleClass}`,
+        x: -geometry.buttonRadius * 0.55,
+        y: offset - 1,
+        width: geometry.buttonRadius * 1.1,
+        height: 2,
+        rx: 1.2,
+        ry: 1.2
+      });
+      bar.style.setProperty('--bar-shift', `${-offset}px`);
+      icon.appendChild(bar);
+    });
+
+    toggleBody.appendChild(circle);
+    toggleBody.appendChild(inner);
+    toggleBody.appendChild(gloss);
+    toggleBody.appendChild(icon);
+    toggler.appendChild(toggleBody);
+
+    const list = SvgUtil.createSVGElement('g', { class: 'mode-menu__items', 'aria-hidden': 'true' });
+
+    const stopPointer = (event) => {
+      event.stopPropagation();
+    };
+    toggler.addEventListener('pointerdown', (event) => {
+      stopPointer(event);
+      if (event.pointerType === 'touch') {
+        event.preventDefault();
+      }
+    });
+    toggler.addEventListener('pointerup', stopPointer);
+    toggler.addEventListener('pointercancel', stopPointer);
+    toggler.addEventListener('click', (event) => {
+      stopPointer(event);
+      const shouldOpen = !container.classList.contains('menu-open');
+      this._setModeMenuOpen(shouldOpen);
+    });
+    toggler.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        const shouldOpen = !container.classList.contains('menu-open');
+        this._setModeMenuOpen(shouldOpen);
+      }
+    });
+
+    list.addEventListener('click', stopPointer);
+    list.addEventListener('pointerdown', stopPointer);
+
+    container.appendChild(toggler);
+    container.appendChild(list);
+
+    return { container, toggler, toggleBody, circle, inner, list, geometry };
+  }
+  _modeMenuTransformFor(angle, distance, scale) {
+    const geometry = this._modeMenuGeometry || this._computeModeMenuGeometry(this._config.radius);
+    const centerX = geometry.radius;
+    const centerY = geometry.radius;
+    const clamped = Math.max(0, Math.min(1, Number.isFinite(scale) ? scale : 0));
+    const effectiveDistance = distance * clamped;
+    return [
+      `translate(${centerX}px, ${centerY}px)`,
+      `rotate(${angle}deg)`,
+      `translate(${effectiveDistance}px, 0px)`,
+      `rotate(${-angle}deg)`
+    ].join(' ');
+  }
+  _updateModeMenuTransforms(scale = this._modeMenuScale) {
+    if (!Array.isArray(this._modeMenuItems)) {
+      return;
+    }
+    this._modeMenuScale = Math.max(0, Math.min(1, Number.isFinite(scale) ? scale : 0));
+    this._modeMenuItems.forEach((item) => {
+      const angle = Number(item.dataset.angle || 0);
+      const distance = Number(item.dataset.distance || 0);
+      item.style.transform = this._modeMenuTransformFor(angle, distance, this._modeMenuScale);
+    });
+  }
   set dual(val) {
     this._dual = val // Track whether the thermostat is currently in dual setpoint mode (heat/cool).
   }
@@ -66,9 +198,14 @@ export default class ThermostatUI {
 
     this._container = document.createElement('div'); // Wrapper that holds both the dial SVG and the mode controls.
     this._modeMenuContainer = null; // References the dialog container once it is built.
-    this._modeMenuToggler = null; // References the hamburger button that opens/closes the mode carousel.
+    this._modeMenuToggler = null; // References the SVG group that opens/closes the mode carousel.
+    this._modeMenuToggleBody = null; // Inner SVG group used for animation/scale effects.
+    this._modeMenuCircle = null; // Background circle used to render the control.
+    this._modeMenuInner = null; // Inner circle that provides depth to the control.
     this._modeMenuList = null; // References the list element that holds the individual mode buttons.
     this._modeMenuItems = []; // Keep the individual list items handy so we can toggle active states.
+    this._modeMenuGeometry = null; // Cache geometry for the toggle to support responsive layouts.
+    this._modeMenuScale = 0; // Remember the most recent expansion state so transforms can be recomputed quickly.
     this._metalRingIds = {
       gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'), // Unique IDs for CSS-only fallbacks (legacy support).
       sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
@@ -897,21 +1034,39 @@ export default class ThermostatUI {
     if (!list) {
       return;
     }
-    list.innerHTML = '';
+    while (list.firstChild) {
+      list.removeChild(list.firstChild);
+    }
     this._modeMenuItems = [];
     if (!Array.isArray(modes) || modes.length === 0) {
+      this._updateModeMenuTransforms(0);
       return;
     }
     const total = modes.length;
-    const radius = Math.max(82, Math.min(this._config.radius * 0.85, 140));
+    const menuDistance = Math.max(82, Math.min(this._config.radius * 0.85, 140));
     const angleStep = 360 / total;
+    const htmlNS = 'http://www.w3.org/1999/xhtml';
     for (let i = 0; i < total; i++) {
       const mode = modes[i];
       const icon = this._iconForMode ? this._iconForMode(mode, 'help') : 'help';
-      const item = document.createElement('li');
-      item.className = 'menu-item';
-      const button = document.createElement('button');
-      button.type = 'button';
+      const item = SvgUtil.createSVGElement('g', { class: 'menu-item' });
+      const angle = angleStep * i;
+      item.dataset.angle = String(angle);
+      item.dataset.distance = String(menuDistance);
+      item.style.transition = 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease';
+      item.style.opacity = '0';
+
+      const foreign = SvgUtil.createSVGElement('foreignObject', {
+        class: 'menu-item__foreign',
+        x: -70,
+        y: -70,
+        width: 140,
+        height: 140
+      });
+      const wrapper = document.createElementNS(htmlNS, 'div');
+      wrapper.setAttribute('class', 'menu-item__wrapper');
+      const button = document.createElementNS(htmlNS, 'button');
+      button.setAttribute('type', 'button');
       button.className = 'menu-item__button';
       button.dataset.mode = mode;
       button.innerHTML = `<span class="menu-item__icon"><ha-icon icon="mdi:${icon}"></ha-icon></span><span class="menu-item__label">${mode.replace(/_/g, ' ')}</span>`;
@@ -919,15 +1074,15 @@ export default class ThermostatUI {
         event.stopPropagation();
         this._setMode(event, mode, hass);
       });
-      item.appendChild(button);
-      const angle = angleStep * i;
-      item.style.setProperty('--menu-angle', angle + 'deg');
-      item.style.setProperty('--menu-angle-negative', (-angle) + 'deg');
-      item.style.setProperty('--menu-distance', radius + 'px');
+      wrapper.appendChild(button);
+      foreign.appendChild(wrapper);
+      item.appendChild(foreign);
+
       list.appendChild(item);
       this._modeMenuItems.push(item);
     }
     this._setActiveMode(this.hvac_state);
+    this._updateModeMenuTransforms(this._modeMenuContainer && this._modeMenuContainer.classList.contains('menu-open') ? 1 : 0);
   }
   _setModeMenuOpen(open) {
     if (!this._modeMenuContainer || !this._modeMenuToggler) {
@@ -953,9 +1108,18 @@ export default class ThermostatUI {
     }
     this._modeMenuContainer.classList.toggle('menu-open', expanded);
     this._modeMenuToggler.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    if (this._modeMenuToggleBody) {
+      this._modeMenuToggleBody.classList.toggle('mode-menu__toggler-body--open', expanded);
+    }
     if (this._modeMenuList) {
       this._modeMenuList.setAttribute('aria-hidden', expanded ? 'false' : 'true');
+      this._modeMenuList.style.pointerEvents = expanded ? 'auto' : 'none';
     }
+    this._modeMenuItems.forEach((item) => {
+      item.style.opacity = expanded ? '1' : '0';
+      item.style.pointerEvents = expanded ? 'auto' : 'none';
+    });
+    this._updateModeMenuTransforms(expanded ? 1 : 0);
   }
 
   _setActiveMode(mode) {
@@ -1254,44 +1418,39 @@ export default class ThermostatUI {
     e.stopPropagation();
   }
   _buildDialog() {
-    if (!this._modeMenuContainer) {
-      const container = document.createElement('div');
-      container.className = 'mode-menu';
-      container.addEventListener('click', (event) => event.stopPropagation());
-      this._modeMenuContainer = container;
-      this._container.appendChild(container);
+    const radius = Number(this._config && this._config.radius);
+    if (!Number.isFinite(radius) || !this._root) {
+      return null;
     }
 
-    const container = this._modeMenuContainer;
-    container.innerHTML = '';
+    if (!this._modeMenuContainer) {
+      const { container, toggler, toggleBody, circle, inner, list, geometry } = this._buildModeButton(radius);
+      this._modeMenuContainer = container;
+      this._modeMenuToggler = toggler;
+      this._modeMenuToggleBody = toggleBody;
+      this._modeMenuCircle = circle;
+      this._modeMenuInner = inner;
+      this._modeMenuList = list;
+      this._modeMenuItems = [];
+      this._modeMenuGeometry = geometry;
+      this._root.appendChild(container);
+    } else {
+      this._modeMenuGeometry = this._computeModeMenuGeometry(radius);
+      this._modeMenuToggler.setAttribute('transform', `translate(${this._modeMenuGeometry.centerX}, ${this._modeMenuGeometry.centerY})`);
+      if (this._modeMenuCircle) {
+        this._modeMenuCircle.setAttribute('r', this._modeMenuGeometry.buttonRadius);
+      }
+      if (this._modeMenuInner) {
+        this._modeMenuInner.setAttribute('r', Math.max(4, this._modeMenuGeometry.buttonRadius - 4));
+      }
+      this._modeMenuToggler.dataset.bottomOffset = String(this._modeMenuGeometry.bottomOffset);
+    }
 
-    const toggler = document.createElement('button');
-    toggler.type = 'button';
-    toggler.className = 'mode-menu__toggler';
-    toggler.setAttribute('aria-label', 'Toggle HVAC modes');
-    toggler.setAttribute('aria-expanded', 'false');
-    toggler.innerHTML = '<span></span><span></span><span></span>';
-
-    const list = document.createElement('ul');
-    list.className = 'mode-menu__items';
-    list.setAttribute('aria-hidden', 'true');
-
-    container.appendChild(toggler);
-    container.appendChild(list);
-
-    toggler.addEventListener('click', (event) => {
-      event.stopPropagation();
-      const shouldOpen = !container.classList.contains('menu-open');
-      this._setModeMenuOpen(shouldOpen);
-    });
-
-    list.addEventListener('click', (event) => event.stopPropagation());
-
-    this._modeMenuToggler = toggler;
-    this._modeMenuList = list;
-    this._modeMenuItems = [];
+    if (this._modeMenuList) {
+      this._modeMenuList.setAttribute('aria-hidden', 'true');
+    }
     this._setModeMenuOpen(false);
-    return container;
+    return this._modeMenuContainer;
   }
   // build overlays
   _buildGlassOverlays(radius) {

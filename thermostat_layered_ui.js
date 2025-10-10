@@ -124,10 +124,10 @@ export default class ThermostatUILayered {
       const ticksLayer = this._layers.ticks;
       if (ticksLayer) {
         Array.from(ticksLayer.children).forEach((el) => {
-          if (el === this._layers.ticksContent) return;
-          if (el.id === 'ticks_main') return;
-          if (el.tagName.toLowerCase() === 'title') return;
-          try { el.style.display = 'none'; } catch(_) {}
+ if (el === this._layers.ticksContent) return;
+ if (el.id === 'ticks_main') return;
+ if (el.tagName.toLowerCase() === 'title') return;
+ try { el.style.display = 'none'; } catch(_) {}
         });
       }
     }
@@ -195,22 +195,10 @@ export default class ThermostatUILayered {
         // Inline minimal CSS to ensure styling inside foreignObject
         const styleEl = document.createElementNS('http://www.w3.org/1999/xhtml','style');
         styleEl.textContent = `
-          .mode-menu{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;--menu-distance-scale:0;z-index:40}
-          .mode-menu.menu-open{pointer-events:auto;--menu-distance-scale:1}
-          .mode-menu__toggler{position:relative;z-index:2;width:58px;height:58px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:radial-gradient(circle at 40% 30%, rgba(255,255,255,.65), rgba(44,54,72,.92));box-shadow:0 12px 20px rgba(0,0,0,.55),inset 0 3px 6px rgba(255,255,255,.25),inset 0 -6px 10px rgba(0,0,0,.55);cursor:pointer;pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0;color:inherit;-webkit-appearance:none;appearance:none;transition:transform .3s ease,box-shadow .3s ease}
-          .mode-menu.menu-open .mode-menu__toggler{transform:scale(.95);box-shadow:0 10px 18px rgba(0,0,0,.5),inset 0 4px 8px rgba(255,255,255,.2),inset 0 -4px 8px rgba(0,0,0,.55)}
-          .mode-menu__toggler span{display:block;width:18px;height:2px;border-radius:2px;background:rgba(28,34,48,.85);transition:transform .3s ease,opacity .3s ease}
-          .mode-menu.menu-open .mode-menu__toggler span:nth-child(1){transform:translateY(6px) rotate(45deg)}
-          .mode-menu.menu-open .mode-menu__toggler span:nth-child(2){opacity:0}
-          .mode-menu.menu-open .mode-menu__toggler span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
-          .mode-menu__items{list-style:none;padding:0;margin:0;position:absolute;inset:0;pointer-events:none}
-          .mode-menu.menu-open .mode-menu__items{pointer-events:auto}
-          .menu-item{position:absolute;top:50%;left:50%;transform-origin:center;transform:translate(-50%, -50%) rotate(var(--menu-angle,0deg)) translate(calc(var(--menu-distance,0px) * var(--menu-distance-scale))) rotate(var(--menu-angle-negative,0deg));opacity:0;transition:transform .35s cubic-bezier(.22,1,.36,1),opacity .25s ease;pointer-events:none}
-          .mode-menu.menu-open .menu-item{opacity:1;pointer-events:auto}
-          .menu-item__button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:86px;padding:14px 18px;border-radius:32px;border:none;background:rgba(0,0,0,.18);color:var(--thermostat-text-color,#fff);backdrop-filter:blur(3px);box-shadow:0 2px 6px rgba(0,0,0,.35),inset 0 1px rgba(255,255,255,.2)}
-          .menu-item--active .menu-item__button{background:rgba(255,255,255,.22);box-shadow:0 3px 8px rgba(0,0,0,.45),inset 0 1px rgba(255,255,255,.25)}
-          .menu-item__icon{display:inline-flex;font-size:22px}
-          .menu-item__label{font-size:12px;opacity:.85}
+ .mode-menu{pointer-events:none} .mode-menu.menu-open{pointer-events:auto} .mode-menu__toggler{cursor:pointer;pointer-events:auto;transform-box:fill-box;transform-origin:center;outline:none} .mode-menu__toggler:focus-visible .mode-menu__toggler-circle{stroke:rgba(255,255,255,.55);stroke-width:1.6px} .mode-menu__toggler-body{transition:transform .3s ease} .mode-menu.menu-open .mode-menu__toggler-body,.mode-menu__toggler-body--open{transform:scale(.95)} .mode-menu__toggler-circle{fill:rgba(44,54,72,.92);stroke:rgba(255,255,255,.22);stroke-width:1.2px;filter:drop-shadow(0 12px 20px rgba(0,0,0,.55))} .mode-menu.menu-open .mode-menu__toggler-circle{filter:drop-shadow(0 10px 18px rgba(0,0,0,.5))} .mode-menu__toggler-inner{fill:rgba(28,34,48,.85);stroke:rgba(255,255,255,.08);stroke-width:.5px} .mode-menu__toggler-gloss{fill:rgba(255,255,255,.18)} .mode-menu__toggler-icon{pointer-events:none} .mode-menu__toggler-bar{fill:rgba(18,24,38,.85);transition:transform .3s ease,opacity .3s ease;transform-box:fill-box;transform-origin:center} .mode-menu.menu-open .mode-menu__toggler-bar--top{transform:translateY(var(--bar-shift,0px)) rotate(45deg)} .mode-menu.menu-open .mode-menu__toggler-bar--middle{opacity:0} .mode-menu.menu-open .mode-menu__toggler-bar--bottom{transform:translateY(var(--bar-shift,0px)) rotate(-45deg)} .mode-menu__items{pointer-events:none} .menu-item{transform-box:fill-box;transform-origin:center} .menu-item__foreign{overflow:visible;pointer-events:none} .menu-item__wrapper{width:100%;height:100%;display:flex;align-items:center;justify-content:center;pointer-events:none} .menu-item__wrapper>.menu-item__button{pointer-events:auto} .menu-item__button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:86px;padding:14px 18px;border-radius:32px;border:none;background:rgba(0,0,0,.18);color:var(--thermostat-text-color,#fff);backdrop-filter:blur(3px);box-shadow:0 2px 6px rgba(0,0,0,.35),inset 0 1px rgba(255,255,255,.2)}
+ .menu-item--active .menu-item__button{background:rgba(255,255,255,.22);box-shadow:0 3px 8px rgba(0,0,0,.45),inset 0 1px rgba(255,255,255,.25)}
+ .menu-item__icon{display:inline-flex;font-size:22px}
+ .menu-item__label{font-size:12px;opacity:.85}
         `;
         host.appendChild(styleEl);
         this._ui._modeMenuContainer.style.pointerEvents = 'auto';
@@ -267,12 +255,12 @@ export default class ThermostatUILayered {
         node.setAttribute('dominant-baseline','middle');
         const spans = node.querySelectorAll('tspan');
         if (spans.length > 1) {
-          const sup = spans[1];
-          // place superscript to the right and above main number
-          const supX = cx + vb.width * 0.08;
-          const supY = cy - vb.height * 0.08;
-          sup.setAttribute('x', String(supX));
-          sup.setAttribute('y', String(supY));
+ const sup = spans[1];
+ // place superscript to the right and above main number
+ const supX = cx + vb.width * 0.08;
+ const supY = cy - vb.height * 0.08;
+ sup.setAttribute('x', String(supX));
+ sup.setAttribute('y', String(supY));
         }
       });
     } catch(_) { /* ignore */ }

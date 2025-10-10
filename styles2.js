@@ -559,85 +559,85 @@ export function cssData(user) {
   }
 
   .mode-menu{
-    position: absolute; /* Anchor the menu in the middle of the dialog overlay. */
-    inset: 0; /* Stretch the container so menu items can radiate in any direction. */
-    display: flex; /* Center the toggler in the available space. */
-    align-items: center; /* Vertically center the toggler. */
-    justify-content: center; /* Horizontally center the toggler. */
-    pointer-events: none; /* Keep the container itself from capturing events. */
-    --menu-distance-scale: 0; /* Collapse radial items by default. */
-    z-index: 40; /* Sit above the dial graphics like the legacy carousel. */
+    pointer-events: none; /* Allow interactions to fall through until explicitly enabled. */
   }
   .mode-menu.menu-open{
-    pointer-events: auto; /* Allow menu items to receive interaction while open. */
-    --menu-distance-scale: 1; /* Expand the radial layout. */
+    pointer-events: auto; /* Permit menu interaction while expanded. */
   }
   .mode-menu__toggler{
-    position: relative; /* Create a stacking context for the toggle button. */
-    z-index: 2; /* Sit above the fanned out menu items. */
-    width: 58px; /* Provide a large tap target. */
-    height: 58px; /* Match width to keep the control circular. */
-    border-radius: 50%; /* Round shape echoes the dial. */
-    border: 1px solid rgba(255, 255, 255, 0.22); /* Subtle outline to lift the button. */
-    background: radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.65), rgba(44, 54, 72, 0.92)); /* Soft highlight for depth. */
-    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.55), inset 0 3px 6px rgba(255, 255, 255, 0.25), inset 0 -6px 10px rgba(0, 0, 0, 0.55); /* Layered shadows enhance realism. */
-    cursor: pointer; /* Indicate the control is interactive. */
-    pointer-events: auto; /* Allow clicks to pass through to the toggler. */
-    display: inline-flex; /* Center the decorative bars. */
-    align-items: center; /* Align internal spans vertically. */
-    justify-content: center; /* Align internal spans horizontally. */
-    gap: 6px; /* Even spacing for the bars. */
-    padding: 0; /* Remove default button padding. */
-    color: inherit; /* Inherit text/icon color. */
-    -webkit-appearance: none; /* Reset browser button styles. */
-    appearance: none; /* Reset browser button styles. */
-    transition: transform 0.3s ease, box-shadow 0.3s ease; /* Smooth hover feedback. */
+    cursor: pointer; /* Indicate interactivity on the SVG group. */
+    pointer-events: auto; /* Accept pointer events even though the parent group may ignore them. */
+    transform-box: fill-box; /* Ensure transforms operate relative to the rendered geometry. */
+    transform-origin: center; /* Keep scale effects centered on the control. */
+    outline: none; /* Reset default focus outlines so we can style them manually. */
   }
-  .mode-menu.menu-open .mode-menu__toggler{
-    transform: scale(0.95); /* Slightly compress when active. */
-    box-shadow: 0 10px 18px rgba(0, 0, 0, 0.5), inset 0 4px 8px rgba(255, 255, 255, 0.2), inset 0 -4px 8px rgba(0, 0, 0, 0.55); /* Adjust lighting while open. */
+  .mode-menu__toggler:focus-visible .mode-menu__toggler-circle{
+    stroke: rgba(255, 255, 255, 0.55); /* Brighten the ring when keyboard focused. */
+    stroke-width: 1.6px; /* Thicken outline for accessibility. */
   }
-  .mode-menu__toggler span{
-    display: block; /* Treat each bar as a block element. */
-    width: 18px; /* Consistent bar width. */
-    height: 2px; /* Thin bar to mimic a menu icon. */
-    border-radius: 2px; /* Slightly round the ends. */
-    background: rgba(28, 34, 48, 0.85); /* Dark accent against the bright button. */
-    transition: transform 0.3s ease, opacity 0.3s ease; /* Animate to an X when open. */
+  .mode-menu__toggler-body{
+    transition: transform 0.3s ease; /* Animate subtle press effect. */
   }
-  .mode-menu.menu-open .mode-menu__toggler span:nth-child(1){
-    transform: translateY(6px) rotate(45deg); /* Form the first arm of the close icon. */
+  .mode-menu.menu-open .mode-menu__toggler-body,
+  .mode-menu__toggler-body--open{
+    transform: scale(0.95); /* Compress slightly while the menu is open. */
   }
-  .mode-menu.menu-open .mode-menu__toggler span:nth-child(2){
-    opacity: 0; /* Hide the middle bar while open. */
+  .mode-menu__toggler-circle{
+    fill: rgba(44, 54, 72, 0.92); /* Rich metallic base. */
+    stroke: rgba(255, 255, 255, 0.22); /* Subtle rim. */
+    stroke-width: 1.2px; /* Light outline thickness. */
+    filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.55)); /* Depth similar to original button. */
   }
-  .mode-menu.menu-open .mode-menu__toggler span:nth-child(3){
-    transform: translateY(-6px) rotate(-45deg); /* Form the second arm of the close icon. */
+  .mode-menu.menu-open .mode-menu__toggler-circle{
+    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.5)); /* Adjust lighting while pressed. */
+  }
+  .mode-menu__toggler-inner{
+    fill: rgba(28, 34, 48, 0.85); /* Slightly darker inner disk. */
+    stroke: rgba(255, 255, 255, 0.08); /* Soft rim highlight. */
+    stroke-width: 0.5px; /* Minimal thickness. */
+  }
+  .mode-menu__toggler-gloss{
+    fill: rgba(255, 255, 255, 0.18); /* Hint of reflective sheen. */
+  }
+  .mode-menu__toggler-icon{
+    pointer-events: none; /* Icon should not intercept clicks. */
+  }
+  .mode-menu__toggler-bar{
+    fill: rgba(18, 24, 38, 0.85); /* Dark accent for hamburger lines. */
+    transition: transform 0.3s ease, opacity 0.3s ease; /* Animate between hamburger and close states. */
+    transform-box: fill-box; /* Rotate around its center. */
+    transform-origin: center; /* Keep rotation centered. */
+  }
+  .mode-menu.menu-open .mode-menu__toggler-bar--top{
+    transform: translateY(var(--bar-shift, 0px)) rotate(45deg); /* Form the "X" shape. */
+  }
+  .mode-menu.menu-open .mode-menu__toggler-bar--middle{
+    opacity: 0; /* Hide middle bar while open. */
+  }
+  .mode-menu.menu-open .mode-menu__toggler-bar--bottom{
+    transform: translateY(var(--bar-shift, 0px)) rotate(-45deg); /* Mirror rotation for lower bar. */
   }
   .mode-menu__items{
-    list-style: none; /* Remove default list bullets. */
-    padding: 0; /* Strip default list padding. */
-    margin: 0; /* Strip default list margin. */
-    position: absolute; /* Allow radial positioning around the toggler. */
-    inset: 0; /* Fill the container so transforms pivot around the center. */
-    pointer-events: none; /* Only enable interaction when the container is open. */
-  }
-  .mode-menu.menu-open .mode-menu__items{
-    pointer-events: auto; /* Allow buttons to be clicked while the menu is expanded. */
+    pointer-events: none; /* Disabled until menu opens. */
   }
   .menu-item{
-    position: absolute; /* Absolute positioning lets each item fan out from the middle. */
-    top: 50%; /* Start centered vertically. */
-    left: 50%; /* Start centered horizontally. */
-    transform-origin: center; /* Keep transforms balanced around the button center. */
-    transform: translate(-50%, -50%) rotate(var(--menu-angle, 0deg)) translate(calc(var(--menu-distance, 0px) * var(--menu-distance-scale))) rotate(var(--menu-angle-negative, 0deg)); /* Rotate outwards and keep labels upright. */
-    opacity: 0; /* Hidden until the menu opens. */
-    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease; /* Smoothly animate the radial layout. */
-    pointer-events: none; /* Disable interaction until open. */
+    transform-box: fill-box; /* Allow CSS transforms to respect the rendered bounds. */
+    transform-origin: center; /* Keep radial transforms centered. */
   }
-  .mode-menu.menu-open .menu-item{
-    opacity: 1; /* Fade in when expanded. */
-    pointer-events: auto; /* Enable pointer interaction once visible. */
+  .menu-item__foreign{
+    overflow: visible; /* Permit shadows to render fully. */
+    pointer-events: none; /* Delegate pointer events to the inner button. */
+  }
+  .menu-item__wrapper{
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none; /* Prevent the wrapper from intercepting events before the button. */
+  }
+  .menu-item__wrapper > .menu-item__button{
+    pointer-events: auto; /* The button itself handles user interaction. */
   }
   .menu-item__button{
     display: inline-flex; /* Align icon and label vertically. */
