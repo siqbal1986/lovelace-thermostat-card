@@ -587,6 +587,7 @@ export function cssData(user) {
     stroke: rgba(255, 255, 255, 0.22); /* Subtle rim. */
     stroke-width: 1.2px; /* Light outline thickness. */
     filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.55)); /* Depth similar to original button. */
+    transition: filter 0.3s ease, opacity 0.25s ease; /* Fade gently when the carousel opens. */
   }
   .mode-menu.menu-open .mode-menu__toggler-circle{
     filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.5)); /* Adjust lighting while pressed. */
@@ -595,12 +596,21 @@ export function cssData(user) {
     fill: rgba(28, 34, 48, 0.85); /* Slightly darker inner disk. */
     stroke: rgba(255, 255, 255, 0.08); /* Soft rim highlight. */
     stroke-width: 0.5px; /* Minimal thickness. */
+    transition: opacity 0.25s ease; /* Fade gently while carousel is open. */
   }
   .mode-menu__toggler-gloss{
     fill: rgba(255, 255, 255, 0.18); /* Hint of reflective sheen. */
+    transition: opacity 0.25s ease; /* Fade gently while carousel is open. */
   }
   .mode-menu__toggler-icon{
     pointer-events: none; /* Icon should not intercept clicks. */
+    transition: opacity 0.25s ease; /* Fade gently while carousel is open. */
+  }
+  .mode-menu.menu-open .mode-menu__toggler-circle,
+  .mode-menu.menu-open .mode-menu__toggler-inner,
+  .mode-menu.menu-open .mode-menu__toggler-gloss,
+  .mode-menu.menu-open .mode-menu__toggler-icon{
+    opacity: 0; /* Hide the physical button while the carousel overlay is visible. */
   }
   .mode-menu__toggler-bar{
     fill: rgba(18, 24, 38, 0.85); /* Dark accent for hamburger lines. */
@@ -715,6 +725,8 @@ export function cssData(user) {
   }
   .mode-carousel__surface{
     position: absolute;
+    transform: translate(-50%, -50%);
+    transform-origin: center;
     border-radius: 24px;
     background: linear-gradient(165deg, rgba(255, 255, 255, 0.28), rgba(120, 141, 168, 0.12));
     box-shadow: 0 24px 38px rgba(9, 13, 22, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);

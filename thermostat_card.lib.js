@@ -1142,6 +1142,7 @@ export default class ThermostatUI {
     }
     if (this._root) {
       SvgUtil.setClass(this._root, 'modec-open', expanded);
+      SvgUtil.setClass(this._root, 'dial--blurred', expanded);
     }
     if (this._modeCarouselEnabled) {
       if (this._modeMenuList) {
@@ -1225,7 +1226,6 @@ export default class ThermostatUI {
         if (track.setPointerCapture && event.pointerId !== undefined) {
           try { track.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
         }
-        event.stopPropagation();
         event.preventDefault();
         this._resetCarouselTimer();
       };
@@ -1294,29 +1294,31 @@ export default class ThermostatUI {
     try {
       const containerRect = this.c_body.getBoundingClientRect();
       const dialRect = this._root.getBoundingClientRect();
+      const centerX = dialRect.left - containerRect.left + dialRect.width / 2;
+      const centerY = dialRect.top - containerRect.top + dialRect.height / 2;
+      const diameter = Number(this._config && this._config.diameter) || (this._config && this._config.radius ? this._config.radius * 2 : 400);
       const anchor = this._config && this._config._layeredAnchors && this._config._layeredAnchors.mode;
-      let left;
-      let top;
+      const anchorUsable = anchor && Number.isFinite(anchor.width) && Number.isFinite(anchor.height) && anchor.width > 1 && anchor.height > 1;
       let width;
       let height;
-      if (anchor) {
-        const diameter = Number(this._config && this._config.diameter) || 400;
+      let originX = centerX;
+      let originY = centerY;
+      if (anchorUsable) {
         const scaleX = dialRect.width / diameter;
         const scaleY = dialRect.height / diameter;
-        left = dialRect.left - containerRect.left + anchor.x * scaleX;
-        top = dialRect.top - containerRect.top + anchor.y * scaleY;
         width = Math.max(anchor.width * scaleX, 1);
         height = Math.max(anchor.height * scaleY, 1);
+        originX = dialRect.left - containerRect.left + (anchor.x + anchor.width / 2) * scaleX;
+        originY = dialRect.top - containerRect.top + (anchor.y + anchor.height / 2) * scaleY;
       } else {
-        width = dialRect.width * 0.56;
-        height = dialRect.height * 0.28;
-        left = dialRect.left - containerRect.left + (dialRect.width - width) / 2;
-        top = dialRect.top - containerRect.top + dialRect.height * 0.62;
+        width = Math.max(dialRect.width * 0.52, 1);
+        height = Math.max(dialRect.height * 0.34, 1);
       }
-      this._modeCarouselSurface.style.left = `${left}px`;
-      this._modeCarouselSurface.style.top = `${top}px`;
+      this._modeCarouselSurface.style.left = `${originX}px`;
+      this._modeCarouselSurface.style.top = `${originY}px`;
       this._modeCarouselSurface.style.width = `${width}px`;
       this._modeCarouselSurface.style.height = `${height}px`;
+      this._modeCarouselSurface.style.transform = 'translate(-50%, -50%)';
     } catch (_) {
       // ignore layout errors
     }
@@ -1530,7 +1532,11 @@ export default class ThermostatUI {
   }
 
   _attachCarouselDialControls() {
-    if (!this._modeCarouselEnabled || !this._root || this._modeCarouselDialHandlersAttached) {
+    if (!this._modeCarouselEnabled || this._modeCarouselDialHandlersAttached) {
+      return;
+    }
+    const target = this._modeCarouselWrapper || this._root;
+    if (!target) {
       return;
     }
     const pointerDown = (event) => {
@@ -1550,8 +1556,8 @@ export default class ThermostatUI {
         lastAngle: angle,
         accumulator: 0
       };
-      if (this._root.setPointerCapture && event.pointerId !== undefined) {
-        try { this._root.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+      if (event.pointerId !== undefined && typeof event.currentTarget.setPointerCapture === 'function') {
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
       }
       event.preventDefault();
       this._resetCarouselTimer();
@@ -1589,29 +1595,33 @@ export default class ThermostatUI {
       const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
       if (ctx && ctx.pointerId === pointerId) {
         this._modeCarouselDialContext = null;
-        if (this._root.releasePointerCapture && event.pointerId !== undefined) {
-          try { this._root.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        if (event.pointerId !== undefined && typeof event.currentTarget.releasePointerCapture === 'function') {
+          try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
         }
       }
     };
-    this._root.addEventListener('pointerdown', pointerDown, { passive: false });
-    this._root.addEventListener('pointermove', pointerMove);
-    this._root.addEventListener('pointerup', pointerUp);
-    this._root.addEventListener('pointercancel', pointerUp);
+    target.addEventListener('pointerdown', pointerDown, { passive: false });
+    target.addEventListener('pointermove', pointerMove);
+    target.addEventListener('pointerup', pointerUp);
+    target.addEventListener('pointercancel', pointerUp);
+    target.addEventListener('lostpointercapture', pointerUp);
     this._modeCarouselDialHandlersAttached = true;
-    this._modeCarouselDialHandlers = { pointerDown, pointerMove, pointerUp };
+    this._modeCarouselDialHandlers = { pointerDown, pointerMove, pointerUp, target };
   }
 
   _detachCarouselDialControls() {
-    if (!this._modeCarouselDialHandlersAttached || !this._root || !this._modeCarouselDialHandlers) {
+    if (!this._modeCarouselDialHandlersAttached || !this._modeCarouselDialHandlers) {
       this._modeCarouselDialContext = null;
       return;
     }
-    const { pointerDown, pointerMove, pointerUp } = this._modeCarouselDialHandlers;
-    this._root.removeEventListener('pointerdown', pointerDown);
-    this._root.removeEventListener('pointermove', pointerMove);
-    this._root.removeEventListener('pointerup', pointerUp);
-    this._root.removeEventListener('pointercancel', pointerUp);
+    const { pointerDown, pointerMove, pointerUp, target } = this._modeCarouselDialHandlers;
+    if (target) {
+      target.removeEventListener('pointerdown', pointerDown);
+      target.removeEventListener('pointermove', pointerMove);
+      target.removeEventListener('pointerup', pointerUp);
+      target.removeEventListener('pointercancel', pointerUp);
+      target.removeEventListener('lostpointercapture', pointerUp);
+    }
     this._modeCarouselDialHandlersAttached = false;
     this._modeCarouselDialHandlers = null;
     this._modeCarouselDialContext = null;
