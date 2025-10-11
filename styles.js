@@ -592,6 +592,7 @@ export function cssData(user) {
     stroke: rgba(255, 255, 255, 0.22); /* Subtle rim. */
     stroke-width: 1.2px; /* Light outline thickness. */
     filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.55)); /* Depth similar to original button. */
+    transition: filter 0.3s ease, opacity 0.25s ease; /* Fade gently when the carousel opens. */
   }
   .mode-menu.menu-open .mode-menu__toggler-circle{
     filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.5)); /* Adjust lighting while pressed. */
@@ -600,12 +601,21 @@ export function cssData(user) {
     fill: rgba(28, 34, 48, 0.85); /* Slightly darker inner disk. */
     stroke: rgba(255, 255, 255, 0.08); /* Soft rim highlight. */
     stroke-width: 0.5px; /* Minimal thickness. */
+    transition: opacity 0.25s ease; /* Fade gently while carousel is open. */
   }
   .mode-menu__toggler-gloss{
     fill: rgba(255, 255, 255, 0.18); /* Hint of reflective sheen. */
+    transition: opacity 0.25s ease; /* Fade gently while carousel is open. */
   }
   .mode-menu__toggler-icon{
     pointer-events: none; /* Icon should not intercept clicks. */
+    transition: opacity 0.25s ease; /* Fade gently while carousel is open. */
+  }
+  .mode-menu.menu-open .mode-menu__toggler-circle,
+  .mode-menu.menu-open .mode-menu__toggler-inner,
+  .mode-menu.menu-open .mode-menu__toggler-gloss,
+  .mode-menu.menu-open .mode-menu__toggler-icon{
+    opacity: 0; /* Hide the physical button while the carousel overlay is visible. */
   }
   .mode-menu__toggler-bar{
     fill: rgba(18, 24, 38, 0.85); /* Dark accent for hamburger lines. */
@@ -699,6 +709,137 @@ export function cssData(user) {
   .menu-item__label{
     color: inherit; /* Follow button color changes. */
     text-align: center; /* Keep labels centered. */
+  }
+  /* Mode carousel glass UI */
+  .mode-carousel{
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    visibility: hidden;
+    z-index: 34;
+    opacity: 0;
+    transform: translateY(8%) scale(0.95);
+    transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .mode-carousel--open{
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+  }
+  .mode-carousel__surface{
+    position: absolute;
+    transform: translate(-50%, -50%);
+    transform-origin: center;
+    border-radius: 24px;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.28), rgba(120, 141, 168, 0.12));
+    box-shadow: 0 24px 38px rgba(9, 13, 22, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.26);
+    backdrop-filter: blur(18px) saturate(140%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: min(5%, 18px) min(4%, 16px);
+    overflow: hidden;
+  }
+  .mode-carousel__surface::after{
+    content: '';
+    position: absolute;
+    inset: 6% 8%;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    pointer-events: none;
+  }
+  .mode-carousel__track{
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(12px, 6%, 24px);
+    touch-action: pan-y;
+  }
+  .mode-carousel__item{
+    position: relative;
+    flex: 0 0 auto;
+    min-width: clamp(70px, 24%, 120px);
+    aspect-ratio: 0.68 / 1;
+    padding: clamp(0.5rem, 1.4vw, 0.9rem) clamp(0.45rem, 1.2vw, 0.8rem) clamp(0.85rem, 2.2vw, 1.45rem);
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    background: linear-gradient(182deg, rgba(255, 255, 255, 0.42), rgba(148, 168, 191, 0.16) 55%, rgba(95, 113, 136, 0.08) 100%);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+    color: rgba(235, 242, 255, 0.88);
+    text-transform: capitalize;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+    font-size: clamp(0.62rem, 1.4vw, 0.82rem);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: clamp(0.2rem, 0.6vw, 0.45rem);
+    cursor: pointer;
+    opacity: 0.12;
+    transform: scale(0.35);
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease, filter 0.3s ease, border-color 0.3s ease;
+    backdrop-filter: blur(24px);
+  }
+  .mode-carousel__item:focus-visible{
+    outline: 2px solid rgba(255, 255, 255, 0.75);
+    outline-offset: 4px;
+  }
+  .mode-carousel__item--active{
+    opacity: 1;
+    transform: scale(1);
+    border-color: rgba(255, 255, 255, 0.68);
+    box-shadow: 0 18px 28px rgba(9, 13, 22, 0.45), inset 0 2px 4px rgba(255, 255, 255, 0.45);
+  }
+  .mode-carousel__item--prev,
+  .mode-carousel__item--next{
+    opacity: 0.3;
+    transform: scale(0.5);
+  }
+  .mode-carousel__item--away{
+    opacity: 0;
+    transform: scale(0.35);
+    pointer-events: none;
+  }
+  .mode-carousel__icon{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+  .mode-carousel__icon ha-icon{
+    width: clamp(22px, 2.8vw, 30px);
+    height: clamp(22px, 2.8vw, 30px);
+    filter: drop-shadow(0 6px 10px rgba(9, 13, 22, 0.5));
+  }
+  .mode-carousel__label{
+    display: block;
+    white-space: nowrap;
+  }
+  .mode-carousel__reflection{
+    position: absolute;
+    left: 50%;
+    bottom: -32%;
+    width: 72%;
+    height: 46%;
+    transform: translateX(-50%) scaleY(-1);
+    background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.08) 55%, rgba(255, 255, 255, 0) 75%);
+    filter: blur(6px);
+    opacity: 0.25;
+    pointer-events: none;
+  }
+  .mode-carousel__item--active .mode-carousel__reflection{
+    opacity: 0.38;
+  }
+  .mode-carousel__item--prev .mode-carousel__reflection,
+  .mode-carousel__item--next .mode-carousel__reflection{
+    opacity: 0.3;
   }
   .dial--blurred{
     filter: blur(6px); /* Apply visual effects such as blur or drop shadows for depth cues. */
