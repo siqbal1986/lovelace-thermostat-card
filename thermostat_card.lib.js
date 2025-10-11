@@ -232,6 +232,7 @@ export default class ThermostatUI {
     this._modeCarouselHideHandler = null; // Stores the transition listener that collapses the carousel when closed.
     this._modeCarouselHideHandlerTarget = null; // Remembers which wrapper currently owns the hide handler.
     this._modeCarouselHideTimeout = null; // Timeout fallback for hiding the carousel when transitions are unavailable.
+    this._modeCarouselHideFinalize = null; // Callback executed once the carousel has fully hidden.
     this._modeCarouselWindowResizeHandler = null; // Window resize callback used for responsive alignment.
     this._metalRingIds = {
       gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'), // Unique IDs for CSS-only fallbacks (legacy support).
@@ -1206,23 +1207,6 @@ export default class ThermostatUI {
     wrapper.appendChild(surface);
     this.c_body.appendChild(wrapper);
 
-    if (!this._modeCarouselHideHandler) {
-      this._modeCarouselHideHandler = (event) => {
-        const target = event && event.currentTarget;
-        if (!target || target.classList.contains('mode-carousel--open')) {
-          return;
-        }
-        target.style.display = 'none';
-      };
-    }
-    if (this._modeCarouselHideHandlerTarget !== wrapper) {
-      if (this._modeCarouselHideHandlerTarget) {
-        this._modeCarouselHideHandlerTarget.removeEventListener('transitionend', this._modeCarouselHideHandler);
-      }
-      wrapper.addEventListener('transitionend', this._modeCarouselHideHandler);
-      this._modeCarouselHideHandlerTarget = wrapper;
-    }
-
     this._modeCarouselWrapper = wrapper;
     this._modeCarouselSurface = surface;
     this._modeCarouselTrack = track;
@@ -1279,13 +1263,16 @@ export default class ThermostatUI {
           try { track.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
         }
       };
-      this._modeCarouselPointerHandlers = { pointerDown, pointerMove, pointerUp };
+      const stopClick = (event) => {
+        event.stopPropagation();
+      };
+      this._modeCarouselPointerHandlers = { pointerDown, pointerMove, pointerUp, stopClick };
       track.addEventListener('pointerdown', pointerDown);
       track.addEventListener('pointermove', pointerMove);
       track.addEventListener('pointerup', pointerUp);
       track.addEventListener('pointercancel', pointerUp);
       track.addEventListener('mouseleave', pointerUp);
-      track.addEventListener('click', (event) => event.stopPropagation());
+      track.addEventListener('click', stopClick);
     }
 
     if (typeof ResizeObserver !== 'undefined' && !this._modeCarouselResizeObserver) {
@@ -1303,6 +1290,60 @@ export default class ThermostatUI {
 
     this._positionModeCarousel();
     return wrapper;
+  }
+
+  _destroyModeCarouselElements() {
+    if (this._modeCarouselHideTimeout) {
+      clearTimeout(this._modeCarouselHideTimeout);
+      this._modeCarouselHideTimeout = null;
+    }
+    if (this._modeCarouselHideHandlerTarget && this._modeCarouselHideHandler) {
+      try {
+        this._modeCarouselHideHandlerTarget.removeEventListener('transitionend', this._modeCarouselHideHandler);
+      } catch (_) { /* ignore */ }
+    }
+    this._modeCarouselHideHandlerTarget = null;
+    this._modeCarouselHideFinalize = null;
+
+    if (this._modeCarouselPointerHandlers && this._modeCarouselTrack) {
+      const { pointerDown, pointerMove, pointerUp, stopClick } = this._modeCarouselPointerHandlers;
+      try { this._modeCarouselTrack.removeEventListener('pointerdown', pointerDown); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('pointermove', pointerMove); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('pointerup', pointerUp); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('pointercancel', pointerUp); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('mouseleave', pointerUp); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('click', stopClick); } catch (_) { /* ignore */ }
+    }
+    this._modeCarouselPointerHandlers = null;
+    this._modeCarouselSwipeContext = null;
+
+    if (this._modeCarouselResizeObserver) {
+      try {
+        this._modeCarouselResizeObserver.disconnect();
+      } catch (_) { /* ignore */ }
+      this._modeCarouselResizeObserver = null;
+    }
+    if (this._modeCarouselWindowResizeHandler && typeof window !== 'undefined') {
+      try {
+        window.removeEventListener('resize', this._modeCarouselWindowResizeHandler);
+      } catch (_) { /* ignore */ }
+      this._modeCarouselWindowResizeHandler = null;
+    }
+
+    if (this._modeCarouselWrapper) {
+      try {
+        this._modeCarouselWrapper.style.display = 'none';
+      } catch (_) { /* ignore */ }
+      if (this._modeCarouselWrapper.parentNode) {
+        try {
+          this._modeCarouselWrapper.parentNode.removeChild(this._modeCarouselWrapper);
+        } catch (_) { /* ignore */ }
+      }
+    }
+    this._modeCarouselWrapper = null;
+    this._modeCarouselSurface = null;
+    this._modeCarouselTrack = null;
+    this._modeCarouselItems = [];
   }
 
   _positionModeCarousel() {
@@ -1401,6 +1442,7 @@ export default class ThermostatUI {
       if (this._modeCarouselWrapper) {
         this._modeCarouselWrapper.setAttribute('aria-hidden', 'true');
         this._modeCarouselWrapper.classList.remove('mode-carousel--open');
+        this._destroyModeCarouselElements();
       }
       return;
     }
@@ -1533,11 +1575,37 @@ export default class ThermostatUI {
     if (!wrapper) {
       return;
     }
+    if (!this._modeCarouselHideHandler) {
+      this._modeCarouselHideHandler = (event) => {
+        const target = event && event.currentTarget;
+        if (!target || target.classList.contains('mode-carousel--open')) {
+          return;
+        }
+        if (target !== this._modeCarouselHideHandlerTarget) {
+          return;
+        }
+        if (typeof this._modeCarouselHideFinalize === 'function') {
+          this._modeCarouselHideFinalize();
+        }
+      };
+    }
+    if (this._modeCarouselHideHandlerTarget !== wrapper) {
+      if (this._modeCarouselHideHandlerTarget) {
+        try {
+          this._modeCarouselHideHandlerTarget.removeEventListener('transitionend', this._modeCarouselHideHandler);
+        } catch (_) { /* ignore */ }
+      }
+      try {
+        wrapper.addEventListener('transitionend', this._modeCarouselHideHandler);
+      } catch (_) { /* ignore */ }
+      this._modeCarouselHideHandlerTarget = wrapper;
+    }
     if (expanded) {
       if (this._modeCarouselHideTimeout) {
         clearTimeout(this._modeCarouselHideTimeout);
         this._modeCarouselHideTimeout = null;
       }
+      this._modeCarouselHideFinalize = null;
       wrapper.style.display = 'flex';
       try { void wrapper.offsetWidth; } catch (_) { /* ignore */ }
       wrapper.classList.add('mode-carousel--open');
@@ -1555,13 +1623,18 @@ export default class ThermostatUI {
       if (this._modeCarouselHideTimeout) {
         clearTimeout(this._modeCarouselHideTimeout);
       }
-      this._modeCarouselHideTimeout = setTimeout(() => {
+      const finalize = () => {
+        if (this._modeCarouselHideTimeout) {
+          clearTimeout(this._modeCarouselHideTimeout);
+        }
         this._modeCarouselHideTimeout = null;
         if (wrapper.classList && wrapper.classList.contains('mode-carousel--open')) {
           return;
         }
-        wrapper.style.display = 'none';
-      }, 450);
+        this._destroyModeCarouselElements();
+      };
+      this._modeCarouselHideFinalize = finalize;
+      this._modeCarouselHideTimeout = setTimeout(finalize, 450);
       this._clearCarouselTimer();
       this._detachCarouselDialControls();
       this._modeCarouselSwipeContext = null;
