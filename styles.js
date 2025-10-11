@@ -718,6 +718,7 @@ export function cssData(user) {
     align-items: center;
     justify-content: center;
     pointer-events: none;
+    visibility: hidden;
     z-index: 34;
     opacity: 0;
     transform: translateY(8%) scale(0.95);
@@ -726,6 +727,7 @@ export function cssData(user) {
   .mode-carousel--open{
     opacity: 1;
     pointer-events: auto;
+    visibility: visible;
     transform: translateY(0) scale(1);
   }
   .mode-carousel__surface{
