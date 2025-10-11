@@ -98,9 +98,7 @@ class ThermostatCard extends HTMLElement {
       this.thermostat.updateState(new_state,hass); // Hand the state data to the SVG/UI helper for rendering.
       // Phase 2: apply optional anchor-aligned adjustments (no DOM moves)
       try { this._applyLayeredAlignment(); } catch(_){}
-      // Optional: build/update the new mode carousel UI
-      try { if (this._config && this._config.mode_carousel_ui === true) this._buildOrUpdateModeCarousel(new_state, hass); } catch(_){}
-     }
+    }
     this._hass = hass; // Always hold onto the latest Home Assistant object for future service calls.
   }
 
@@ -245,6 +243,17 @@ class ThermostatCard extends HTMLElement {
     if (!cardConfig.num_ticks) cardConfig.num_ticks = 150;
     if (!cardConfig.tick_degrees) cardConfig.tick_degrees = 300;
     if (!cardConfig.fx_weather) cardConfig.fx_weather = 'storm';
+    if (cardConfig.mode_carousel_ui === true) {
+      const timeoutRaw = cardConfig.mode_carousel_timeout;
+      if (timeoutRaw === undefined) {
+        cardConfig.mode_carousel_timeout = 5;
+      } else {
+        const timeoutNumber = Number(timeoutRaw);
+        cardConfig.mode_carousel_timeout = Number.isFinite(timeoutNumber)
+          ? Math.max(timeoutNumber, 0)
+          : 5;
+      }
+    }
 
     // Extra config values generated for simplicity of updates
     cardConfig.radius = cardConfig.diameter / 2; // The SVG uses radius rather than diameter, so store it for convenience.
@@ -313,14 +322,7 @@ class ThermostatCard extends HTMLElement {
       try { this._extractLayeredAnchors(); } catch(_){ /* ignore */ }
     }
 
-    // If using the new carousel UI, force-hide the legacy mode menu via CSS
-    if (cardConfig.mode_carousel_ui === true) {
-      try{
-        const cssHide = document.createElement('style');
-        cssHide.textContent = `.mode-menu{ display: none !important; }`;
-        this.shadowRoot.appendChild(cssHide);
-      }catch(_){ }
-    }
+    // Carousel-specific styling is handled inside ThermostatUI.
   }
 }
 customElements.define('thermostat-card', ThermostatCard);

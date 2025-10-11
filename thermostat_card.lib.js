@@ -87,6 +87,15 @@ export default class ThermostatUI {
     const stopPointer = (event) => {
       event.stopPropagation();
     };
+    const handleToggle = (event, fromKeyboard = false) => {
+      const isOpen = container.classList.contains('menu-open');
+      if (this._modeCarouselEnabled && isOpen) {
+        this._commitCarouselSelection(fromKeyboard ? 'toggler-key' : 'toggler', null, event);
+        return;
+      }
+      const shouldOpen = !isOpen;
+      this._setModeMenuOpen(shouldOpen);
+    };
     toggler.addEventListener('pointerdown', (event) => {
       stopPointer(event);
       if (event.pointerType === 'touch') {
@@ -97,14 +106,12 @@ export default class ThermostatUI {
     toggler.addEventListener('pointercancel', stopPointer);
     toggler.addEventListener('click', (event) => {
       stopPointer(event);
-      const shouldOpen = !container.classList.contains('menu-open');
-      this._setModeMenuOpen(shouldOpen);
+      handleToggle(event, false);
     });
     toggler.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        const shouldOpen = !container.classList.contains('menu-open');
-        this._setModeMenuOpen(shouldOpen);
+        handleToggle(event, true);
       }
     });
 
@@ -115,6 +122,82 @@ export default class ThermostatUI {
     container.appendChild(list);
 
     return { container, toggler, toggleBody, circle, inner, list, geometry };
+  }
+  _buildModeToggleCarousel(radius) {
+    const geometry = this._computeModeMenuGeometry(radius);
+    const container = document.createElement('div');
+    container.className = 'mode-menu mode-menu--overlay';
+    container.style.position = 'absolute';
+    container.style.transform = 'translate(-50%, -50%)';
+    container.style.zIndex = '32';
+
+    const toggler = document.createElement('button');
+    toggler.type = 'button';
+    toggler.className = 'mode-menu__toggler';
+    toggler.setAttribute('aria-label', 'Toggle HVAC modes');
+    toggler.setAttribute('aria-expanded', 'false');
+    toggler.dataset.bottomOffset = String(geometry.bottomOffset);
+
+    const toggleBody = document.createElement('span');
+    toggleBody.className = 'mode-menu__toggler-body';
+
+    const circle = document.createElement('span');
+    circle.className = 'mode-menu__toggler-circle';
+
+    const inner = document.createElement('span');
+    inner.className = 'mode-menu__toggler-inner';
+
+    const gloss = document.createElement('span');
+    gloss.className = 'mode-menu__toggler-gloss';
+
+    const icon = document.createElement('span');
+    icon.className = 'mode-menu__toggler-icon';
+
+    ['top', 'middle', 'bottom'].forEach((role) => {
+      const bar = document.createElement('span');
+      bar.className = `mode-menu__toggler-bar mode-menu__toggler-bar--${role}`;
+      icon.appendChild(bar);
+    });
+
+    toggleBody.appendChild(circle);
+    toggleBody.appendChild(inner);
+    toggleBody.appendChild(gloss);
+    toggleBody.appendChild(icon);
+    toggler.appendChild(toggleBody);
+    container.appendChild(toggler);
+
+    const stopPointer = (event) => {
+      event.stopPropagation();
+    };
+    const handleToggle = (event, fromKeyboard = false) => {
+      const isOpen = container.classList.contains('menu-open');
+      if (this._modeCarouselEnabled && isOpen) {
+        this._commitCarouselSelection(fromKeyboard ? 'toggler-key' : 'toggler', null, event);
+        return;
+      }
+      const shouldOpen = !isOpen;
+      this._setModeMenuOpen(shouldOpen);
+    };
+    toggler.addEventListener('pointerdown', (event) => {
+      stopPointer(event);
+      if (event.pointerType === 'touch') {
+        event.preventDefault();
+      }
+    });
+    toggler.addEventListener('pointerup', stopPointer);
+    toggler.addEventListener('pointercancel', stopPointer);
+    toggler.addEventListener('click', (event) => {
+      stopPointer(event);
+      handleToggle(event, false);
+    });
+    toggler.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleToggle(event, true);
+      }
+    });
+
+    return { container, toggler, toggleBody, circle, inner, list: null, geometry };
   }
   _modeMenuTransformFor(angle, distance, scale) {
     const geometry = this._modeMenuGeometry || this._computeModeMenuGeometry(this._config.radius);
@@ -206,6 +289,32 @@ export default class ThermostatUI {
     this._modeMenuItems = []; // Keep the individual list items handy so we can toggle active states.
     this._modeMenuGeometry = null; // Cache geometry for the toggle to support responsive layouts.
     this._modeMenuScale = 0; // Remember the most recent expansion state so transforms can be recomputed quickly.
+    this._modeCarouselEnabled = config && config.mode_carousel_ui === true; // Flag for the experimental carousel UI.
+    const timeoutSeconds = Number(config && config.mode_carousel_timeout);
+    const resolvedSeconds = Number.isFinite(timeoutSeconds) ? Math.max(timeoutSeconds, 0) : 5;
+    this._modeCarouselAutoCloseMs = resolvedSeconds * 1000; // Milliseconds before the carousel auto-commits.
+    this._modeCarouselWrapper = null; // HTML wrapper for the frosted glass carousel overlay.
+    this._modeCarouselSurface = null; // Inner surface positioned over the mode anchor area.
+    this._modeCarouselTrack = null; // Track element that holds individual carousel options.
+    this._modeCarouselItems = []; // Data bag describing each carousel option.
+    this._modeCarouselPendingModes = null; // Last set of HVAC modes supplied while the carousel was closed.
+    this._modeCarouselPendingHass = null; // Last Home Assistant reference paired with the pending modes.
+    this._modeCarouselActiveIndex = 0; // Index of the option currently centered in the carousel.
+    this._modeCarouselTimer = null; // Timeout handle for automatic close-and-commit.
+    this._modeCarouselSwipeContext = null; // Tracks swipe gestures on the carousel itself.
+    this._modeCarouselPointerHandlers = null; // Cached pointer handler references for swipe gestures.
+    this._modeCarouselDialContext = null; // Tracks dial rotation gestures while the carousel is open.
+    this._modeCarouselDialHandlersAttached = false; // Ensure dial gesture listeners are only installed once.
+    this._modeCarouselDialHandlers = null; // Store bound handlers so they can be removed when closing the carousel.
+    this._modeCarouselResizeObserver = null; // Observes layout changes to keep the carousel aligned with the dial.
+    this._modeCarouselHideHandler = null; // Stores the transition listener that collapses the carousel when closed.
+    this._modeCarouselHideHandlerTarget = null; // Remembers which wrapper currently owns the hide handler.
+    this._modeCarouselHideTimeout = null; // Timeout fallback for hiding the carousel when transitions are unavailable.
+    this._modeCarouselHideFinalize = null; // Callback executed once the carousel has fully hidden.
+    this._modeCarouselWindowResizeHandler = null; // Window resize callback used for responsive alignment.
+    this._modeToggleResizeObserver = null; // ResizeObserver used to keep the HTML toggle aligned with the dial.
+    this._modeToggleWindowResizeHandler = null; // Window resize handler that repositions the toggle during viewport changes.
+    this._modeToggleRaf = null; // requestAnimationFrame handle for debounced toggle positioning.
     this._metalRingIds = {
       gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'), // Unique IDs for CSS-only fallbacks (legacy support).
       sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
@@ -1030,6 +1139,22 @@ export default class ThermostatUI {
     if (!this._modeMenuList) {
       this._buildDialog();
     }
+    if (this._modeCarouselEnabled) {
+      if (this._modeMenuList) {
+        this._modeMenuList.style.display = 'none';
+      }
+      const pendingModes = Array.isArray(modes) ? modes.slice() : [];
+      this._modeCarouselPendingModes = pendingModes;
+      this._modeCarouselPendingHass = hass || null;
+      const isCarouselOpen = this._modeMenuContainer && this._modeMenuContainer.classList.contains('menu-open');
+      if (isCarouselOpen) {
+        this._ensureModeCarouselElements();
+        this._updateCarouselOptions(pendingModes, hass);
+      } else {
+        this._destroyModeCarouselElements();
+      }
+      return;
+    }
     const list = this._modeMenuList;
     if (!list) {
       return;
@@ -1111,6 +1236,21 @@ export default class ThermostatUI {
     if (this._modeMenuToggleBody) {
       this._modeMenuToggleBody.classList.toggle('mode-menu__toggler-body--open', expanded);
     }
+    if (this._modeCarouselEnabled) {
+      this._scheduleModeTogglePosition();
+    }
+    if (this._root) {
+      SvgUtil.setClass(this._root, 'modec-open', expanded);
+      SvgUtil.setClass(this._root, 'dial--blurred', expanded);
+    }
+    if (this._modeCarouselEnabled) {
+      if (this._modeMenuList) {
+        this._modeMenuList.setAttribute('aria-hidden', 'true');
+        this._modeMenuList.style.pointerEvents = 'none';
+      }
+      this._toggleCarouselOpen(expanded);
+      return;
+    }
     if (this._modeMenuList) {
       this._modeMenuList.setAttribute('aria-hidden', expanded ? 'false' : 'true');
       this._modeMenuList.style.pointerEvents = expanded ? 'auto' : 'none';
@@ -1123,14 +1263,715 @@ export default class ThermostatUI {
   }
 
   _setActiveMode(mode) {
-    if (!Array.isArray(this._modeMenuItems)) {
+    if (Array.isArray(this._modeMenuItems)) {
+      this._modeMenuItems.forEach((item) => {
+        const button = item.querySelector('.menu-item__button');
+        const isActive = button && button.dataset.mode === mode;
+        item.classList.toggle('menu-item--active', !!isActive);
+      });
+    }
+    if (this._modeCarouselEnabled) {
+      this._updateCarouselActiveFromState();
+      this._updateCarouselClasses();
+    }
+  }
+
+  _ensureModeCarouselElements() {
+    if (!this._modeCarouselEnabled) {
+      return null;
+    }
+    if (this._modeCarouselWrapper && this._modeCarouselWrapper.isConnected) {
+      this._positionModeCarousel();
+      return this._modeCarouselWrapper;
+    }
+    if (!this.c_body) {
+      return null;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mode-carousel';
+    wrapper.setAttribute('aria-hidden', 'true');
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.display = 'none';
+
+    const surface = document.createElement('div');
+    surface.className = 'mode-carousel__surface';
+    const track = document.createElement('div');
+    track.className = 'mode-carousel__track';
+    surface.appendChild(track);
+    wrapper.appendChild(surface);
+    this.c_body.appendChild(wrapper);
+
+    this._modeCarouselWrapper = wrapper;
+    this._modeCarouselSurface = surface;
+    this._modeCarouselTrack = track;
+
+    if (this._modeMenuList) {
+      this._modeMenuList.style.display = 'none';
+    }
+
+    if (!this._modeCarouselPointerHandlers) {
+      const pointerDown = (event) => {
+        if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+          return;
+        }
+        if (event.button !== undefined && event.button !== 0) {
+          return;
+        }
+        this._modeCarouselSwipeContext = {
+          pointerId: event.pointerId !== undefined ? event.pointerId : 'mouse',
+          startX: event.clientX,
+          lastX: event.clientX
+        };
+        if (track.setPointerCapture && event.pointerId !== undefined) {
+          try { track.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        }
+        event.preventDefault();
+        this._resetCarouselTimer();
+      };
+      const pointerMove = (event) => {
+        const ctx = this._modeCarouselSwipeContext;
+        const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+        if (!ctx || ctx.pointerId !== pointerId) {
+          return;
+        }
+        const totalDx = event.clientX - ctx.startX;
+        const threshold = 24;
+        if (Math.abs(totalDx) >= threshold) {
+          if (totalDx < 0) {
+            this._stepCarousel(1);
+          } else if (totalDx > 0) {
+            this._stepCarousel(-1);
+          }
+          ctx.startX = event.clientX;
+        }
+        ctx.lastX = event.clientX;
+        event.preventDefault();
+      };
+      const pointerUp = (event) => {
+        const ctx = this._modeCarouselSwipeContext;
+        const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+        if (ctx && ctx.pointerId === pointerId) {
+          this._modeCarouselSwipeContext = null;
+        }
+        if (track.releasePointerCapture && event.pointerId !== undefined) {
+          try { track.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        }
+      };
+      const stopClick = (event) => {
+        event.stopPropagation();
+      };
+      this._modeCarouselPointerHandlers = { pointerDown, pointerMove, pointerUp, stopClick };
+      track.addEventListener('pointerdown', pointerDown);
+      track.addEventListener('pointermove', pointerMove);
+      track.addEventListener('pointerup', pointerUp);
+      track.addEventListener('pointercancel', pointerUp);
+      track.addEventListener('mouseleave', pointerUp);
+      track.addEventListener('click', stopClick);
+    }
+
+    if (typeof ResizeObserver !== 'undefined' && !this._modeCarouselResizeObserver) {
+      try {
+        this._modeCarouselResizeObserver = new ResizeObserver(() => {
+          this._positionModeCarousel();
+          this._scheduleModeTogglePosition();
+        });
+        this._modeCarouselResizeObserver.observe(this.c_body);
+      } catch (_) {
+        this._modeCarouselResizeObserver = null;
+      }
+    }
+    if (!this._modeCarouselWindowResizeHandler && typeof window !== 'undefined') {
+      this._modeCarouselWindowResizeHandler = () => {
+        this._positionModeCarousel();
+        this._scheduleModeTogglePosition();
+      };
+      window.addEventListener('resize', this._modeCarouselWindowResizeHandler, { passive: true });
+    }
+
+    this._positionModeCarousel();
+    this._scheduleModeTogglePosition();
+    return wrapper;
+  }
+
+  _destroyModeCarouselElements() {
+    if (this._modeCarouselHideTimeout) {
+      clearTimeout(this._modeCarouselHideTimeout);
+      this._modeCarouselHideTimeout = null;
+    }
+    if (this._modeCarouselHideHandlerTarget && this._modeCarouselHideHandler) {
+      try {
+        this._modeCarouselHideHandlerTarget.removeEventListener('transitionend', this._modeCarouselHideHandler);
+      } catch (_) { /* ignore */ }
+    }
+    this._modeCarouselHideHandlerTarget = null;
+    this._modeCarouselHideFinalize = null;
+
+    if (this._modeCarouselPointerHandlers && this._modeCarouselTrack) {
+      const { pointerDown, pointerMove, pointerUp, stopClick } = this._modeCarouselPointerHandlers;
+      try { this._modeCarouselTrack.removeEventListener('pointerdown', pointerDown); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('pointermove', pointerMove); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('pointerup', pointerUp); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('pointercancel', pointerUp); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('mouseleave', pointerUp); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('click', stopClick); } catch (_) { /* ignore */ }
+    }
+    this._modeCarouselPointerHandlers = null;
+    this._modeCarouselSwipeContext = null;
+
+    if (this._modeCarouselResizeObserver) {
+      try {
+        this._modeCarouselResizeObserver.disconnect();
+      } catch (_) { /* ignore */ }
+      this._modeCarouselResizeObserver = null;
+    }
+    if (this._modeCarouselWindowResizeHandler && typeof window !== 'undefined') {
+      try {
+        window.removeEventListener('resize', this._modeCarouselWindowResizeHandler);
+      } catch (_) { /* ignore */ }
+      this._modeCarouselWindowResizeHandler = null;
+    }
+
+    if (this._modeCarouselWrapper) {
+      try {
+        this._modeCarouselWrapper.style.display = 'none';
+      } catch (_) { /* ignore */ }
+      if (this._modeCarouselWrapper.parentNode) {
+        try {
+          this._modeCarouselWrapper.parentNode.removeChild(this._modeCarouselWrapper);
+        } catch (_) { /* ignore */ }
+      }
+    }
+    this._modeCarouselWrapper = null;
+    this._modeCarouselSurface = null;
+    this._modeCarouselTrack = null;
+    this._modeCarouselItems = [];
+  }
+
+  _ensureModeToggleObservers() {
+    if (!this._modeCarouselEnabled || !this.c_body) {
       return;
     }
-    this._modeMenuItems.forEach((item) => {
-      const button = item.querySelector('.menu-item__button');
-      const isActive = button && button.dataset.mode === mode;
-      item.classList.toggle('menu-item--active', !!isActive);
+    if (typeof ResizeObserver !== 'undefined' && !this._modeToggleResizeObserver) {
+      try {
+        this._modeToggleResizeObserver = new ResizeObserver(() => this._scheduleModeTogglePosition());
+        this._modeToggleResizeObserver.observe(this.c_body);
+      } catch (_) {
+        this._modeToggleResizeObserver = null;
+      }
+    }
+    if (!this._modeToggleWindowResizeHandler && typeof window !== 'undefined') {
+      this._modeToggleWindowResizeHandler = () => this._scheduleModeTogglePosition();
+      try {
+        window.addEventListener('resize', this._modeToggleWindowResizeHandler, { passive: true });
+      } catch (_) {
+        this._modeToggleWindowResizeHandler = null;
+      }
+    }
+  }
+
+  _scheduleModeTogglePosition() {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      this._positionModeToggle();
+      return;
+    }
+    if (this._modeToggleRaf) {
+      try {
+        window.cancelAnimationFrame(this._modeToggleRaf);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    this._modeToggleRaf = window.requestAnimationFrame(() => {
+      this._modeToggleRaf = null;
+      this._positionModeToggle();
     });
+  }
+
+  _positionModeToggle() {
+    if (!this._modeCarouselEnabled || !this._modeMenuContainer || !this._root || !this.c_body) {
+      return;
+    }
+    if (!(this._modeMenuContainer instanceof HTMLElement)) {
+      return;
+    }
+    try {
+      const containerRect = this.c_body.getBoundingClientRect();
+      const dialRect = this._root.getBoundingClientRect();
+      if (!dialRect || dialRect.width <= 0 || dialRect.height <= 0) {
+        return;
+      }
+      const geometry = this._modeMenuGeometry || this._computeModeMenuGeometry(this._config.radius);
+      const diameter = geometry && Number.isFinite(geometry.diameter)
+        ? geometry.diameter
+        : (Number(this._config && this._config.diameter) || (this._config && this._config.radius ? this._config.radius * 2 : 400));
+      const scaleX = dialRect.width / diameter;
+      const scaleY = dialRect.height / diameter;
+      const left = dialRect.left - containerRect.left + geometry.centerX * scaleX;
+      const top = dialRect.top - containerRect.top + geometry.centerY * scaleY;
+      const buttonRadiusPx = geometry.buttonRadius * Math.min(scaleX, scaleY);
+      const size = Math.max(1, buttonRadiusPx * 2);
+      const gap = buttonRadiusPx * 0.35;
+      const container = this._modeMenuContainer;
+      container.style.left = `${left}px`;
+      container.style.top = `${top}px`;
+      container.style.width = `${size}px`;
+      container.style.height = `${size}px`;
+      container.style.setProperty('--mode-toggle-size', `${size}px`);
+      container.style.setProperty('--mode-toggle-bar-gap', `${gap}px`);
+      if (!container.style.position) {
+        container.style.position = 'absolute';
+      }
+    } catch (_) {
+      // ignore layout errors
+    }
+  }
+
+  _positionModeCarousel() {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    if (!this._modeCarouselSurface || !this._root || !this.c_body) {
+      return;
+    }
+    try {
+      const containerRect = this.c_body.getBoundingClientRect();
+      const dialRect = this._root.getBoundingClientRect();
+      const centerX = dialRect.left - containerRect.left + dialRect.width / 2;
+      const centerY = dialRect.top - containerRect.top + dialRect.height / 2;
+      const diameter = Number(this._config && this._config.diameter) || (this._config && this._config.radius ? this._config.radius * 2 : 400);
+      const anchor = this._config && this._config._layeredAnchors && this._config._layeredAnchors.mode;
+      const anchorUsable = anchor && Number.isFinite(anchor.width) && Number.isFinite(anchor.height) && anchor.width > 1 && anchor.height > 1;
+      let width;
+      let height;
+      let originX = centerX;
+      let originY = centerY;
+      if (anchorUsable) {
+        const scaleX = dialRect.width / diameter;
+        const scaleY = dialRect.height / diameter;
+        width = Math.max(anchor.width * scaleX, 1);
+        height = Math.max(anchor.height * scaleY, 1);
+        originX = dialRect.left - containerRect.left + (anchor.x + anchor.width / 2) * scaleX;
+        originY = dialRect.top - containerRect.top + (anchor.y + anchor.height / 2) * scaleY;
+      } else {
+        width = Math.max(dialRect.width * 0.52, 1);
+        height = Math.max(dialRect.height * 0.34, 1);
+      }
+      this._modeCarouselSurface.style.left = `${originX}px`;
+      this._modeCarouselSurface.style.top = `${originY}px`;
+      this._modeCarouselSurface.style.width = `${width}px`;
+      this._modeCarouselSurface.style.height = `${height}px`;
+      this._modeCarouselSurface.style.transform = 'translate(-50%, -50%)';
+    } catch (_) {
+      // ignore layout errors
+    }
+  }
+
+  _updateCarouselOptions(modes, hass) { // eslint-disable-line no-unused-vars
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    const track = this._modeCarouselTrack;
+    if (!track) {
+      return;
+    }
+    while (track.firstChild) {
+      track.removeChild(track.firstChild);
+    }
+    this._modeCarouselItems = [];
+
+    const hvacModes = Array.isArray(modes) ? modes.slice() : [];
+    const hvacSet = new Set(hvacModes);
+    if (typeof this.hvac_state === 'string' && this.hvac_state.length) {
+      hvacSet.add(this.hvac_state);
+    }
+
+    const baseOrder = [
+      { mode: 'heat', label: 'Heat', type: 'hvac' },
+      { mode: 'cool', label: 'Cool', type: 'hvac' },
+      { mode: 'auto', label: 'Auto', type: 'hvac' },
+      { mode: 'heat_cool', label: 'Heat · Cool', type: 'hvac' },
+      { mode: 'fan_only', label: 'Fan', type: 'hvac' },
+    ];
+
+    const options = [];
+    baseOrder.forEach((entry) => {
+      if (hvacSet.has(entry.mode)) {
+        options.push(entry);
+        hvacSet.delete(entry.mode);
+      }
+    });
+
+    const presetModes = this.entity && this.entity.attributes && Array.isArray(this.entity.attributes.preset_modes)
+      ? this.entity.attributes.preset_modes
+      : [];
+    if (presetModes.length) {
+      const prettyPreset = this.preset_mode ? this.preset_mode.replace(/_/g, ' ') : null;
+      options.push({ mode: 'preset', label: prettyPreset ? `Preset (${prettyPreset})` : 'Preset', type: 'preset' });
+    }
+
+    if (hvacSet.has('off')) {
+      options.push({ mode: 'off', label: 'Off', type: 'hvac' });
+      hvacSet.delete('off');
+    }
+
+    hvacSet.forEach((mode) => {
+      options.push({ mode, label: mode.replace(/_/g, ' '), type: 'hvac' });
+    });
+
+    if (!options.length) {
+      if (this._modeCarouselWrapper) {
+        this._modeCarouselWrapper.setAttribute('aria-hidden', 'true');
+        this._modeCarouselWrapper.classList.remove('mode-carousel--open');
+        this._destroyModeCarouselElements();
+      }
+      return;
+    }
+
+    options.forEach((option, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'mode-carousel__item';
+      button.dataset.mode = option.mode;
+      button.dataset.type = option.type;
+      const iconName = option.type === 'preset'
+        ? 'tune'
+        : (this._iconForMode ? this._iconForMode(option.mode, 'help') : 'help');
+      button.innerHTML = `\
+<span class="mode-carousel__icon"><ha-icon icon="mdi:${iconName}"></ha-icon></span>\
+<span class="mode-carousel__label">${option.label}</span>\
+<span class="mode-carousel__reflection" aria-hidden="true"></span>`;
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this._modeCarouselActiveIndex = index;
+        this._updateCarouselClasses();
+        this._resetCarouselTimer();
+        this._commitCarouselSelection('item', option, event);
+      });
+      track.appendChild(button);
+      this._modeCarouselItems.push({
+        element: button,
+        mode: option.mode,
+        type: option.type
+      });
+    });
+
+    this._updateCarouselActiveFromState();
+    this._updateCarouselClasses();
+    this._positionModeCarousel();
+  }
+
+  _updateCarouselActiveFromState() {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      this._modeCarouselActiveIndex = 0;
+      return;
+    }
+    const hvacMode = this.hvac_state;
+    let nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'hvac' && item.mode === hvacMode);
+    if (nextIndex === -1 && this.preset_mode) {
+      nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'preset');
+    }
+    if (nextIndex === -1) {
+      nextIndex = Math.min(Math.max(this._modeCarouselActiveIndex, 0), this._modeCarouselItems.length - 1);
+    }
+    this._modeCarouselActiveIndex = nextIndex;
+  }
+
+  _updateCarouselClasses() {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      return;
+    }
+    const total = this._modeCarouselItems.length;
+    this._modeCarouselItems.forEach((item, index) => {
+      const element = item.element;
+      if (!element) {
+        return;
+      }
+      element.classList.remove('mode-carousel__item--active', 'mode-carousel__item--prev', 'mode-carousel__item--next', 'mode-carousel__item--away');
+      element.removeAttribute('aria-current');
+      let offset = index - this._modeCarouselActiveIndex;
+      if (offset > total / 2) {
+        offset -= total;
+      } else if (offset < -total / 2) {
+        offset += total;
+      }
+      element.dataset.offset = String(offset);
+      if (offset === 0) {
+        element.classList.add('mode-carousel__item--active');
+        element.setAttribute('aria-current', 'true');
+      } else if (offset === -1 || (total > 2 && offset === total - 1)) {
+        element.classList.add('mode-carousel__item--prev');
+      } else if (offset === 1 || (total > 2 && offset === -(total - 1))) {
+        element.classList.add('mode-carousel__item--next');
+      } else {
+        element.classList.add('mode-carousel__item--away');
+      }
+    });
+  }
+
+  _stepCarousel(direction) {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      return;
+    }
+    const total = this._modeCarouselItems.length;
+    if (direction > 0) {
+      this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex + 1) % total;
+    } else if (direction < 0) {
+      this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex - 1 + total) % total;
+    }
+    this._updateCarouselClasses();
+    this._resetCarouselTimer();
+  }
+
+  _resetCarouselTimer() {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._clearCarouselTimer();
+    if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+      return;
+    }
+    if (!Number.isFinite(this._modeCarouselAutoCloseMs) || this._modeCarouselAutoCloseMs <= 0) {
+      return;
+    }
+    this._modeCarouselTimer = setTimeout(() => {
+      this._modeCarouselTimer = null;
+      this._commitCarouselSelection('timeout');
+    }, this._modeCarouselAutoCloseMs);
+  }
+
+  _clearCarouselTimer() {
+    if (this._modeCarouselTimer) {
+      clearTimeout(this._modeCarouselTimer);
+      this._modeCarouselTimer = null;
+    }
+  }
+
+  _toggleCarouselOpen(expanded) {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._ensureModeCarouselElements();
+    if (expanded) {
+      const renderModes = Array.isArray(this._modeCarouselPendingModes)
+        ? this._modeCarouselPendingModes
+        : (Array.isArray(this.hvac_modes) ? this.hvac_modes.slice() : []);
+      const renderHass = this._modeCarouselPendingHass || this._lastHass;
+      this._updateCarouselOptions(renderModes, renderHass);
+    }
+    const wrapper = this._modeCarouselWrapper;
+    if (!wrapper) {
+      return;
+    }
+    if (!this._modeCarouselHideHandler) {
+      this._modeCarouselHideHandler = (event) => {
+        const target = event && event.currentTarget;
+        if (!target || target.classList.contains('mode-carousel--open')) {
+          return;
+        }
+        if (target !== this._modeCarouselHideHandlerTarget) {
+          return;
+        }
+        if (typeof this._modeCarouselHideFinalize === 'function') {
+          this._modeCarouselHideFinalize();
+        }
+      };
+    }
+    if (this._modeCarouselHideHandlerTarget !== wrapper) {
+      if (this._modeCarouselHideHandlerTarget) {
+        try {
+          this._modeCarouselHideHandlerTarget.removeEventListener('transitionend', this._modeCarouselHideHandler);
+        } catch (_) { /* ignore */ }
+      }
+      try {
+        wrapper.addEventListener('transitionend', this._modeCarouselHideHandler);
+      } catch (_) { /* ignore */ }
+      this._modeCarouselHideHandlerTarget = wrapper;
+    }
+    if (expanded) {
+      if (this._modeCarouselHideTimeout) {
+        clearTimeout(this._modeCarouselHideTimeout);
+        this._modeCarouselHideTimeout = null;
+      }
+      this._modeCarouselHideFinalize = null;
+      wrapper.style.display = 'flex';
+      try { void wrapper.offsetWidth; } catch (_) { /* ignore */ }
+      wrapper.classList.add('mode-carousel--open');
+      wrapper.setAttribute('aria-hidden', 'false');
+      wrapper.style.pointerEvents = 'auto';
+      this._positionModeCarousel();
+      this._scheduleModeTogglePosition();
+      this._updateCarouselActiveFromState();
+      this._updateCarouselClasses();
+      this._resetCarouselTimer();
+      this._attachCarouselDialControls();
+    } else {
+      wrapper.classList.remove('mode-carousel--open');
+      wrapper.setAttribute('aria-hidden', 'true');
+      wrapper.style.pointerEvents = 'none';
+      this._scheduleModeTogglePosition();
+      if (this._modeCarouselHideTimeout) {
+        clearTimeout(this._modeCarouselHideTimeout);
+      }
+      const finalize = () => {
+        if (this._modeCarouselHideTimeout) {
+          clearTimeout(this._modeCarouselHideTimeout);
+        }
+        this._modeCarouselHideTimeout = null;
+        if (wrapper.classList && wrapper.classList.contains('mode-carousel--open')) {
+          return;
+        }
+        this._destroyModeCarouselElements();
+      };
+      this._modeCarouselHideFinalize = finalize;
+      this._modeCarouselHideTimeout = setTimeout(finalize, 450);
+      this._clearCarouselTimer();
+      this._detachCarouselDialControls();
+      this._modeCarouselSwipeContext = null;
+    }
+  }
+
+  _attachCarouselDialControls() {
+    if (!this._modeCarouselEnabled || this._modeCarouselDialHandlersAttached) {
+      return;
+    }
+    const target = this._modeCarouselWrapper || this._root;
+    if (!target) {
+      return;
+    }
+    const pointerDown = (event) => {
+      if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+        return;
+      }
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+      const angle = this._pointerNormalizedAngle(event);
+      if (angle === null) {
+        return;
+      }
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      this._modeCarouselDialContext = {
+        pointerId,
+        lastAngle: angle,
+        accumulator: 0
+      };
+      if (event.pointerId !== undefined && typeof event.currentTarget.setPointerCapture === 'function') {
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+      }
+      event.preventDefault();
+      this._resetCarouselTimer();
+    };
+    const pointerMove = (event) => {
+      const ctx = this._modeCarouselDialContext;
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      if (!ctx || ctx.pointerId !== pointerId) {
+        return;
+      }
+      const angle = this._pointerNormalizedAngle(event);
+      if (angle === null) {
+        return;
+      }
+      let delta = angle - ctx.lastAngle;
+      if (delta > 180) {
+        delta -= 360;
+      } else if (delta < -180) {
+        delta += 360;
+      }
+      ctx.accumulator += delta;
+      ctx.lastAngle = angle;
+      const threshold = 18;
+      while (ctx.accumulator >= threshold) {
+        this._stepCarousel(-1);
+        ctx.accumulator -= threshold;
+      }
+      while (ctx.accumulator <= -threshold) {
+        this._stepCarousel(1);
+        ctx.accumulator += threshold;
+      }
+    };
+    const pointerUp = (event) => {
+      const ctx = this._modeCarouselDialContext;
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      if (ctx && ctx.pointerId === pointerId) {
+        this._modeCarouselDialContext = null;
+        if (event.pointerId !== undefined && typeof event.currentTarget.releasePointerCapture === 'function') {
+          try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        }
+      }
+    };
+    target.addEventListener('pointerdown', pointerDown, { passive: false });
+    target.addEventListener('pointermove', pointerMove);
+    target.addEventListener('pointerup', pointerUp);
+    target.addEventListener('pointercancel', pointerUp);
+    target.addEventListener('lostpointercapture', pointerUp);
+    this._modeCarouselDialHandlersAttached = true;
+    this._modeCarouselDialHandlers = { pointerDown, pointerMove, pointerUp, target };
+  }
+
+  _detachCarouselDialControls() {
+    if (!this._modeCarouselDialHandlersAttached || !this._modeCarouselDialHandlers) {
+      this._modeCarouselDialContext = null;
+      return;
+    }
+    const { pointerDown, pointerMove, pointerUp, target } = this._modeCarouselDialHandlers;
+    if (target) {
+      target.removeEventListener('pointerdown', pointerDown);
+      target.removeEventListener('pointermove', pointerMove);
+      target.removeEventListener('pointerup', pointerUp);
+      target.removeEventListener('pointercancel', pointerUp);
+      target.removeEventListener('lostpointercapture', pointerUp);
+    }
+    this._modeCarouselDialHandlersAttached = false;
+    this._modeCarouselDialHandlers = null;
+    this._modeCarouselDialContext = null;
+  }
+
+  _commitCarouselSelection(source, option, triggerEvent) { // eslint-disable-line no-unused-vars
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._clearCarouselTimer();
+    if (!option) {
+      if (!Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+        this._setModeMenuOpen(false);
+        return;
+      }
+      option = this._modeCarouselItems[this._modeCarouselActiveIndex] || null;
+    }
+    if (!option) {
+      this._setModeMenuOpen(false);
+      return;
+    }
+    if (option.type === 'preset') {
+      this._handlePresetSelection(triggerEvent);
+      this._setModeMenuOpen(false);
+      return;
+    }
+    const hass = this._lastHass;
+    if (hass) {
+      const event = triggerEvent || { stopPropagation() {} };
+      if (typeof event.stopPropagation !== 'function') {
+        event.stopPropagation = () => {};
+      }
+      this._setMode(event, option.mode, hass);
+    } else {
+      this._setModeMenuOpen(false);
+    }
+  }
+
+  _handlePresetSelection(triggerEvent) {
+    if (triggerEvent && typeof triggerEvent.stopPropagation === 'function') {
+      triggerEvent.stopPropagation();
+    }
+    if (typeof this._config.propWin === 'function' && this.entity && this.entity.entity_id) {
+      try {
+        this._config.propWin(this.entity.entity_id);
+      } catch (_) { /* ignore */ }
+    }
   }
   _buildCore(diameter) {
 
@@ -1424,26 +2265,53 @@ export default class ThermostatUI {
     }
 
     if (!this._modeMenuContainer) {
-      const { container, toggler, toggleBody, circle, inner, list, geometry } = this._buildModeButton(radius);
-      this._modeMenuContainer = container;
-      this._modeMenuToggler = toggler;
-      this._modeMenuToggleBody = toggleBody;
-      this._modeMenuCircle = circle;
-      this._modeMenuInner = inner;
-      this._modeMenuList = list;
-      this._modeMenuItems = [];
-      this._modeMenuGeometry = geometry;
-      this._root.appendChild(container);
+      if (this._modeCarouselEnabled) {
+        const { container, toggler, toggleBody, circle, inner, geometry } = this._buildModeToggleCarousel(radius);
+        this._modeMenuContainer = container;
+        this._modeMenuToggler = toggler;
+        this._modeMenuToggleBody = toggleBody;
+        this._modeMenuCircle = circle;
+        this._modeMenuInner = inner;
+        this._modeMenuList = null;
+        this._modeMenuItems = [];
+        this._modeMenuGeometry = geometry;
+        this.c_body.appendChild(container);
+        this._ensureModeToggleObservers();
+        this._scheduleModeTogglePosition();
+      } else {
+        const { container, toggler, toggleBody, circle, inner, list, geometry } = this._buildModeButton(radius);
+        this._modeMenuContainer = container;
+        this._modeMenuToggler = toggler;
+        this._modeMenuToggleBody = toggleBody;
+        this._modeMenuCircle = circle;
+        this._modeMenuInner = inner;
+        this._modeMenuList = list;
+        this._modeMenuItems = [];
+        this._modeMenuGeometry = geometry;
+        this._root.appendChild(container);
+      }
     } else {
       this._modeMenuGeometry = this._computeModeMenuGeometry(radius);
-      this._modeMenuToggler.setAttribute('transform', `translate(${this._modeMenuGeometry.centerX}, ${this._modeMenuGeometry.centerY})`);
-      if (this._modeMenuCircle) {
-        this._modeMenuCircle.setAttribute('r', this._modeMenuGeometry.buttonRadius);
+      if (this._modeCarouselEnabled) {
+        if (this._modeMenuToggler) {
+          this._modeMenuToggler.dataset.bottomOffset = String(this._modeMenuGeometry.bottomOffset);
+        }
+        this._scheduleModeTogglePosition();
+      } else {
+        this._modeMenuToggler.setAttribute('transform', `translate(${this._modeMenuGeometry.centerX}, ${this._modeMenuGeometry.centerY})`);
+        if (this._modeMenuCircle) {
+          this._modeMenuCircle.setAttribute('r', this._modeMenuGeometry.buttonRadius);
+        }
+        if (this._modeMenuInner) {
+          this._modeMenuInner.setAttribute('r', Math.max(4, this._modeMenuGeometry.buttonRadius - 4));
+        }
+        this._modeMenuToggler.dataset.bottomOffset = String(this._modeMenuGeometry.bottomOffset);
       }
-      if (this._modeMenuInner) {
-        this._modeMenuInner.setAttribute('r', Math.max(4, this._modeMenuGeometry.buttonRadius - 4));
-      }
-      this._modeMenuToggler.dataset.bottomOffset = String(this._modeMenuGeometry.bottomOffset);
+    }
+
+    if (this._modeCarouselEnabled) {
+      this._setModeMenuOpen(false);
+      return this._modeMenuContainer;
     }
 
     if (this._modeMenuList) {
