@@ -221,6 +221,8 @@ export default class ThermostatUI {
     this._modeCarouselSurface = null; // Inner surface positioned over the mode anchor area.
     this._modeCarouselTrack = null; // Track element that holds individual carousel options.
     this._modeCarouselItems = []; // Data bag describing each carousel option.
+    this._modeCarouselPendingModes = null; // Last set of HVAC modes supplied while the carousel was closed.
+    this._modeCarouselPendingHass = null; // Last Home Assistant reference paired with the pending modes.
     this._modeCarouselActiveIndex = 0; // Index of the option currently centered in the carousel.
     this._modeCarouselTimer = null; // Timeout handle for automatic close-and-commit.
     this._modeCarouselSwipeContext = null; // Tracks swipe gestures on the carousel itself.
@@ -1059,8 +1061,19 @@ export default class ThermostatUI {
       this._buildDialog();
     }
     if (this._modeCarouselEnabled) {
-      this._ensureModeCarouselElements();
-      this._updateCarouselOptions(modes, hass);
+      if (this._modeMenuList) {
+        this._modeMenuList.style.display = 'none';
+      }
+      const pendingModes = Array.isArray(modes) ? modes.slice() : [];
+      this._modeCarouselPendingModes = pendingModes;
+      this._modeCarouselPendingHass = hass || null;
+      const isCarouselOpen = this._modeMenuContainer && this._modeMenuContainer.classList.contains('menu-open');
+      if (isCarouselOpen) {
+        this._ensureModeCarouselElements();
+        this._updateCarouselOptions(pendingModes, hass);
+      } else {
+        this._destroyModeCarouselElements();
+      }
       return;
     }
     const list = this._modeMenuList;
@@ -1571,6 +1584,13 @@ export default class ThermostatUI {
       return;
     }
     this._ensureModeCarouselElements();
+    if (expanded) {
+      const renderModes = Array.isArray(this._modeCarouselPendingModes)
+        ? this._modeCarouselPendingModes
+        : (Array.isArray(this.hvac_modes) ? this.hvac_modes.slice() : []);
+      const renderHass = this._modeCarouselPendingHass || this._lastHass;
+      this._updateCarouselOptions(renderModes, renderHass);
+    }
     const wrapper = this._modeCarouselWrapper;
     if (!wrapper) {
       return;
