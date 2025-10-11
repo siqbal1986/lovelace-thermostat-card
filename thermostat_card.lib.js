@@ -229,6 +229,9 @@ export default class ThermostatUI {
     this._modeCarouselDialHandlersAttached = false; // Ensure dial gesture listeners are only installed once.
     this._modeCarouselDialHandlers = null; // Store bound handlers so they can be removed when closing the carousel.
     this._modeCarouselResizeObserver = null; // Observes layout changes to keep the carousel aligned with the dial.
+    this._modeCarouselHideHandler = null; // Stores the transition listener that collapses the carousel when closed.
+    this._modeCarouselHideHandlerTarget = null; // Remembers which wrapper currently owns the hide handler.
+    this._modeCarouselHideTimeout = null; // Timeout fallback for hiding the carousel when transitions are unavailable.
     this._modeCarouselWindowResizeHandler = null; // Window resize callback used for responsive alignment.
     this._metalRingIds = {
       gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'), // Unique IDs for CSS-only fallbacks (legacy support).
@@ -1193,6 +1196,7 @@ export default class ThermostatUI {
     wrapper.className = 'mode-carousel';
     wrapper.setAttribute('aria-hidden', 'true');
     wrapper.style.pointerEvents = 'none';
+    wrapper.style.display = 'none';
 
     const surface = document.createElement('div');
     surface.className = 'mode-carousel__surface';
@@ -1201,6 +1205,23 @@ export default class ThermostatUI {
     surface.appendChild(track);
     wrapper.appendChild(surface);
     this.c_body.appendChild(wrapper);
+
+    if (!this._modeCarouselHideHandler) {
+      this._modeCarouselHideHandler = (event) => {
+        const target = event && event.currentTarget;
+        if (!target || target.classList.contains('mode-carousel--open')) {
+          return;
+        }
+        target.style.display = 'none';
+      };
+    }
+    if (this._modeCarouselHideHandlerTarget !== wrapper) {
+      if (this._modeCarouselHideHandlerTarget) {
+        this._modeCarouselHideHandlerTarget.removeEventListener('transitionend', this._modeCarouselHideHandler);
+      }
+      wrapper.addEventListener('transitionend', this._modeCarouselHideHandler);
+      this._modeCarouselHideHandlerTarget = wrapper;
+    }
 
     this._modeCarouselWrapper = wrapper;
     this._modeCarouselSurface = surface;
@@ -1513,6 +1534,12 @@ export default class ThermostatUI {
       return;
     }
     if (expanded) {
+      if (this._modeCarouselHideTimeout) {
+        clearTimeout(this._modeCarouselHideTimeout);
+        this._modeCarouselHideTimeout = null;
+      }
+      wrapper.style.display = 'flex';
+      try { void wrapper.offsetWidth; } catch (_) { /* ignore */ }
       wrapper.classList.add('mode-carousel--open');
       wrapper.setAttribute('aria-hidden', 'false');
       wrapper.style.pointerEvents = 'auto';
@@ -1525,6 +1552,16 @@ export default class ThermostatUI {
       wrapper.classList.remove('mode-carousel--open');
       wrapper.setAttribute('aria-hidden', 'true');
       wrapper.style.pointerEvents = 'none';
+      if (this._modeCarouselHideTimeout) {
+        clearTimeout(this._modeCarouselHideTimeout);
+      }
+      this._modeCarouselHideTimeout = setTimeout(() => {
+        this._modeCarouselHideTimeout = null;
+        if (wrapper.classList && wrapper.classList.contains('mode-carousel--open')) {
+          return;
+        }
+        wrapper.style.display = 'none';
+      }, 450);
       this._clearCarouselTimer();
       this._detachCarouselDialControls();
       this._modeCarouselSwipeContext = null;
