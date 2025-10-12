@@ -1423,19 +1423,28 @@ export default class ThermostatUI {
       const tickInset = Number(this._config && this._config.ticks_inner_radius);
       const centerX = dialRect.left - containerRect.left + dialRect.width / 2;
       const centerY = dialRect.top - containerRect.top + dialRect.height / 2;
-      const scaleX = dialRect.width / diameter;
-      const scaleY = dialRect.height / diameter;
+      const scaleX = diameter ? dialRect.width / diameter : 1;
+      const scaleY = diameter ? dialRect.height / diameter : 1;
       const scale = Number.isFinite(scaleX) && Number.isFinite(scaleY) ? Math.min(scaleX, scaleY) : 1;
       let innerRadius = Number.isFinite(radius) && Number.isFinite(tickInset)
         ? radius - tickInset
         : (Number.isFinite(radius) ? radius * 0.7 : (diameter / 2) * 0.7);
       innerRadius = Math.max(innerRadius, 0);
-      const size = Math.max(innerRadius * 2 * scale, 1);
-      blur.style.left = `${centerX}px`;
-      blur.style.top = `${centerY}px`;
-      blur.style.width = `${size}px`;
-      blur.style.height = `${size}px`;
-      blur.style.transform = 'translate(-50%, -50%)';
+      let radiusPx = Math.max(innerRadius * scale, 1);
+      if (!Number.isFinite(radiusPx) || radiusPx <= 0) {
+        radiusPx = Math.max(Math.min(dialRect.width, dialRect.height) * 0.36, 1);
+      }
+      blur.style.left = '0';
+      blur.style.top = '0';
+      blur.style.width = '100%';
+      blur.style.height = '100%';
+      blur.style.transform = 'none';
+      blur.style.setProperty('--mode-carousel-blur-center-x', `${centerX}px`);
+      blur.style.setProperty('--mode-carousel-blur-center-y', `${centerY}px`);
+      blur.style.setProperty('--mode-carousel-blur-radius', `${radiusPx}px`);
+      const clipValue = `circle(${radiusPx}px at ${centerX}px ${centerY}px)`;
+      blur.style.clipPath = clipValue;
+      blur.style.webkitClipPath = clipValue;
     } catch (_) {
       // ignore layout errors
     }

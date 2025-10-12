@@ -809,21 +809,20 @@ export function cssData(user) {
   }
   .mode-carousel__blur{
     position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 0;
-    height: 0;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    clip-path: circle(50% at 50% 50%);
+    inset: 0;
     pointer-events: none;
     z-index: 31;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    background: rgba(9, 13, 22, 0.22);
+    background: radial-gradient(circle at center, rgba(9, 13, 22, 0.28) 0%, rgba(9, 13, 22, 0.18) 65%, rgba(9, 13, 22, 0.08) 100%);
     opacity: 0;
     transition: opacity 0.3s ease;
-    overflow: hidden;
+    clip-path: circle(var(--mode-carousel-blur-radius, 160px) at var(--mode-carousel-blur-center-x, 50%) var(--mode-carousel-blur-center-y, 50%));
+    -webkit-clip-path: circle(var(--mode-carousel-blur-radius, 160px) at var(--mode-carousel-blur-center-x, 50%) var(--mode-carousel-blur-center-y, 50%));
+    mask-image: radial-gradient(circle at var(--mode-carousel-blur-center-x, 50%) var(--mode-carousel-blur-center-y, 50%), rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.85) calc(var(--mode-carousel-blur-radius, 160px) - 6px), rgba(0,0,0,0.2) calc(var(--mode-carousel-blur-radius, 160px) + 24px), rgba(0,0,0,0) calc(var(--mode-carousel-blur-radius, 160px) + 44px));
+    -webkit-mask-image: radial-gradient(circle at var(--mode-carousel-blur-center-x, 50%) var(--mode-carousel-blur-center-y, 50%), rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.85) calc(var(--mode-carousel-blur-radius, 160px) - 6px), rgba(0,0,0,0.2) calc(var(--mode-carousel-blur-radius, 160px) + 24px), rgba(0,0,0,0) calc(var(--mode-carousel-blur-radius, 160px) + 44px));
+    mask-mode: luminance;
+    -webkit-mask-mode: luminance;
   }
   .mode-carousel__blur--visible{
     opacity: 1;
