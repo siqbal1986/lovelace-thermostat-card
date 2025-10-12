@@ -2517,7 +2517,8 @@ export default class ThermostatUI {
       const path = SvgUtil.createSVGElement('path', {
         class: 'dial__temperatureControl',
         fill: 'transparent',
-        d: controlsDef
+        d: controlsDef,
+        'fill-rule': 'evenodd' // TRIAL MERGE: carve a true donut so pointer events skip the central mode toggle.
       });
       this._controls.push(path); // Keep references so highlighting can be toggled on tap.
       path.addEventListener('click', () => this._temperatureControlClicked(index)); // Route taps to the handler that adjusts temperatures.
