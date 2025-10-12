@@ -144,11 +144,7 @@ export default class ThermostatUI {
     const circle = document.createElement('span');
     circle.className = 'mode-menu__toggler-circle';
 
-    const inner = document.createElement('span');
-    inner.className = 'mode-menu__toggler-inner';
-
-    const gloss = document.createElement('span');
-    gloss.className = 'mode-menu__toggler-gloss';
+    const inner = null; // Overlay toggle renders without the inset disc to avoid visual clipping artifacts.
 
     const icon = document.createElement('span');
     icon.className = 'mode-menu__toggler-icon';
@@ -160,8 +156,6 @@ export default class ThermostatUI {
     });
 
     toggleBody.appendChild(circle);
-    toggleBody.appendChild(inner);
-    toggleBody.appendChild(gloss);
     toggleBody.appendChild(icon);
     toggler.appendChild(toggleBody);
     container.appendChild(toggler);
