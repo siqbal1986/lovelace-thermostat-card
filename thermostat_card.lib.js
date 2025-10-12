@@ -134,7 +134,8 @@ export default class ThermostatUI {
   _buildModeToggleCarousel(radius) {
     const base = this._buildModeButton(radius, { omitBackdrop: true });
     const { container, geometry } = base;
-    container.classList.add('mode-menu--overlay'); // TRIAL MERGE: reuse overlay styling while hosting the toggle inside the SVG tree.
+    container.classList.add('mode-menu--overlay'); // TRIAL MERGE: reuse overlay styling while keeping the toggle inside the SVG tree.
+    container.setAttribute('pointer-events', 'visiblePainted'); // TRIAL MERGE: override the glass layer's non-interactive state so the toggle receives input.
     if (base.list) {
       base.list.setAttribute('display', 'none');
     }
@@ -1386,7 +1387,7 @@ export default class ThermostatUI {
       this._modeCarouselForeignObject.setAttribute('x', geometry.centerX - geometry.radius);
       this._modeCarouselForeignObject.setAttribute('y', geometry.centerY - geometry.radius);
       this._modeCarouselForeignObject.setAttribute('width', geometry.diameter);
-      this._modeCarouselForeignObject.setAttribute('height', geometry.diameter * 0.8);
+      this._modeCarouselForeignObject.setAttribute('height', geometry.diameter); // TRIAL MERGE: expand the fallback host so carousel content is not clipped vertically.
     }
   }
 
@@ -2098,9 +2099,11 @@ export default class ThermostatUI {
         this._modeCarouselForeignObject = foreign;
         this._modeCarouselWrapper = wrapper;
         this._modeCarouselTrack = track;
-        const targetLayer = this._glassGroup || this._root;
-        if (targetLayer) {
-          targetLayer.appendChild(container);
+        const glassParent = this._glassGroup && this._glassGroup.parentNode;
+        if (glassParent) {
+          glassParent.insertBefore(container, this._glassGroup.nextSibling); // TRIAL MERGE: keep the toggle in the SVG stack without inheriting the glass layer's pointer-events.
+        } else if (this._root) {
+          this._root.appendChild(container);
         }
         this._positionModeCarousel();
       } else {
