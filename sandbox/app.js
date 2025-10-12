@@ -95,6 +95,9 @@ const cardConfig = {
   name: 'Mock Thermostat',
   highlight_tap: true,
   pending: 1,
+  use_layered_anchors: true, // TRIAL MERGE: exercise layered alignment calculations in the sandbox.
+  debug_layered_anchors: true, // TRIAL MERGE: surface anchor geometry logs during manual testing.
+  mode_carousel_ui: true, // TRIAL MERGE: ensure the SVG carousel path is always evaluated.
 };
 
 card.setConfig(cardConfig);
