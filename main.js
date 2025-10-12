@@ -495,6 +495,17 @@ ThermostatCard.prototype._applyModeClip = function(){
     if (!root) return;
     const menu = root.querySelector('.mode-menu');
     const host = root.querySelector('#mode-carousel');
+    if (cfg.mode_carousel_ui === true) {
+      if (menu) {
+        menu.style.clipPath = '';
+        menu.style.webkitClipPath = '';
+      }
+      if (host) {
+        host.style.clipPath = '';
+        host.style.webkitClipPath = '';
+      }
+      return;
+    }
     if (!cfg._modeClipPolygon) {
       (async ()=>{
         try{
