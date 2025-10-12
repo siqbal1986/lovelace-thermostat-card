@@ -1235,6 +1235,14 @@ export default class ThermostatUI {
     if (this._modeMenuToggleBody) {
       this._modeMenuToggleBody.classList.toggle('mode-menu__toggler-body--open', expanded);
     }
+    // TRIAL MERGE: suspend the temperature tap zones while the carousel is open so they no longer intercept the mode toggle.
+    if (Array.isArray(this._controls)) {
+      this._controls.forEach((control) => {
+        if (control && control.style) {
+          control.style.pointerEvents = expanded ? 'none' : 'auto';
+        }
+      });
+    }
     if (this._root) {
       SvgUtil.setClass(this._root, 'modec-open', expanded);
     }
@@ -2495,22 +2503,26 @@ export default class ThermostatUI {
   }
 
   _buildControls(radius) {
+    // TRIAL MERGE: reshape the tap zones into a donut so the central mode toggle no longer sits beneath an active hit target.
+    const geometry = this._computeModeMenuGeometry(radius);
+    const dialCenter = geometry.radius;
+    const startOffset = Math.abs(geometry.centerY - dialCenter);
+    const toggleClearance = geometry.buttonRadius + Math.max(geometry.buttonRadius * 0.15, 12);
+    const radialClearance = Math.min(radius - Math.max(radius * 0.05, 12), Math.max(radius * 0.45, startOffset + toggleClearance));
     let startAngle = 270;
-    let loop = 4;
-    for (let index = 0; index < loop; index++) {
-      const angle = 360 / loop;
-      const sector = SvgUtil.anglesToSectors(radius, startAngle, angle); // Calculate the wedge that should respond to taps.
-      const controlsDef = 'M' + sector.L + ',' + sector.L + ' L' + sector.L + ',0 A' + sector.L + ',' + sector.L + ' 1 0,1 ' + sector.X + ', ' + sector.Y + ' z'; // Build a path covering that wedge.
+    const segments = 4;
+    for (let index = 0; index < segments; index++) {
+      const endAngle = startAngle + (360 / segments);
+      const controlsDef = SvgUtil.donutArcPath(dialCenter, dialCenter, radius, radialClearance, startAngle, endAngle);
       const path = SvgUtil.createSVGElement('path', {
         class: 'dial__temperatureControl',
         fill: 'transparent',
-        d: controlsDef,
-        transform: 'rotate(' + sector.R + ', ' + sector.L + ', ' + sector.L + ')'
+        d: controlsDef
       });
       this._controls.push(path); // Keep references so highlighting can be toggled on tap.
       path.addEventListener('click', () => this._temperatureControlClicked(index)); // Route taps to the handler that adjusts temperatures.
       this._root.appendChild(path);
-      startAngle = startAngle + angle; // Move on to the next quadrant.
+      startAngle = endAngle; // Move on to the next quadrant.
     }
   }
 
