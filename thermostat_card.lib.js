@@ -25,9 +25,11 @@ export default class ThermostatUI {
       centerY,
     };
   }
-  _buildModeButton(radius) {
+  // TRIAL MERGE: allow optional backdrop skipping so the carousel toggle can share this builder without rendering extra discs.
+  _buildModeButton(radius, options = {}) {
     const geometry = this._computeModeMenuGeometry(radius);
     const container = SvgUtil.createSVGElement('g', { class: 'mode-menu' });
+    const omitBackdrop = options && options.omitBackdrop === true;
 
     const toggler = SvgUtil.createSVGElement('g', {
       class: 'mode-menu__toggler',
@@ -40,25 +42,30 @@ export default class ThermostatUI {
     toggler.dataset.bottomOffset = String(geometry.bottomOffset);
 
     const toggleBody = SvgUtil.createSVGElement('g', { class: 'mode-menu__toggler-body' });
-    const circle = SvgUtil.createSVGElement('circle', {
-      class: 'mode-menu__toggler-circle',
-      cx: 0,
-      cy: 0,
-      r: geometry.buttonRadius
-    });
-    const inner = SvgUtil.createSVGElement('circle', {
-      class: 'mode-menu__toggler-inner',
-      cx: 0,
-      cy: 0,
-      r: Math.max(4, geometry.buttonRadius - 4)
-    });
-    const gloss = SvgUtil.createSVGElement('ellipse', {
-      class: 'mode-menu__toggler-gloss',
-      cx: -geometry.buttonRadius * 0.25,
-      cy: -geometry.buttonRadius * 0.45,
-      rx: geometry.buttonRadius * 0.7,
-      ry: geometry.buttonRadius * 0.55
-    });
+    let circle = null;
+    let inner = null;
+    let gloss = null;
+    if (!omitBackdrop) {
+      circle = SvgUtil.createSVGElement('circle', {
+        class: 'mode-menu__toggler-circle',
+        cx: 0,
+        cy: 0,
+        r: geometry.buttonRadius
+      });
+      inner = SvgUtil.createSVGElement('circle', {
+        class: 'mode-menu__toggler-inner',
+        cx: 0,
+        cy: 0,
+        r: Math.max(4, geometry.buttonRadius - 4)
+      });
+      gloss = SvgUtil.createSVGElement('ellipse', {
+        class: 'mode-menu__toggler-gloss',
+        cx: -geometry.buttonRadius * 0.25,
+        cy: -geometry.buttonRadius * 0.45,
+        rx: geometry.buttonRadius * 0.7,
+        ry: geometry.buttonRadius * 0.55
+      });
+    }
     const icon = SvgUtil.createSVGElement('g', { class: 'mode-menu__toggler-icon' });
     const barOffsets = [-geometry.buttonRadius * 0.35, 0, geometry.buttonRadius * 0.35];
     barOffsets.forEach((offset, index) => {
@@ -76,9 +83,9 @@ export default class ThermostatUI {
       icon.appendChild(bar);
     });
 
-    toggleBody.appendChild(circle);
-    toggleBody.appendChild(inner);
-    toggleBody.appendChild(gloss);
+    if (circle) toggleBody.appendChild(circle);
+    if (inner) toggleBody.appendChild(inner);
+    if (gloss) toggleBody.appendChild(gloss);
     toggleBody.appendChild(icon);
     toggler.appendChild(toggleBody);
 
@@ -123,73 +130,48 @@ export default class ThermostatUI {
 
     return { container, toggler, toggleBody, circle, inner, list, geometry };
   }
+  // TRIAL MERGE: build the carousel toggle directly within the SVG graph using a foreignObject host for the HTML carousel.
   _buildModeToggleCarousel(radius) {
-    const geometry = this._computeModeMenuGeometry(radius);
-    const container = document.createElement('div');
-    container.className = 'mode-menu mode-menu--overlay';
-    container.style.position = 'absolute';
-    container.style.transform = 'translate(-50%, -50%)';
-    container.style.zIndex = '32';
+    const base = this._buildModeButton(radius, { omitBackdrop: true });
+    const { container, geometry } = base;
+    container.classList.add('mode-menu--overlay'); // TRIAL MERGE: reuse overlay styling while hosting the toggle inside the SVG tree.
+    if (base.list) {
+      base.list.setAttribute('display', 'none');
+    }
 
-    const toggler = document.createElement('button');
-    toggler.type = 'button';
-    toggler.className = 'mode-menu__toggler';
-    toggler.setAttribute('aria-label', 'Toggle HVAC modes');
-    toggler.setAttribute('aria-expanded', 'false');
-    toggler.dataset.bottomOffset = String(geometry.bottomOffset);
-
-    const toggleBody = document.createElement('span');
-    toggleBody.className = 'mode-menu__toggler-body';
-
-    const circle = null; // Overlay toggle renders without a dedicated backdrop element to avoid stray outlines.
-
-    const inner = null; // Overlay toggle renders without the inset disc to avoid visual clipping artifacts.
-
-    const icon = document.createElement('span');
-    icon.className = 'mode-menu__toggler-icon';
-
-    ['top', 'middle', 'bottom'].forEach((role) => {
-      const bar = document.createElement('span');
-      bar.className = `mode-menu__toggler-bar mode-menu__toggler-bar--${role}`;
-      icon.appendChild(bar);
+    const diameter = geometry.diameter;
+    const foreign = SvgUtil.createSVGElement('foreignObject', {
+      class: 'mode-carousel__host',
+      x: geometry.centerX - geometry.radius,
+      y: geometry.centerY - geometry.radius,
+      width: diameter,
+      height: diameter,
+      requiredExtensions: 'http://www.w3.org/1999/xhtml'
     });
 
-    toggleBody.appendChild(icon);
-    toggler.appendChild(toggleBody);
-    container.appendChild(toggler);
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mode-carousel';
+    wrapper.setAttribute('aria-hidden', 'true');
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.display = 'none';
 
-    const stopPointer = (event) => {
-      event.stopPropagation();
+    const surface = document.createElement('div');
+    surface.className = 'mode-carousel__surface';
+    const track = document.createElement('div');
+    track.className = 'mode-carousel__track';
+    surface.appendChild(track);
+    wrapper.appendChild(surface);
+    foreign.appendChild(wrapper);
+    container.appendChild(foreign);
+
+    return {
+      ...base,
+      list: null,
+      geometry,
+      foreign,
+      wrapper,
+      track
     };
-    const handleToggle = (event, fromKeyboard = false) => {
-      const isOpen = container.classList.contains('menu-open');
-      if (this._modeCarouselEnabled && isOpen) {
-        this._commitCarouselSelection(fromKeyboard ? 'toggler-key' : 'toggler', null, event);
-        return;
-      }
-      const shouldOpen = !isOpen;
-      this._setModeMenuOpen(shouldOpen);
-    };
-    toggler.addEventListener('pointerdown', (event) => {
-      stopPointer(event);
-      if (event.pointerType === 'touch') {
-        event.preventDefault();
-      }
-    });
-    toggler.addEventListener('pointerup', stopPointer);
-    toggler.addEventListener('pointercancel', stopPointer);
-    toggler.addEventListener('click', (event) => {
-      stopPointer(event);
-      handleToggle(event, false);
-    });
-    toggler.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        handleToggle(event, true);
-      }
-    });
-
-    return { container, toggler, toggleBody, circle, inner, list: null, geometry };
   }
   _modeMenuTransformFor(angle, distance, scale) {
     const geometry = this._modeMenuGeometry || this._computeModeMenuGeometry(this._config.radius);
@@ -286,7 +268,6 @@ export default class ThermostatUI {
     const resolvedSeconds = Number.isFinite(timeoutSeconds) ? Math.max(timeoutSeconds, 0) : 5;
     this._modeCarouselAutoCloseMs = resolvedSeconds * 1000; // Milliseconds before the carousel auto-commits.
     this._modeCarouselWrapper = null; // HTML wrapper for the frosted glass carousel overlay.
-    this._modeCarouselSurface = null; // Inner surface positioned over the mode anchor area.
     this._modeCarouselTrack = null; // Track element that holds individual carousel options.
     this._modeCarouselItems = []; // Data bag describing each carousel option.
     this._modeCarouselPendingModes = null; // Last set of HVAC modes supplied while the carousel was closed.
@@ -298,15 +279,10 @@ export default class ThermostatUI {
     this._modeCarouselDialContext = null; // Tracks dial rotation gestures while the carousel is open.
     this._modeCarouselDialHandlersAttached = false; // Ensure dial gesture listeners are only installed once.
     this._modeCarouselDialHandlers = null; // Store bound handlers so they can be removed when closing the carousel.
-    this._modeCarouselResizeObserver = null; // Observes layout changes to keep the carousel aligned with the dial.
     this._modeCarouselHideHandler = null; // Stores the transition listener that collapses the carousel when closed.
     this._modeCarouselHideHandlerTarget = null; // Remembers which wrapper currently owns the hide handler.
     this._modeCarouselHideTimeout = null; // Timeout fallback for hiding the carousel when transitions are unavailable.
     this._modeCarouselHideFinalize = null; // Callback executed once the carousel has fully hidden.
-    this._modeCarouselWindowResizeHandler = null; // Window resize callback used for responsive alignment.
-    this._modeToggleResizeObserver = null; // ResizeObserver used to keep the HTML toggle aligned with the dial.
-    this._modeToggleWindowResizeHandler = null; // Window resize handler that repositions the toggle during viewport changes.
-    this._modeToggleRaf = null; // requestAnimationFrame handle for debounced toggle positioning.
     this._metalRingIds = {
       gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'), // Unique IDs for CSS-only fallbacks (legacy support).
       sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
@@ -1229,7 +1205,7 @@ export default class ThermostatUI {
       this._modeMenuToggleBody.classList.toggle('mode-menu__toggler-body--open', expanded);
     }
     if (this._modeCarouselEnabled) {
-      this._scheduleModeTogglePosition();
+      this._positionModeCarousel();
     }
     if (this._root) {
       SvgUtil.setClass(this._root, 'modec-open', expanded);
@@ -1267,41 +1243,20 @@ export default class ThermostatUI {
     }
   }
 
+  // TRIAL MERGE: reuse the existing carousel track while it lives inside the SVG foreignObject host.
   _ensureModeCarouselElements() {
     if (!this._modeCarouselEnabled) {
       return null;
     }
-    if (this._modeCarouselWrapper && this._modeCarouselWrapper.isConnected) {
-      this._positionModeCarousel();
-      return this._modeCarouselWrapper;
-    }
-    if (!this.c_body) {
+    const wrapper = this._modeCarouselWrapper;
+    if (!wrapper) {
       return null;
     }
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'mode-carousel';
-    wrapper.setAttribute('aria-hidden', 'true');
-    wrapper.style.pointerEvents = 'none';
-    wrapper.style.display = 'none';
-
-    const surface = document.createElement('div');
-    surface.className = 'mode-carousel__surface';
-    const track = document.createElement('div');
-    track.className = 'mode-carousel__track';
-    surface.appendChild(track);
-    wrapper.appendChild(surface);
-    this.c_body.appendChild(wrapper);
-
-    this._modeCarouselWrapper = wrapper;
-    this._modeCarouselSurface = surface;
-    this._modeCarouselTrack = track;
-
     if (this._modeMenuList) {
       this._modeMenuList.style.display = 'none';
     }
 
-    if (!this._modeCarouselPointerHandlers) {
+    if (!this._modeCarouselPointerHandlers && this._modeCarouselTrack) {
       const pointerDown = (event) => {
         if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
           return;
@@ -1314,8 +1269,8 @@ export default class ThermostatUI {
           startX: event.clientX,
           lastX: event.clientX
         };
-        if (track.setPointerCapture && event.pointerId !== undefined) {
-          try { track.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        if (this._modeCarouselTrack.setPointerCapture && event.pointerId !== undefined) {
+          try { this._modeCarouselTrack.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
         }
         event.preventDefault();
         this._resetCarouselTimer();
@@ -1326,65 +1281,49 @@ export default class ThermostatUI {
         if (!ctx || ctx.pointerId !== pointerId) {
           return;
         }
-        const totalDx = event.clientX - ctx.startX;
-        const threshold = 24;
-        if (Math.abs(totalDx) >= threshold) {
-          if (totalDx < 0) {
-            this._stepCarousel(1);
-          } else if (totalDx > 0) {
-            this._stepCarousel(-1);
-          }
-          ctx.startX = event.clientX;
+        const delta = event.clientX - ctx.lastX;
+        if (Math.abs(delta) >= 6) {
+          this._modeCarouselActiveIndex = delta > 0
+            ? (this._modeCarouselActiveIndex - 1 + this._modeCarouselItems.length) % this._modeCarouselItems.length
+            : (this._modeCarouselActiveIndex + 1) % this._modeCarouselItems.length;
+          ctx.lastX = event.clientX;
+          this._updateCarouselClasses();
+          this._resetCarouselTimer();
         }
-        ctx.lastX = event.clientX;
         event.preventDefault();
       };
       const pointerUp = (event) => {
         const ctx = this._modeCarouselSwipeContext;
         const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
-        if (ctx && ctx.pointerId === pointerId) {
-          this._modeCarouselSwipeContext = null;
+        if (!ctx || ctx.pointerId !== pointerId) {
+          return;
         }
-        if (track.releasePointerCapture && event.pointerId !== undefined) {
-          try { track.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        this._modeCarouselSwipeContext = null;
+        if (ctx.pointerId !== undefined && this._modeCarouselTrack.releasePointerCapture) {
+          try { this._modeCarouselTrack.releasePointerCapture(ctx.pointerId); } catch (_) { /* ignore */ }
         }
+        event.preventDefault();
       };
       const stopClick = (event) => {
-        event.stopPropagation();
+        if (this._modeCarouselSwipeContext) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
       };
       this._modeCarouselPointerHandlers = { pointerDown, pointerMove, pointerUp, stopClick };
-      track.addEventListener('pointerdown', pointerDown);
-      track.addEventListener('pointermove', pointerMove);
-      track.addEventListener('pointerup', pointerUp);
-      track.addEventListener('pointercancel', pointerUp);
-      track.addEventListener('mouseleave', pointerUp);
-      track.addEventListener('click', stopClick);
-    }
-
-    if (typeof ResizeObserver !== 'undefined' && !this._modeCarouselResizeObserver) {
-      try {
-        this._modeCarouselResizeObserver = new ResizeObserver(() => {
-          this._positionModeCarousel();
-          this._scheduleModeTogglePosition();
-        });
-        this._modeCarouselResizeObserver.observe(this.c_body);
-      } catch (_) {
-        this._modeCarouselResizeObserver = null;
-      }
-    }
-    if (!this._modeCarouselWindowResizeHandler && typeof window !== 'undefined') {
-      this._modeCarouselWindowResizeHandler = () => {
-        this._positionModeCarousel();
-        this._scheduleModeTogglePosition();
-      };
-      window.addEventListener('resize', this._modeCarouselWindowResizeHandler, { passive: true });
+      this._modeCarouselTrack.addEventListener('pointerdown', pointerDown);
+      this._modeCarouselTrack.addEventListener('pointermove', pointerMove);
+      this._modeCarouselTrack.addEventListener('pointerup', pointerUp);
+      this._modeCarouselTrack.addEventListener('pointercancel', pointerUp);
+      this._modeCarouselTrack.addEventListener('mouseleave', pointerUp);
+      this._modeCarouselTrack.addEventListener('click', stopClick);
     }
 
     this._positionModeCarousel();
-    this._scheduleModeTogglePosition();
     return wrapper;
   }
 
+  // TRIAL MERGE: keep carousel DOM listeners tidy while the elements live inside the SVG hierarchy.
   _destroyModeCarouselElements() {
     if (this._modeCarouselHideTimeout) {
       clearTimeout(this._modeCarouselHideTimeout);
@@ -1410,154 +1349,44 @@ export default class ThermostatUI {
     this._modeCarouselPointerHandlers = null;
     this._modeCarouselSwipeContext = null;
 
-    if (this._modeCarouselResizeObserver) {
+    if (this._modeCarouselTrack) {
       try {
-        this._modeCarouselResizeObserver.disconnect();
-      } catch (_) { /* ignore */ }
-      this._modeCarouselResizeObserver = null;
-    }
-    if (this._modeCarouselWindowResizeHandler && typeof window !== 'undefined') {
-      try {
-        window.removeEventListener('resize', this._modeCarouselWindowResizeHandler);
-      } catch (_) { /* ignore */ }
-      this._modeCarouselWindowResizeHandler = null;
+        this._modeCarouselTrack.innerHTML = '';
+      } catch (_) {
+        while (this._modeCarouselTrack.firstChild) {
+          this._modeCarouselTrack.removeChild(this._modeCarouselTrack.firstChild);
+        }
+      }
     }
 
     if (this._modeCarouselWrapper) {
-      try {
-        this._modeCarouselWrapper.style.display = 'none';
-      } catch (_) { /* ignore */ }
-      if (this._modeCarouselWrapper.parentNode) {
-        try {
-          this._modeCarouselWrapper.parentNode.removeChild(this._modeCarouselWrapper);
-        } catch (_) { /* ignore */ }
-      }
+      this._modeCarouselWrapper.setAttribute('aria-hidden', 'true');
+      this._modeCarouselWrapper.style.pointerEvents = 'none';
+      this._modeCarouselWrapper.style.display = 'none';
     }
-    this._modeCarouselWrapper = null;
-    this._modeCarouselSurface = null;
-    this._modeCarouselTrack = null;
+
     this._modeCarouselItems = [];
   }
 
-  _ensureModeToggleObservers() {
-    if (!this._modeCarouselEnabled || !this.c_body) {
-      return;
-    }
-    if (typeof ResizeObserver !== 'undefined' && !this._modeToggleResizeObserver) {
-      try {
-        this._modeToggleResizeObserver = new ResizeObserver(() => this._scheduleModeTogglePosition());
-        this._modeToggleResizeObserver.observe(this.c_body);
-      } catch (_) {
-        this._modeToggleResizeObserver = null;
-      }
-    }
-    if (!this._modeToggleWindowResizeHandler && typeof window !== 'undefined') {
-      this._modeToggleWindowResizeHandler = () => this._scheduleModeTogglePosition();
-      try {
-        window.addEventListener('resize', this._modeToggleWindowResizeHandler, { passive: true });
-      } catch (_) {
-        this._modeToggleWindowResizeHandler = null;
-      }
-    }
-  }
-
-  _scheduleModeTogglePosition() {
-    if (!this._modeCarouselEnabled) {
-      return;
-    }
-    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-      this._positionModeToggle();
-      return;
-    }
-    if (this._modeToggleRaf) {
-      try {
-        window.cancelAnimationFrame(this._modeToggleRaf);
-      } catch (_) {
-        /* ignore */
-      }
-    }
-    this._modeToggleRaf = window.requestAnimationFrame(() => {
-      this._modeToggleRaf = null;
-      this._positionModeToggle();
-    });
-  }
-
-  _positionModeToggle() {
-    if (!this._modeCarouselEnabled || !this._modeMenuContainer || !this._root || !this.c_body) {
-      return;
-    }
-    if (!(this._modeMenuContainer instanceof HTMLElement)) {
-      return;
-    }
-    try {
-      const containerRect = this.c_body.getBoundingClientRect();
-      const dialRect = this._root.getBoundingClientRect();
-      if (!dialRect || dialRect.width <= 0 || dialRect.height <= 0) {
-        return;
-      }
-      const geometry = this._modeMenuGeometry || this._computeModeMenuGeometry(this._config.radius);
-      const diameter = geometry && Number.isFinite(geometry.diameter)
-        ? geometry.diameter
-        : (Number(this._config && this._config.diameter) || (this._config && this._config.radius ? this._config.radius * 2 : 400));
-      const scaleX = dialRect.width / diameter;
-      const scaleY = dialRect.height / diameter;
-      const left = dialRect.left - containerRect.left + geometry.centerX * scaleX;
-      const top = dialRect.top - containerRect.top + geometry.centerY * scaleY;
-      const buttonRadiusPx = geometry.buttonRadius * Math.min(scaleX, scaleY);
-      const size = Math.max(1, buttonRadiusPx * 2);
-      const gap = buttonRadiusPx * 0.35;
-      const container = this._modeMenuContainer;
-      container.style.left = `${left}px`;
-      container.style.top = `${top}px`;
-      container.style.width = `${size}px`;
-      container.style.height = `${size}px`;
-      container.style.setProperty('--mode-toggle-size', `${size}px`);
-      container.style.setProperty('--mode-toggle-bar-gap', `${gap}px`);
-      if (!container.style.position) {
-        container.style.position = 'absolute';
-      }
-    } catch (_) {
-      // ignore layout errors
-    }
-  }
-
+  // TRIAL MERGE: align the carousel's foreignObject with either the layered anchor or the dial geometry.
   _positionModeCarousel() {
-    if (!this._modeCarouselEnabled) {
+    if (!this._modeCarouselEnabled || !this._modeCarouselForeignObject) {
       return;
     }
-    if (!this._modeCarouselSurface || !this._root || !this.c_body) {
-      return;
-    }
-    try {
-      const containerRect = this.c_body.getBoundingClientRect();
-      const dialRect = this._root.getBoundingClientRect();
-      const centerX = dialRect.left - containerRect.left + dialRect.width / 2;
-      const centerY = dialRect.top - containerRect.top + dialRect.height / 2;
-      const diameter = Number(this._config && this._config.diameter) || (this._config && this._config.radius ? this._config.radius * 2 : 400);
-      const anchor = this._config && this._config._layeredAnchors && this._config._layeredAnchors.mode;
-      const anchorUsable = anchor && Number.isFinite(anchor.width) && Number.isFinite(anchor.height) && anchor.width > 1 && anchor.height > 1;
-      let width;
-      let height;
-      let originX = centerX;
-      let originY = centerY;
-      if (anchorUsable) {
-        const scaleX = dialRect.width / diameter;
-        const scaleY = dialRect.height / diameter;
-        width = Math.max(anchor.width * scaleX, 1);
-        height = Math.max(anchor.height * scaleY, 1);
-        originX = dialRect.left - containerRect.left + (anchor.x + anchor.width / 2) * scaleX;
-        originY = dialRect.top - containerRect.top + (anchor.y + anchor.height / 2) * scaleY;
-      } else {
-        width = Math.max(dialRect.width * 0.52, 1);
-        height = Math.max(dialRect.height * 0.34, 1);
-      }
-      this._modeCarouselSurface.style.left = `${originX}px`;
-      this._modeCarouselSurface.style.top = `${originY}px`;
-      this._modeCarouselSurface.style.width = `${width}px`;
-      this._modeCarouselSurface.style.height = `${height}px`;
-        this._modeCarouselSurface.style.transform = 'translate(-50%, -50%)';
-    } catch (_) {
-      // ignore layout errors
+    const geometry = this._modeMenuGeometry || this._computeModeMenuGeometry(this._config.radius);
+    const anchor = this._config && this._config._layeredAnchors && this._config._layeredAnchors.mode;
+    const anchorUsable = anchor && Number.isFinite(anchor.width) && Number.isFinite(anchor.height) && anchor.width > 1 && anchor.height > 1;
+
+    if (anchorUsable) {
+      this._modeCarouselForeignObject.setAttribute('x', anchor.x);
+      this._modeCarouselForeignObject.setAttribute('y', anchor.y);
+      this._modeCarouselForeignObject.setAttribute('width', anchor.width);
+      this._modeCarouselForeignObject.setAttribute('height', anchor.height);
+    } else {
+      this._modeCarouselForeignObject.setAttribute('x', geometry.centerX - geometry.radius);
+      this._modeCarouselForeignObject.setAttribute('y', geometry.centerY - geometry.radius);
+      this._modeCarouselForeignObject.setAttribute('width', geometry.diameter);
+      this._modeCarouselForeignObject.setAttribute('height', geometry.diameter * 0.8);
     }
   }
 
@@ -1794,7 +1623,6 @@ export default class ThermostatUI {
       wrapper.setAttribute('aria-hidden', 'false');
       wrapper.style.pointerEvents = 'auto';
       this._positionModeCarousel();
-      this._scheduleModeTogglePosition();
       this._updateCarouselActiveFromState();
       this._updateCarouselClasses();
       this._resetCarouselTimer();
@@ -1803,7 +1631,7 @@ export default class ThermostatUI {
       wrapper.classList.remove('mode-carousel--open');
       wrapper.setAttribute('aria-hidden', 'true');
       wrapper.style.pointerEvents = 'none';
-      this._scheduleModeTogglePosition();
+      this._positionModeCarousel();
       if (this._modeCarouselHideTimeout) {
         clearTimeout(this._modeCarouselHideTimeout);
       }
@@ -2257,7 +2085,8 @@ export default class ThermostatUI {
 
     if (!this._modeMenuContainer) {
       if (this._modeCarouselEnabled) {
-        const { container, toggler, toggleBody, circle, inner, geometry } = this._buildModeToggleCarousel(radius);
+        // TRIAL MERGE: mount the carousel toggle within the glass layer so it follows SVG stacking.
+        const { container, toggler, toggleBody, circle, inner, geometry, foreign, wrapper, track } = this._buildModeToggleCarousel(radius);
         this._modeMenuContainer = container;
         this._modeMenuToggler = toggler;
         this._modeMenuToggleBody = toggleBody;
@@ -2266,9 +2095,14 @@ export default class ThermostatUI {
         this._modeMenuList = null;
         this._modeMenuItems = [];
         this._modeMenuGeometry = geometry;
-        this.c_body.appendChild(container);
-        this._ensureModeToggleObservers();
-        this._scheduleModeTogglePosition();
+        this._modeCarouselForeignObject = foreign;
+        this._modeCarouselWrapper = wrapper;
+        this._modeCarouselTrack = track;
+        const targetLayer = this._glassGroup || this._root;
+        if (targetLayer) {
+          targetLayer.appendChild(container);
+        }
+        this._positionModeCarousel();
       } else {
         const { container, toggler, toggleBody, circle, inner, list, geometry } = this._buildModeButton(radius);
         this._modeMenuContainer = container;
@@ -2285,9 +2119,17 @@ export default class ThermostatUI {
       this._modeMenuGeometry = this._computeModeMenuGeometry(radius);
       if (this._modeCarouselEnabled) {
         if (this._modeMenuToggler) {
+          this._modeMenuToggler.setAttribute('transform', `translate(${this._modeMenuGeometry.centerX}, ${this._modeMenuGeometry.centerY})`);
           this._modeMenuToggler.dataset.bottomOffset = String(this._modeMenuGeometry.bottomOffset);
         }
-        this._scheduleModeTogglePosition();
+        if (this._modeCarouselForeignObject) {
+          const diameter = this._modeMenuGeometry.diameter;
+          this._modeCarouselForeignObject.setAttribute('x', this._modeMenuGeometry.centerX - this._modeMenuGeometry.radius);
+          this._modeCarouselForeignObject.setAttribute('y', this._modeMenuGeometry.centerY - this._modeMenuGeometry.radius);
+          this._modeCarouselForeignObject.setAttribute('width', diameter);
+          this._modeCarouselForeignObject.setAttribute('height', diameter);
+        }
+        this._positionModeCarousel();
       } else {
         this._modeMenuToggler.setAttribute('transform', `translate(${this._modeMenuGeometry.centerX}, ${this._modeMenuGeometry.centerY})`);
         if (this._modeMenuCircle) {
