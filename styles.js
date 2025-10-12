@@ -787,6 +787,10 @@ export function cssData(user) {
     color: inherit; /* Follow button color changes. */
     text-align: center; /* Keep labels centered. */
   }
+  /* TRIAL MERGE: allow the SVG-based carousel wrapper to accept pointer input. */
+  .mode-menu.mode-menu--carousel{
+    pointer-events: auto;
+  }
   /* TRIAL MERGE: SVG carousel styling */
   .mode-menu--carousel .mode-menu__toggler--hidden{
     opacity: 0;
