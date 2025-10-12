@@ -807,26 +807,6 @@ export function cssData(user) {
     visibility: visible;
     transform: translateY(0) scale(1);
   }
-  .mode-carousel__blur{
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 31;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    background: radial-gradient(circle at center, rgba(9, 13, 22, 0.28) 0%, rgba(9, 13, 22, 0.18) 65%, rgba(9, 13, 22, 0.08) 100%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    clip-path: circle(var(--mode-carousel-blur-radius, 160px) at var(--mode-carousel-blur-center-x, 50%) var(--mode-carousel-blur-center-y, 50%));
-    -webkit-clip-path: circle(var(--mode-carousel-blur-radius, 160px) at var(--mode-carousel-blur-center-x, 50%) var(--mode-carousel-blur-center-y, 50%));
-    mask-image: radial-gradient(circle at var(--mode-carousel-blur-center-x, 50%) var(--mode-carousel-blur-center-y, 50%), rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.85) calc(var(--mode-carousel-blur-radius, 160px) - 6px), rgba(0,0,0,0.2) calc(var(--mode-carousel-blur-radius, 160px) + 24px), rgba(0,0,0,0) calc(var(--mode-carousel-blur-radius, 160px) + 44px));
-    -webkit-mask-image: radial-gradient(circle at var(--mode-carousel-blur-center-x, 50%) var(--mode-carousel-blur-center-y, 50%), rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.85) calc(var(--mode-carousel-blur-radius, 160px) - 6px), rgba(0,0,0,0.2) calc(var(--mode-carousel-blur-radius, 160px) + 24px), rgba(0,0,0,0) calc(var(--mode-carousel-blur-radius, 160px) + 44px));
-    mask-mode: luminance;
-    -webkit-mask-mode: luminance;
-  }
-  .mode-carousel__blur--visible{
-    opacity: 1;
-  }
   .mode-carousel__surface{
     position: absolute;
     transform: translate(-50%, -50%);
@@ -937,12 +917,6 @@ export function cssData(user) {
   .mode-carousel__item--prev .mode-carousel__reflection,
   .mode-carousel__item--next .mode-carousel__reflection{
     opacity: 0.3;
-  }
-  .dial--blurred{
-    transform: scale(0.98); /* Documented property purpose for clarity. */
-    transform-origin: 50% 50%; /* Define the pivot point for transforms so rotations look natural. */
-    transform-box: fill-box; /* Documented property purpose for clarity. */
-    transition: transform 0.35s ease; /* Animate property changes smoothly for a polished feel. */
   }
   .dial__limit-flash{
     opacity: 0; /* Adjust transparency to blend the layer into the dial. */
