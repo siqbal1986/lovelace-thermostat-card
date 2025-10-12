@@ -130,48 +130,79 @@ export default class ThermostatUI {
 
     return { container, toggler, toggleBody, circle, inner, list, geometry };
   }
-  // TRIAL MERGE: build the carousel toggle directly within the SVG graph using a foreignObject host for the HTML carousel.
+  // TRIAL MERGE: derive layout metrics for the SVG carousel items.
+  _computeCarouselGeometry(radius) {
+    const dialRadius = Number.isFinite(radius) ? radius : 0;
+    const itemWidth = Math.max(70, dialRadius * 0.55);
+    const itemHeight = Math.max(110, dialRadius * 0.9);
+    const spacing = itemWidth * 0.85;
+    return { dialRadius, itemWidth, itemHeight, spacing };
+  }
+  // TRIAL MERGE: outline the frosted obelisk profile used for each SVG carousel card.
+  _carouselObeliskPath(width, height) {
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    const topWidth = width * 0.6;
+    const halfTop = topWidth / 2;
+    const baseCurve = Math.max(width * 0.08, 6);
+    return [
+      `M ${-halfTop} ${-halfHeight}`,
+      `L ${halfTop} ${-halfHeight}`,
+      `L ${halfWidth} ${halfHeight - baseCurve}`,
+      `Q ${halfWidth} ${halfHeight} 0 ${halfHeight}`,
+      `Q ${-halfWidth} ${halfHeight} ${-halfWidth} ${halfHeight - baseCurve}`,
+      'Z'
+    ].join(' ');
+  }
+  // TRIAL MERGE: render a subtle mirrored streak near the base of the obelisk.
+  _carouselReflectionPath(width, height) {
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    const top = halfHeight * 0.35;
+    const bottom = halfHeight * 0.7;
+    return [
+      `M ${-halfWidth * 0.4} ${top}`,
+      `Q 0 ${top - halfHeight * 0.1} ${halfWidth * 0.4} ${top}`,
+      `L ${halfWidth * 0.3} ${bottom}`,
+      `Q 0 ${bottom + halfHeight * 0.08} ${-halfWidth * 0.3} ${bottom}`,
+      'Z'
+    ].join(' ');
+  }
+  // TRIAL MERGE: build the carousel toggle and item rail entirely within the SVG glass layer.
   _buildModeToggleCarousel(radius) {
-    const base = this._buildModeButton(radius, { omitBackdrop: true });
-    const { container, geometry } = base;
-    container.classList.add('mode-menu--overlay'); // TRIAL MERGE: reuse overlay styling while keeping the toggle inside the SVG tree.
-    container.setAttribute('pointer-events', 'visiblePainted'); // TRIAL MERGE: override the glass layer's non-interactive state so the toggle receives input.
-    if (base.list) {
-      base.list.setAttribute('display', 'none');
-    }
+    const base = this._buildModeButton(radius);
+    const { container } = base;
+    container.classList.add('mode-menu--carousel'); // TRIAL MERGE: flag this container so carousel-specific styling can apply.
+    container.setAttribute('pointer-events', 'visiblePainted'); // TRIAL MERGE: allow the SVG toggle to receive pointer input.
 
-    const diameter = geometry.diameter;
-    const foreign = SvgUtil.createSVGElement('foreignObject', {
-      class: 'mode-carousel__host',
-      x: geometry.centerX - geometry.radius,
-      y: geometry.centerY - geometry.radius,
-      width: diameter,
-      height: diameter,
-      requiredExtensions: 'http://www.w3.org/1999/xhtml'
+    const geometry = this._computeCarouselGeometry(radius);
+    this._modeCarouselGeometry = geometry;
+    const dialRadius = geometry.dialRadius;
+
+    const wrapper = SvgUtil.createSVGElement('g', {
+      class: 'mode-carousel-svg',
+      transform: `translate(${dialRadius}, ${dialRadius})`,
+      'aria-hidden': 'true'
     });
+    const halo = SvgUtil.createSVGElement('circle', {
+      class: 'mode-carousel-svg__halo',
+      cx: 0,
+      cy: 0,
+      r: Math.max(dialRadius * 0.58, geometry.itemWidth * 0.8)
+    });
+    wrapper.appendChild(halo);
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'mode-carousel';
-    wrapper.setAttribute('aria-hidden', 'true');
-    wrapper.style.pointerEvents = 'none';
-    wrapper.style.display = 'none';
+    const track = SvgUtil.createSVGElement('g', { class: 'mode-carousel-svg__items' });
+    wrapper.appendChild(track);
 
-    const surface = document.createElement('div');
-    surface.className = 'mode-carousel__surface';
-    const track = document.createElement('div');
-    track.className = 'mode-carousel__track';
-    surface.appendChild(track);
-    wrapper.appendChild(surface);
-    foreign.appendChild(wrapper);
-    container.appendChild(foreign);
+    container.appendChild(wrapper);
 
     return {
       ...base,
       list: null,
-      geometry,
-      foreign,
       wrapper,
-      track
+      track,
+      halo
     };
   }
   _modeMenuTransformFor(angle, distance, scale) {
@@ -268,8 +299,11 @@ export default class ThermostatUI {
     const timeoutSeconds = Number(config && config.mode_carousel_timeout);
     const resolvedSeconds = Number.isFinite(timeoutSeconds) ? Math.max(timeoutSeconds, 0) : 5;
     this._modeCarouselAutoCloseMs = resolvedSeconds * 1000; // Milliseconds before the carousel auto-commits.
-    this._modeCarouselWrapper = null; // HTML wrapper for the frosted glass carousel overlay.
-    this._modeCarouselTrack = null; // Track element that holds individual carousel options.
+    // TRIAL MERGE: track the SVG-based carousel elements that live inside the dial rather than an HTML overlay.
+    this._modeCarouselWrapper = null; // TRIAL MERGE: group that reveals the carousel items when the toggle opens.
+    this._modeCarouselTrack = null; // TRIAL MERGE: inner group that positions the frosted obelisks around the dial center.
+    this._modeCarouselGeometry = null; // TRIAL MERGE: cached width/height/spacing used to lay out carousel items.
+    this._modeCarouselHalo = null; // TRIAL MERGE: circular highlight drawn behind the SVG carousel.
     this._modeCarouselItems = []; // Data bag describing each carousel option.
     this._modeCarouselPendingModes = null; // Last set of HVAC modes supplied while the carousel was closed.
     this._modeCarouselPendingHass = null; // Last Home Assistant reference paired with the pending modes.
@@ -280,10 +314,6 @@ export default class ThermostatUI {
     this._modeCarouselDialContext = null; // Tracks dial rotation gestures while the carousel is open.
     this._modeCarouselDialHandlersAttached = false; // Ensure dial gesture listeners are only installed once.
     this._modeCarouselDialHandlers = null; // Store bound handlers so they can be removed when closing the carousel.
-    this._modeCarouselHideHandler = null; // Stores the transition listener that collapses the carousel when closed.
-    this._modeCarouselHideHandlerTarget = null; // Remembers which wrapper currently owns the hide handler.
-    this._modeCarouselHideTimeout = null; // Timeout fallback for hiding the carousel when transitions are unavailable.
-    this._modeCarouselHideFinalize = null; // Callback executed once the carousel has fully hidden.
     this._metalRingIds = {
       gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'), // Unique IDs for CSS-only fallbacks (legacy support).
       sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
@@ -1205,9 +1235,6 @@ export default class ThermostatUI {
     if (this._modeMenuToggleBody) {
       this._modeMenuToggleBody.classList.toggle('mode-menu__toggler-body--open', expanded);
     }
-    if (this._modeCarouselEnabled) {
-      this._positionModeCarousel();
-    }
     if (this._root) {
       SvgUtil.setClass(this._root, 'modec-open', expanded);
     }
@@ -1244,7 +1271,7 @@ export default class ThermostatUI {
     }
   }
 
-  // TRIAL MERGE: reuse the existing carousel track while it lives inside the SVG foreignObject host.
+  // TRIAL MERGE: reuse the SVG carousel track while it lives inside the dial hierarchy.
   _ensureModeCarouselElements() {
     if (!this._modeCarouselEnabled) {
       return null;
@@ -1305,47 +1332,26 @@ export default class ThermostatUI {
         }
         event.preventDefault();
       };
-      const stopClick = (event) => {
-        if (this._modeCarouselSwipeContext) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-      };
-      this._modeCarouselPointerHandlers = { pointerDown, pointerMove, pointerUp, stopClick };
+      this._modeCarouselPointerHandlers = { pointerDown, pointerMove, pointerUp };
       this._modeCarouselTrack.addEventListener('pointerdown', pointerDown);
       this._modeCarouselTrack.addEventListener('pointermove', pointerMove);
       this._modeCarouselTrack.addEventListener('pointerup', pointerUp);
       this._modeCarouselTrack.addEventListener('pointercancel', pointerUp);
       this._modeCarouselTrack.addEventListener('mouseleave', pointerUp);
-      this._modeCarouselTrack.addEventListener('click', stopClick);
     }
 
-    this._positionModeCarousel();
     return wrapper;
   }
 
   // TRIAL MERGE: keep carousel DOM listeners tidy while the elements live inside the SVG hierarchy.
   _destroyModeCarouselElements() {
-    if (this._modeCarouselHideTimeout) {
-      clearTimeout(this._modeCarouselHideTimeout);
-      this._modeCarouselHideTimeout = null;
-    }
-    if (this._modeCarouselHideHandlerTarget && this._modeCarouselHideHandler) {
-      try {
-        this._modeCarouselHideHandlerTarget.removeEventListener('transitionend', this._modeCarouselHideHandler);
-      } catch (_) { /* ignore */ }
-    }
-    this._modeCarouselHideHandlerTarget = null;
-    this._modeCarouselHideFinalize = null;
-
     if (this._modeCarouselPointerHandlers && this._modeCarouselTrack) {
-      const { pointerDown, pointerMove, pointerUp, stopClick } = this._modeCarouselPointerHandlers;
+      const { pointerDown, pointerMove, pointerUp } = this._modeCarouselPointerHandlers;
       try { this._modeCarouselTrack.removeEventListener('pointerdown', pointerDown); } catch (_) { /* ignore */ }
       try { this._modeCarouselTrack.removeEventListener('pointermove', pointerMove); } catch (_) { /* ignore */ }
       try { this._modeCarouselTrack.removeEventListener('pointerup', pointerUp); } catch (_) { /* ignore */ }
       try { this._modeCarouselTrack.removeEventListener('pointercancel', pointerUp); } catch (_) { /* ignore */ }
       try { this._modeCarouselTrack.removeEventListener('mouseleave', pointerUp); } catch (_) { /* ignore */ }
-      try { this._modeCarouselTrack.removeEventListener('click', stopClick); } catch (_) { /* ignore */ }
     }
     this._modeCarouselPointerHandlers = null;
     this._modeCarouselSwipeContext = null;
@@ -1362,33 +1368,12 @@ export default class ThermostatUI {
 
     if (this._modeCarouselWrapper) {
       this._modeCarouselWrapper.setAttribute('aria-hidden', 'true');
-      this._modeCarouselWrapper.style.pointerEvents = 'none';
-      this._modeCarouselWrapper.style.display = 'none';
+      if (this._modeCarouselWrapper.style) {
+        this._modeCarouselWrapper.style.pointerEvents = 'none';
+      }
     }
 
     this._modeCarouselItems = [];
-  }
-
-  // TRIAL MERGE: align the carousel's foreignObject with either the layered anchor or the dial geometry.
-  _positionModeCarousel() {
-    if (!this._modeCarouselEnabled || !this._modeCarouselForeignObject) {
-      return;
-    }
-    const geometry = this._modeMenuGeometry || this._computeModeMenuGeometry(this._config.radius);
-    const anchor = this._config && this._config._layeredAnchors && this._config._layeredAnchors.mode;
-    const anchorUsable = anchor && Number.isFinite(anchor.width) && Number.isFinite(anchor.height) && anchor.width > 1 && anchor.height > 1;
-
-    if (anchorUsable) {
-      this._modeCarouselForeignObject.setAttribute('x', anchor.x);
-      this._modeCarouselForeignObject.setAttribute('y', anchor.y);
-      this._modeCarouselForeignObject.setAttribute('width', anchor.width);
-      this._modeCarouselForeignObject.setAttribute('height', anchor.height);
-    } else {
-      this._modeCarouselForeignObject.setAttribute('x', geometry.centerX - geometry.radius);
-      this._modeCarouselForeignObject.setAttribute('y', geometry.centerY - geometry.radius);
-      this._modeCarouselForeignObject.setAttribute('width', geometry.diameter);
-      this._modeCarouselForeignObject.setAttribute('height', geometry.diameter); // TRIAL MERGE: expand the fallback host so carousel content is not clipped vertically.
-    }
   }
 
   _updateCarouselOptions(modes, hass) { // eslint-disable-line no-unused-vars
@@ -1446,35 +1431,77 @@ export default class ThermostatUI {
     if (!options.length) {
       if (this._modeCarouselWrapper) {
         this._modeCarouselWrapper.setAttribute('aria-hidden', 'true');
-        this._modeCarouselWrapper.classList.remove('mode-carousel--open');
+        this._modeCarouselWrapper.classList.remove('mode-carousel-svg--open');
+        if (this._modeMenuToggler) {
+          this._modeMenuToggler.classList.remove('mode-menu__toggler--hidden');
+        }
         this._destroyModeCarouselElements();
       }
       return;
     }
 
+    const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._config.radius);
+    const obeliskPath = this._carouselObeliskPath(geometry.itemWidth, geometry.itemHeight);
+    const reflectionPath = this._carouselReflectionPath(geometry.itemWidth, geometry.itemHeight);
+
     options.forEach((option, index) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'mode-carousel__item';
-      button.dataset.mode = option.mode;
-      button.dataset.type = option.type;
-      const iconName = option.type === 'preset'
-        ? 'tune'
-        : (this._iconForMode ? this._iconForMode(option.mode, 'help') : 'help');
-      button.innerHTML = `\
-<span class="mode-carousel__icon"><ha-icon icon="mdi:${iconName}"></ha-icon></span>\
-<span class="mode-carousel__label">${option.label}</span>\
-<span class="mode-carousel__reflection" aria-hidden="true"></span>`;
-      button.addEventListener('click', (event) => {
+      const group = SvgUtil.createSVGElement('g', {
+        class: 'mode-carousel-svg__item',
+        tabindex: '0',
+        role: 'button',
+        'aria-label': `${option.label} mode`,
+        'data-mode': option.mode,
+        'data-type': option.type
+      });
+
+      const obelisk = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__obelisk',
+        d: obeliskPath
+      });
+      const reflection = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__reflection',
+        d: reflectionPath
+      });
+      const iconText = SvgUtil.createSVGElement('text', {
+        class: 'mode-carousel-svg__icon',
+        x: '0',
+        y: String(-geometry.itemHeight * 0.1),
+        'text-anchor': 'middle',
+        'dominant-baseline': 'middle'
+      });
+      iconText.textContent = this._emojiForCarousel(option);
+      const labelText = SvgUtil.createSVGElement('text', {
+        class: 'mode-carousel-svg__label',
+        x: '0',
+        y: String(geometry.itemHeight * 0.24),
+        'text-anchor': 'middle'
+      });
+      labelText.textContent = option.label;
+
+      group.appendChild(obelisk);
+      group.appendChild(reflection);
+      group.appendChild(iconText);
+      group.appendChild(labelText);
+
+      const activate = (event, fromKey = false) => {
         event.stopPropagation();
         this._modeCarouselActiveIndex = index;
         this._updateCarouselClasses();
         this._resetCarouselTimer();
-        this._commitCarouselSelection('item', option, event);
+        this._commitCarouselSelection(fromKey ? 'item-key' : 'item', option, event);
+      };
+      group.addEventListener('click', (event) => activate(event, false));
+      group.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          activate(event, true);
+        }
       });
-      track.appendChild(button);
+      group.addEventListener('pointerdown', (event) => event.stopPropagation());
+
+      track.appendChild(group);
       this._modeCarouselItems.push({
-        element: button,
+        element: group,
         mode: option.mode,
         type: option.type
       });
@@ -1482,7 +1509,6 @@ export default class ThermostatUI {
 
     this._updateCarouselActiveFromState();
     this._updateCarouselClasses();
-    this._positionModeCarousel();
   }
 
   _updateCarouselActiveFromState() {
@@ -1506,12 +1532,14 @@ export default class ThermostatUI {
       return;
     }
     const total = this._modeCarouselItems.length;
+    const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._config.radius);
+    const spacing = geometry.spacing;
     this._modeCarouselItems.forEach((item, index) => {
       const element = item.element;
       if (!element) {
         return;
       }
-      element.classList.remove('mode-carousel__item--active', 'mode-carousel__item--prev', 'mode-carousel__item--next', 'mode-carousel__item--away');
+      element.classList.remove('mode-carousel-svg__item--active', 'mode-carousel-svg__item--prev', 'mode-carousel-svg__item--next', 'mode-carousel-svg__item--away');
       element.removeAttribute('aria-current');
       let offset = index - this._modeCarouselActiveIndex;
       if (offset > total / 2) {
@@ -1520,15 +1548,21 @@ export default class ThermostatUI {
         offset += total;
       }
       element.dataset.offset = String(offset);
+      const absOffset = Math.abs(offset);
+      const translateX = offset * spacing;
+      const scale = offset === 0 ? 1 : absOffset === 1 ? 0.5 : 0.3;
+      element.setAttribute('transform', `translate(${translateX}, 0) scale(${scale})`);
+      element.style.opacity = offset === 0 ? '1' : absOffset === 1 ? '0.35' : '0.15';
+      element.style.pointerEvents = absOffset <= 1 ? 'auto' : 'none';
       if (offset === 0) {
-        element.classList.add('mode-carousel__item--active');
+        element.classList.add('mode-carousel-svg__item--active');
         element.setAttribute('aria-current', 'true');
       } else if (offset === -1 || (total > 2 && offset === total - 1)) {
-        element.classList.add('mode-carousel__item--prev');
+        element.classList.add('mode-carousel-svg__item--prev');
       } else if (offset === 1 || (total > 2 && offset === -(total - 1))) {
-        element.classList.add('mode-carousel__item--next');
+        element.classList.add('mode-carousel-svg__item--next');
       } else {
-        element.classList.add('mode-carousel__item--away');
+        element.classList.add('mode-carousel-svg__item--away');
       }
     });
   }
@@ -1575,82 +1609,39 @@ export default class ThermostatUI {
     if (!this._modeCarouselEnabled) {
       return;
     }
-    this._ensureModeCarouselElements();
+    const wrapper = this._ensureModeCarouselElements();
+    if (!wrapper) {
+      return;
+    }
     if (expanded) {
       const renderModes = Array.isArray(this._modeCarouselPendingModes)
         ? this._modeCarouselPendingModes
         : (Array.isArray(this.hvac_modes) ? this.hvac_modes.slice() : []);
       const renderHass = this._modeCarouselPendingHass || this._lastHass;
       this._updateCarouselOptions(renderModes, renderHass);
-    }
-    const wrapper = this._modeCarouselWrapper;
-    if (!wrapper) {
-      return;
-    }
-    if (!this._modeCarouselHideHandler) {
-      this._modeCarouselHideHandler = (event) => {
-        const target = event && event.currentTarget;
-        if (!target || target.classList.contains('mode-carousel--open')) {
-          return;
-        }
-        if (target !== this._modeCarouselHideHandlerTarget) {
-          return;
-        }
-        if (typeof this._modeCarouselHideFinalize === 'function') {
-          this._modeCarouselHideFinalize();
-        }
-      };
-    }
-    if (this._modeCarouselHideHandlerTarget !== wrapper) {
-      if (this._modeCarouselHideHandlerTarget) {
-        try {
-          this._modeCarouselHideHandlerTarget.removeEventListener('transitionend', this._modeCarouselHideHandler);
-        } catch (_) { /* ignore */ }
-      }
-      try {
-        wrapper.addEventListener('transitionend', this._modeCarouselHideHandler);
-      } catch (_) { /* ignore */ }
-      this._modeCarouselHideHandlerTarget = wrapper;
-    }
-    if (expanded) {
-      if (this._modeCarouselHideTimeout) {
-        clearTimeout(this._modeCarouselHideTimeout);
-        this._modeCarouselHideTimeout = null;
-      }
-      this._modeCarouselHideFinalize = null;
-      wrapper.style.display = 'flex';
-      try { void wrapper.offsetWidth; } catch (_) { /* ignore */ }
-      wrapper.classList.add('mode-carousel--open');
+      wrapper.classList.add('mode-carousel-svg--open');
       wrapper.setAttribute('aria-hidden', 'false');
-      wrapper.style.pointerEvents = 'auto';
-      this._positionModeCarousel();
+      if (wrapper.style) {
+        wrapper.style.pointerEvents = 'auto';
+      }
       this._updateCarouselActiveFromState();
       this._updateCarouselClasses();
       this._resetCarouselTimer();
       this._attachCarouselDialControls();
     } else {
-      wrapper.classList.remove('mode-carousel--open');
+      wrapper.classList.remove('mode-carousel-svg--open');
       wrapper.setAttribute('aria-hidden', 'true');
-      wrapper.style.pointerEvents = 'none';
-      this._positionModeCarousel();
-      if (this._modeCarouselHideTimeout) {
-        clearTimeout(this._modeCarouselHideTimeout);
+      if (wrapper.style) {
+        wrapper.style.pointerEvents = 'none';
       }
-      const finalize = () => {
-        if (this._modeCarouselHideTimeout) {
-          clearTimeout(this._modeCarouselHideTimeout);
-        }
-        this._modeCarouselHideTimeout = null;
-        if (wrapper.classList && wrapper.classList.contains('mode-carousel--open')) {
-          return;
-        }
-        this._destroyModeCarouselElements();
-      };
-      this._modeCarouselHideFinalize = finalize;
-      this._modeCarouselHideTimeout = setTimeout(finalize, 450);
       this._clearCarouselTimer();
       this._detachCarouselDialControls();
       this._modeCarouselSwipeContext = null;
+      this._destroyModeCarouselElements();
+    }
+    if (this._modeMenuToggler) {
+      // TRIAL MERGE: hide the SVG toggle while the carousel occupies the dial center.
+      this._modeMenuToggler.classList.toggle('mode-menu__toggler--hidden', !!expanded);
     }
   }
 
@@ -2063,6 +2054,33 @@ export default class ThermostatUI {
     }
   }
 
+  // TRIAL MERGE: map HVAC modes to emoji glyphs for the SVG carousel.
+  _emojiForCarousel(option) {
+    const mode = option && option.mode;
+    const type = option && option.type;
+    if (type === 'preset') {
+      return '🎛️';
+    }
+    switch (mode) {
+      case 'heat':
+        return '🔥';
+      case 'cool':
+        return '❄️';
+      case 'auto':
+        return '♻️';
+      case 'heat_cool':
+        return '🔄';
+      case 'fan_only':
+        return '🌀';
+      case 'dry':
+        return '💧';
+      case 'off':
+        return '⏻';
+      default:
+        return '⚙️';
+    }
+  }
+
   openProp() {
     this._config.propWin(this.entity.entity_id)
   }
@@ -2087,7 +2105,7 @@ export default class ThermostatUI {
     if (!this._modeMenuContainer) {
       if (this._modeCarouselEnabled) {
         // TRIAL MERGE: mount the carousel toggle within the glass layer so it follows SVG stacking.
-        const { container, toggler, toggleBody, circle, inner, geometry, foreign, wrapper, track } = this._buildModeToggleCarousel(radius);
+        const { container, toggler, toggleBody, circle, inner, geometry, wrapper, track, halo } = this._buildModeToggleCarousel(radius);
         this._modeMenuContainer = container;
         this._modeMenuToggler = toggler;
         this._modeMenuToggleBody = toggleBody;
@@ -2096,16 +2114,18 @@ export default class ThermostatUI {
         this._modeMenuList = null;
         this._modeMenuItems = [];
         this._modeMenuGeometry = geometry;
-        this._modeCarouselForeignObject = foreign;
         this._modeCarouselWrapper = wrapper;
         this._modeCarouselTrack = track;
+        this._modeCarouselHalo = halo;
+        if (this._modeCarouselWrapper && this._modeCarouselWrapper.style) {
+          this._modeCarouselWrapper.style.pointerEvents = 'none';
+        }
         const glassParent = this._glassGroup && this._glassGroup.parentNode;
         if (glassParent) {
           glassParent.insertBefore(container, this._glassGroup.nextSibling); // TRIAL MERGE: keep the toggle in the SVG stack without inheriting the glass layer's pointer-events.
         } else if (this._root) {
           this._root.appendChild(container);
         }
-        this._positionModeCarousel();
       } else {
         const { container, toggler, toggleBody, circle, inner, list, geometry } = this._buildModeButton(radius);
         this._modeMenuContainer = container;
@@ -2125,14 +2145,14 @@ export default class ThermostatUI {
           this._modeMenuToggler.setAttribute('transform', `translate(${this._modeMenuGeometry.centerX}, ${this._modeMenuGeometry.centerY})`);
           this._modeMenuToggler.dataset.bottomOffset = String(this._modeMenuGeometry.bottomOffset);
         }
-        if (this._modeCarouselForeignObject) {
-          const diameter = this._modeMenuGeometry.diameter;
-          this._modeCarouselForeignObject.setAttribute('x', this._modeMenuGeometry.centerX - this._modeMenuGeometry.radius);
-          this._modeCarouselForeignObject.setAttribute('y', this._modeMenuGeometry.centerY - this._modeMenuGeometry.radius);
-          this._modeCarouselForeignObject.setAttribute('width', diameter);
-          this._modeCarouselForeignObject.setAttribute('height', diameter);
+        const geometry = this._computeCarouselGeometry(radius);
+        this._modeCarouselGeometry = geometry;
+        if (this._modeCarouselWrapper) {
+          this._modeCarouselWrapper.setAttribute('transform', `translate(${geometry.dialRadius}, ${geometry.dialRadius})`);
         }
-        this._positionModeCarousel();
+        if (this._modeCarouselHalo) {
+          this._modeCarouselHalo.setAttribute('r', Math.max(geometry.dialRadius * 0.58, geometry.itemWidth * 0.8));
+        }
       } else {
         this._modeMenuToggler.setAttribute('transform', `translate(${this._modeMenuGeometry.centerX}, ${this._modeMenuGeometry.centerY})`);
         if (this._modeMenuCircle) {

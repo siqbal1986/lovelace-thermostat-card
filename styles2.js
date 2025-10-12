@@ -782,136 +782,73 @@ export function cssData(user) {
     color: inherit; /* Follow button color changes. */
     text-align: center; /* Keep labels centered. */
   }
-  /* Mode carousel glass UI */
-  .mode-carousel{
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    visibility: hidden;
-    z-index: 34;
+  /* TRIAL MERGE: SVG carousel styling */
+  .mode-menu--carousel .mode-menu__toggler--hidden{
     opacity: 0;
-    transform: translateY(8%) scale(0.95);
-    transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+    transition: opacity 0.2s ease;
   }
-  .mode-carousel--open{
+  .mode-menu--carousel .mode-carousel-svg{
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+  }
+  .mode-menu--carousel .mode-carousel-svg.mode-carousel-svg--open{
+    visibility: visible;
     opacity: 1;
     pointer-events: auto;
-    visibility: visible;
-    transform: translateY(0) scale(1);
   }
-  .mode-carousel__surface{
-    position: absolute;
-    transform: translate(-50%, -50%);
-    transform-origin: center;
-    border-radius: 24px;
-    background: linear-gradient(165deg, rgba(255, 255, 255, 0.28), rgba(120, 141, 168, 0.12));
-    box-shadow: 0 24px 38px rgba(9, 13, 22, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.26);
-    backdrop-filter: blur(18px) saturate(140%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: min(5%, 18px) min(4%, 16px);
-    overflow: hidden;
-  }
-  .mode-carousel__surface::after{
-    content: '';
-    position: absolute;
-    inset: 6% 8%;
-    border-radius: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+  .mode-carousel-svg__halo{
+    fill: rgba(18, 24, 32, 0.45);
+    stroke: rgba(255, 255, 255, 0.16);
+    stroke-width: 1.4;
+    filter: blur(20px);
     pointer-events: none;
   }
-  .mode-carousel__track{
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(12px, 6%, 24px);
+  .mode-carousel-svg__items{
+    pointer-events: auto;
     touch-action: pan-y;
   }
-  .mode-carousel__item{
-    position: relative;
-    flex: 0 0 auto;
-    min-width: clamp(70px, 24%, 120px);
-    aspect-ratio: 0.68 / 1;
-    padding: clamp(0.5rem, 1.4vw, 0.9rem) clamp(0.45rem, 1.2vw, 0.8rem) clamp(0.85rem, 2.2vw, 1.45rem);
-    border-radius: 22px;
-    border: 1px solid rgba(255, 255, 255, 0.32);
-    background: linear-gradient(182deg, rgba(255, 255, 255, 0.42), rgba(148, 168, 191, 0.16) 55%, rgba(95, 113, 136, 0.08) 100%);
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
-    color: rgba(235, 242, 255, 0.88);
-    text-transform: capitalize;
-    letter-spacing: 0.02em;
-    font-weight: 600;
-    font-size: clamp(0.62rem, 1.4vw, 0.82rem);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    gap: clamp(0.2rem, 0.6vw, 0.45rem);
+  .mode-carousel-svg__item{
     cursor: pointer;
-    opacity: 0.12;
-    transform: scale(0.35);
-    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease, filter 0.3s ease, border-color 0.3s ease;
-    backdrop-filter: blur(24px);
+    transition: opacity 0.25s ease;
+    outline: none;
   }
-  .mode-carousel__item:focus-visible{
-    outline: 2px solid rgba(255, 255, 255, 0.75);
-    outline-offset: 4px;
+  .mode-carousel-svg__item:focus-visible .mode-carousel-svg__obelisk{
+    stroke: rgba(255, 255, 255, 0.92);
+    stroke-width: 2.3;
   }
-  .mode-carousel__item--active{
-    opacity: 1;
-    transform: scale(1);
-    border-color: rgba(255, 255, 255, 0.68);
-    box-shadow: 0 18px 28px rgba(9, 13, 22, 0.45), inset 0 2px 4px rgba(255, 255, 255, 0.45);
+  .mode-carousel-svg__obelisk{
+    fill: rgba(242, 246, 255, 0.22);
+    stroke: rgba(255, 255, 255, 0.3);
+    stroke-width: 1.6;
+    paint-order: stroke fill;
+    filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.48));
+    transition: stroke 0.25s ease, fill 0.25s ease;
   }
-  .mode-carousel__item--prev,
-  .mode-carousel__item--next{
-    opacity: 0.3;
-    transform: scale(0.5);
+  .mode-carousel-svg__item--active .mode-carousel-svg__obelisk{
+    fill: rgba(255, 255, 255, 0.35);
+    stroke: rgba(255, 255, 255, 0.45);
   }
-  .mode-carousel__item--away{
-    opacity: 0;
-    transform: scale(0.35);
-    pointer-events: none;
+  .mode-carousel-svg__reflection{
+    fill: rgba(255, 255, 255, 0.34);
+    opacity: 0.32;
   }
-  .mode-carousel__icon{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
+  .mode-carousel-svg__item--active .mode-carousel-svg__reflection{
+    opacity: 0.46;
   }
-  .mode-carousel__icon ha-icon{
-    width: clamp(22px, 2.8vw, 30px);
-    height: clamp(22px, 2.8vw, 30px);
-    filter: drop-shadow(0 6px 10px rgba(9, 13, 22, 0.5));
+  .mode-carousel-svg__icon{
+    font-size: clamp(24px, 4vw, 32px);
+    font-weight: 600;
+    fill: rgba(255, 255, 255, 0.94);
+    text-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
   }
-  .mode-carousel__label{
-    display: block;
-    white-space: nowrap;
-  }
-  .mode-carousel__reflection{
-    position: absolute;
-    left: 50%;
-    bottom: -32%;
-    width: 72%;
-    height: 46%;
-    transform: translateX(-50%) scaleY(-1);
-    background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.08) 55%, rgba(255, 255, 255, 0) 75%);
-    filter: blur(6px);
-    opacity: 0.25;
-    pointer-events: none;
-  }
-  .mode-carousel__item--active .mode-carousel__reflection{
-    opacity: 0.38;
-  }
-  .mode-carousel__item--prev .mode-carousel__reflection,
-  .mode-carousel__item--next .mode-carousel__reflection{
-    opacity: 0.3;
+  .mode-carousel-svg__label{
+    font-size: clamp(12px, 2.5vw, 15px);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    fill: rgba(240, 245, 255, 0.88);
   }
   .dial__limit-flash{
     opacity: 0; /* Adjust transparency to blend the layer into the dial. */
