@@ -802,6 +802,27 @@ export function cssData(user) {
     visibility: visible;
     transform: translateY(0) scale(1);
   }
+  .mode-carousel__blur{
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    clip-path: circle(50% at 50% 50%);
+    pointer-events: none;
+    z-index: 31;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background: rgba(9, 13, 22, 0.22);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    overflow: hidden;
+  }
+  .mode-carousel__blur--visible{
+    opacity: 1;
+  }
   .mode-carousel__surface{
     position: absolute;
     transform: translate(-50%, -50%);
@@ -914,11 +935,10 @@ export function cssData(user) {
     opacity: 0.3;
   }
   .dial--blurred{
-    filter: blur(6px); /* Apply visual effects such as blur or drop shadows for depth cues. */
     transform: scale(0.98); /* Documented property purpose for clarity. */
     transform-origin: 50% 50%; /* Define the pivot point for transforms so rotations look natural. */
     transform-box: fill-box; /* Documented property purpose for clarity. */
-    transition: filter 0.35s ease, transform 0.35s ease; /* Animate property changes smoothly for a polished feel. */
+    transition: transform 0.35s ease; /* Animate property changes smoothly for a polished feel. */
   }
   .dial__limit-flash{
     opacity: 0; /* Adjust transparency to blend the layer into the dial. */

@@ -303,6 +303,8 @@ export default class ThermostatUI {
     this._modeCarouselHideHandlerTarget = null; // Remembers which wrapper currently owns the hide handler.
     this._modeCarouselHideTimeout = null; // Timeout fallback for hiding the carousel when transitions are unavailable.
     this._modeCarouselHideFinalize = null; // Callback executed once the carousel has fully hidden.
+    this._modeCarouselBlur = null; // Circular backdrop element that blurs the dial interior when the carousel opens.
+    this._modeCarouselBlurHideTimeout = null; // Timeout used to hide the blur element after fade-out completes.
     this._modeCarouselWindowResizeHandler = null; // Window resize callback used for responsive alignment.
     this._modeToggleResizeObserver = null; // ResizeObserver used to keep the HTML toggle aligned with the dial.
     this._modeToggleWindowResizeHandler = null; // Window resize handler that repositions the toggle during viewport changes.
@@ -1298,6 +1300,8 @@ export default class ThermostatUI {
     this._modeCarouselSurface = surface;
     this._modeCarouselTrack = track;
 
+    this._ensureModeCarouselBlur();
+
     if (this._modeMenuList) {
       this._modeMenuList.style.display = 'none';
     }
@@ -1386,6 +1390,87 @@ export default class ThermostatUI {
     return wrapper;
   }
 
+  _ensureModeCarouselBlur() {
+    if (!this._modeCarouselEnabled || !this.c_body) {
+      return null;
+    }
+    if (this._modeCarouselBlur && this._modeCarouselBlur.isConnected) {
+      this._positionModeCarouselBlur();
+      return this._modeCarouselBlur;
+    }
+    const blur = document.createElement('div');
+    blur.className = 'mode-carousel__blur';
+    blur.setAttribute('aria-hidden', 'true');
+    blur.style.pointerEvents = 'none';
+    blur.style.display = 'none';
+    this.c_body.appendChild(blur);
+    this._modeCarouselBlur = blur;
+    this._positionModeCarouselBlur();
+    return blur;
+  }
+
+  _positionModeCarouselBlur() {
+    if (!this._modeCarouselEnabled || !this._modeCarouselBlur || !this._root || !this.c_body) {
+      return;
+    }
+    try {
+      const blur = this._modeCarouselBlur;
+      const containerRect = this.c_body.getBoundingClientRect();
+      const dialRect = this._root.getBoundingClientRect();
+      const diameter = Number(this._config && this._config.diameter)
+        || (this._config && this._config.radius ? this._config.radius * 2 : 400);
+      const radius = Number(this._config && this._config.radius);
+      const tickInset = Number(this._config && this._config.ticks_inner_radius);
+      const centerX = dialRect.left - containerRect.left + dialRect.width / 2;
+      const centerY = dialRect.top - containerRect.top + dialRect.height / 2;
+      const scaleX = dialRect.width / diameter;
+      const scaleY = dialRect.height / diameter;
+      const scale = Number.isFinite(scaleX) && Number.isFinite(scaleY) ? Math.min(scaleX, scaleY) : 1;
+      let innerRadius = Number.isFinite(radius) && Number.isFinite(tickInset)
+        ? radius - tickInset
+        : (Number.isFinite(radius) ? radius * 0.7 : (diameter / 2) * 0.7);
+      innerRadius = Math.max(innerRadius, 0);
+      const size = Math.max(innerRadius * 2 * scale, 1);
+      blur.style.left = `${centerX}px`;
+      blur.style.top = `${centerY}px`;
+      blur.style.width = `${size}px`;
+      blur.style.height = `${size}px`;
+      blur.style.transform = 'translate(-50%, -50%)';
+    } catch (_) {
+      // ignore layout errors
+    }
+  }
+
+  _showModeCarouselBlur(visible) {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    const blur = this._ensureModeCarouselBlur();
+    if (!blur) {
+      return;
+    }
+    if (this._modeCarouselBlurHideTimeout) {
+      clearTimeout(this._modeCarouselBlurHideTimeout);
+      this._modeCarouselBlurHideTimeout = null;
+    }
+    if (visible) {
+      blur.style.display = 'block';
+      this._positionModeCarouselBlur();
+      try { void blur.offsetWidth; } catch (_) { /* ignore */ }
+      blur.classList.add('mode-carousel__blur--visible');
+    } else {
+      blur.classList.remove('mode-carousel__blur--visible');
+      this._modeCarouselBlurHideTimeout = setTimeout(() => {
+        if (this._modeCarouselBlur && !this._modeCarouselBlur.classList.contains('mode-carousel__blur--visible')) {
+          try {
+            this._modeCarouselBlur.style.display = 'none';
+          } catch (_) { /* ignore */ }
+        }
+        this._modeCarouselBlurHideTimeout = null;
+      }, 360);
+    }
+  }
+
   _destroyModeCarouselElements() {
     if (this._modeCarouselHideTimeout) {
       clearTimeout(this._modeCarouselHideTimeout);
@@ -1422,6 +1507,17 @@ export default class ThermostatUI {
         window.removeEventListener('resize', this._modeCarouselWindowResizeHandler);
       } catch (_) { /* ignore */ }
       this._modeCarouselWindowResizeHandler = null;
+    }
+
+    if (this._modeCarouselBlurHideTimeout) {
+      clearTimeout(this._modeCarouselBlurHideTimeout);
+      this._modeCarouselBlurHideTimeout = null;
+    }
+    if (this._modeCarouselBlur) {
+      try {
+        this._modeCarouselBlur.classList.remove('mode-carousel__blur--visible');
+        this._modeCarouselBlur.style.display = 'none';
+      } catch (_) { /* ignore */ }
     }
 
     if (this._modeCarouselWrapper) {
@@ -1557,6 +1653,7 @@ export default class ThermostatUI {
       this._modeCarouselSurface.style.width = `${width}px`;
       this._modeCarouselSurface.style.height = `${height}px`;
       this._modeCarouselSurface.style.transform = 'translate(-50%, -50%)';
+      this._positionModeCarouselBlur();
     } catch (_) {
       // ignore layout errors
     }
@@ -1758,6 +1855,7 @@ export default class ThermostatUI {
     if (!wrapper) {
       return;
     }
+    this._showModeCarouselBlur(expanded);
     if (!this._modeCarouselHideHandler) {
       this._modeCarouselHideHandler = (event) => {
         const target = event && event.currentTarget;
