@@ -590,34 +590,14 @@ export function cssData(user) {
     height: 100%;
     display: block;
     border-radius: 50%;
-  }
-  .mode-menu.mode-menu--overlay .mode-menu__toggler-circle{
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
     background: radial-gradient(circle at 35% 30%, rgba(88, 108, 138, 0.85), rgba(26, 34, 48, 0.95));
     border: 1.2px solid rgba(255, 255, 255, 0.22);
     box-shadow: 0 12px 20px rgba(0, 0, 0, 0.55);
     filter: none; /* Use box-shadow for depth instead of SVG drop-shadows. */
     transition: opacity 0.25s ease, box-shadow 0.3s ease;
   }
-  .mode-menu.mode-menu--overlay .mode-menu__toggler-inner{
-    position: absolute;
-    inset: 14%;
-    border-radius: 50%;
-    background: linear-gradient(155deg, rgba(24, 30, 44, 0.92), rgba(12, 16, 26, 0.9));
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: opacity 0.25s ease;
-  }
-  .mode-menu.mode-menu--overlay .mode-menu__toggler-gloss{
-    position: absolute;
-    top: 14%;
-    left: 18%;
-    right: 22%;
-    bottom: 52%;
-    border-radius: 50%;
-    background: radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
-    transition: opacity 0.25s ease;
+  .mode-menu.mode-menu--overlay .mode-menu__toggler:focus-visible .mode-menu__toggler-body{
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.45), 0 12px 20px rgba(0, 0, 0, 0.55);
   }
   .mode-menu.mode-menu--overlay .mode-menu__toggler-icon{
     position: absolute;
@@ -705,6 +685,9 @@ export function cssData(user) {
   .mode-menu.menu-open .mode-menu__toggler-gloss,
   .mode-menu.menu-open .mode-menu__toggler-icon{
     opacity: 0; /* Hide the physical button while the carousel overlay is visible. */
+  }
+  .mode-menu.menu-open.mode-menu--overlay .mode-menu__toggler-body{
+    opacity: 0; /* Hide the HTML toggle skin when the carousel overlay is active. */
   }
   .mode-menu__toggler-bar{
     fill: rgba(18, 24, 38, 0.85); /* Dark accent for hamburger lines. */
