@@ -685,11 +685,23 @@ export function cssData(user) {
     pointer-events: none; /* Icon should not intercept clicks. */
     transition: opacity 0.25s ease; /* Fade gently while carousel is open. */
   }
-  .mode-menu.menu-open .mode-menu__toggler-circle,
-  .mode-menu.menu-open .mode-menu__toggler-inner,
-  .mode-menu.menu-open .mode-menu__toggler-gloss,
+  /* TRIAL MERGE: keep the SVG toggle visible while the carousel is expanded so it can close the menu. */
+  .mode-menu.menu-open .mode-menu__toggler-circle{
+    opacity: 1;
+    filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.58));
+  }
+  /* TRIAL MERGE: lightly brighten the inner disc instead of hiding it when the carousel opens. */
+  .mode-menu.menu-open .mode-menu__toggler-inner{
+    opacity: 1;
+    fill: rgba(38, 46, 64, 0.92);
+  }
+  /* TRIAL MERGE: retain the gloss highlight so the toggle looks active while the carousel is open. */
+  .mode-menu.menu-open .mode-menu__toggler-gloss{
+    opacity: 0.85;
+  }
+  /* TRIAL MERGE: soften the icon rather than removing it so the toggle remains recognizable as a close control. */
   .mode-menu.menu-open .mode-menu__toggler-icon{
-    opacity: 0; /* Hide the physical button while the carousel overlay is visible. */
+    opacity: 0.75;
   }
   .mode-menu.menu-open.mode-menu--overlay .mode-menu__toggler-body{
     opacity: 0; /* Hide the HTML toggle skin when the carousel overlay is active. */
