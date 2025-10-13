@@ -195,7 +195,13 @@ export default class ThermostatUI {
     const track = SvgUtil.createSVGElement('g', { class: 'mode-carousel-svg__items' });
     wrapper.appendChild(track);
 
+    if (base.list && base.list.parentNode === container) {
+      container.removeChild(base.list); // TRIAL MERGE: drop the legacy list so the SVG carousel owns the space around the toggle.
+    }
     container.appendChild(wrapper);
+    if (base.toggler && base.toggler.parentNode === container) {
+      container.appendChild(base.toggler); // TRIAL MERGE: re-append the toggle so it stays above the carousel items in the SVG stack.
+    }
 
     return {
       ...base,
@@ -1647,9 +1653,8 @@ export default class ThermostatUI {
       this._modeCarouselSwipeContext = null;
       this._destroyModeCarouselElements();
     }
-    if (this._modeMenuToggler) {
-      // TRIAL MERGE: hide the SVG toggle while the carousel occupies the dial center.
-      this._modeMenuToggler.classList.toggle('mode-menu__toggler--hidden', !!expanded);
+    if (expanded && this._modeMenuToggler && this._modeMenuContainer && this._modeMenuContainer.appendChild) {
+      this._modeMenuContainer.appendChild(this._modeMenuToggler); // TRIAL MERGE: keep the toggle on top so it can close the carousel.
     }
   }
 
