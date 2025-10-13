@@ -59,12 +59,15 @@ export default class ThermostatUI {
   }
   // TRIAL MERGE: centralize the SVG toggler translation so reparenting never strands it at the SVG origin.
   _applyModeMenuTogglerTransform() {
-    if (!this._modeMenuToggler) {
+    const target = this._modeMenuAnchor || this._modeMenuToggler;
+    if (!target) {
       return;
     }
     const geometry = this._ensureModeMenuGeometry();
-    this._modeMenuToggler.setAttribute('transform', `translate(${geometry.centerX}, ${geometry.centerY})`);
-    this._modeMenuToggler.dataset.bottomOffset = String(geometry.bottomOffset);
+    target.setAttribute('transform', `translate(${geometry.centerX}, ${geometry.centerY})`);
+    if (this._modeMenuToggler) {
+      this._modeMenuToggler.dataset.bottomOffset = String(geometry.bottomOffset);
+    }
   }
   // TRIAL MERGE: allow optional backdrop skipping so the carousel toggle can share this builder without rendering extra discs.
   _buildModeButton(radius, options = {}) {
@@ -241,14 +244,20 @@ export default class ThermostatUI {
     if (base.list && base.list.parentNode === container) {
       container.removeChild(base.list); // TRIAL MERGE: drop the legacy list so the SVG carousel owns the space around the toggle.
     }
-    container.appendChild(wrapper);
-    if (base.toggler && base.toggler.parentNode === container) {
-      container.appendChild(base.toggler); // TRIAL MERGE: re-append the toggle so it stays above the carousel items in the SVG stack.
+
+    // TRIAL MERGE: create a dedicated anchor group so the toggle keeps its translation even when the carousel reorders siblings.
+    const anchor = SvgUtil.createSVGElement('g', { class: 'mode-menu__anchor' });
+    if (base.toggler) {
+      base.toggler.removeAttribute('transform');
+      anchor.appendChild(base.toggler);
     }
+    container.appendChild(wrapper);
+    container.appendChild(anchor); // Ensure the anchor (and toggle) render above the carousel track.
 
     return {
       ...base,
       list: null,
+      anchor,
       wrapper,
       track,
       halo
@@ -336,6 +345,7 @@ export default class ThermostatUI {
 
     this._container = document.createElement('div'); // Wrapper that holds both the dial SVG and the mode controls.
     this._modeMenuContainer = null; // References the dialog container once it is built.
+    this._modeMenuAnchor = null; // TRIAL MERGE: wrapper group that keeps the toggle translation stable.
     this._modeMenuToggler = null; // References the SVG group that opens/closes the mode carousel.
     this._modeMenuToggleBody = null; // Inner SVG group used for animation/scale effects.
     this._modeMenuCircle = null; // Background circle used to render the control.
@@ -1696,8 +1706,11 @@ export default class ThermostatUI {
       this._modeCarouselSwipeContext = null;
       this._destroyModeCarouselElements();
     }
-    if (expanded && this._modeMenuToggler && this._modeMenuContainer && this._modeMenuContainer.appendChild) {
-      this._modeMenuContainer.appendChild(this._modeMenuToggler); // TRIAL MERGE: keep the toggle on top so it can close the carousel.
+    if (expanded && this._modeMenuContainer && this._modeMenuContainer.appendChild) {
+      const toggleNode = this._modeMenuAnchor || this._modeMenuToggler;
+      if (toggleNode) {
+        this._modeMenuContainer.appendChild(toggleNode); // TRIAL MERGE: keep the toggle on top so it can close the carousel.
+      }
       this._applyModeMenuTogglerTransform(); // TRIAL MERGE: immediately restore the toggle translation after reparenting.
     }
   }
@@ -2163,8 +2176,9 @@ export default class ThermostatUI {
     if (!this._modeMenuContainer) {
       if (this._modeCarouselEnabled) {
         // TRIAL MERGE: mount the carousel toggle within the glass layer so it follows SVG stacking.
-        const { container, toggler, toggleBody, circle, inner, geometry, wrapper, track, halo } = this._buildModeToggleCarousel(radius);
+        const { container, anchor, toggler, toggleBody, circle, inner, geometry, wrapper, track, halo } = this._buildModeToggleCarousel(radius);
         this._modeMenuContainer = container;
+        this._modeMenuAnchor = anchor;
         this._modeMenuToggler = toggler;
         this._modeMenuToggleBody = toggleBody;
         this._modeMenuCircle = circle;
@@ -2188,6 +2202,7 @@ export default class ThermostatUI {
       } else {
         const { container, toggler, toggleBody, circle, inner, list, geometry } = this._buildModeButton(radius);
         this._modeMenuContainer = container;
+        this._modeMenuAnchor = null;
         this._modeMenuToggler = toggler;
         this._modeMenuToggleBody = toggleBody;
         this._modeMenuCircle = circle;
