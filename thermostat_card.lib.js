@@ -643,6 +643,66 @@ export default class ThermostatUI {
         return this._carouselNeutralIconShapes(palette && palette.primary, palette && palette.accent);
     }
   }
+  // TRIAL MERGE: attempt to resolve PNG artwork for carousel items when matching files exist beside the card.
+  _carouselImageCandidates(option) {
+    if (!option) {
+      return null;
+    }
+    const names = [];
+    const include = (name) => {
+      if (!name) {
+        return;
+      }
+      const normalized = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      if (normalized && !names.includes(normalized)) {
+        names.push(normalized);
+      }
+    };
+    const mode = typeof option.mode === 'string' ? option.mode.toLowerCase() : '';
+    if (option.type === 'preset') {
+      const preset = typeof this.preset_mode === 'string' && this.preset_mode.length
+        ? this.preset_mode.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+        : 'none';
+      include(`preset_${preset}`);
+      include('preset_none');
+    } else if (option.type === 'hvac') {
+      switch (mode) {
+        case 'cool':
+          include('cooling');
+          break;
+        case 'auto':
+          include('heat_cool');
+          break;
+        case 'fan_only':
+          include('fan_on');
+          break;
+        default:
+          include(mode);
+          break;
+      }
+    }
+    include(mode);
+    const candidates = names.map((name) => {
+      try {
+        const url = new URL(`${name}.png`, import.meta.url).href;
+        return { name, url };
+      } catch (err) {
+        return null;
+      }
+    }).filter(Boolean);
+    return candidates.length ? candidates : null;
+  }
+  // TRIAL MERGE: convert asset filenames into human-friendly carousel labels.
+  _formatCarouselAssetLabel(name) {
+    if (!name) {
+      return '';
+    }
+    return String(name)
+      .split('_')
+      .filter((part) => part.length)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
   // TRIAL MERGE: build the multi-layered icon group (glow + glyph) for each carousel card.
   _buildCarouselIconGroup(option, geometry, gradientIds) {
     const palette = this._carouselIconPalette(option, gradientIds || {});
@@ -2482,14 +2542,77 @@ export default class ThermostatUI {
         panelReflection.setAttribute('fill', `url(#${gradientIds.panelHighlight})`);
       }
       panelReflection.setAttribute('stroke', 'none');
+      const fallbackLabel = typeof option.label === 'string' && option.label.length
+        ? option.label
+        : this._formatCarouselAssetLabel(option.mode || '');
       const iconGroup = this._buildCarouselIconGroup(option, geometry, gradientIds);
+      const visualHost = SvgUtil.createSVGElement('g', {
+        class: 'mode-carousel-svg__visual'
+      }); // TRIAL MERGE: container for either PNG artwork or SVG fallback glyphs.
+      if (iconGroup) {
+        iconGroup.classList.add('mode-carousel-svg__icon-fallback');
+        visualHost.appendChild(iconGroup);
+      }
       const labelText = SvgUtil.createSVGElement('text', {
         class: 'mode-carousel-svg__label',
         x: '0',
-        y: String(geometry.itemHeight * 0.32),
+        y: String(geometry.itemHeight * 0.36),
         'text-anchor': 'middle'
       });
-      labelText.textContent = option.label;
+      labelText.textContent = fallbackLabel;
+      labelText.setAttribute('data-default-label', fallbackLabel);
+
+      const assetCandidates = this._carouselImageCandidates(option);
+      if (assetCandidates && assetCandidates.length) {
+        const imageWidth = geometry.itemWidth * 0.58;
+        const imageHeight = geometry.itemHeight * 0.5;
+        const attemptAsset = (index) => {
+          if (!assetCandidates[index]) {
+            if (iconGroup) {
+              iconGroup.style.display = '';
+            }
+            labelText.textContent = fallbackLabel;
+            labelText.classList.remove('mode-carousel-svg__label--asset');
+            return;
+          }
+          const candidate = assetCandidates[index];
+          const image = SvgUtil.createSVGElement('image', {
+            class: 'mode-carousel-svg__image',
+            x: String(-imageWidth / 2),
+            y: String(-imageHeight * 0.45),
+            width: String(imageWidth),
+            height: String(imageHeight),
+            opacity: '0.8',
+            'preserveAspectRatio': 'xMidYMid meet'
+          });
+          try {
+            image.setAttributeNS('http://www.w3.org/1999/xlink', 'href', candidate.url);
+          } catch (_) {
+            // Ignore namespace errors when xlink is unavailable.
+          }
+          image.setAttribute('href', candidate.url);
+          image.addEventListener('load', () => {
+            if (iconGroup) {
+              iconGroup.style.display = 'none';
+            }
+            labelText.textContent = this._formatCarouselAssetLabel(candidate.name);
+            labelText.classList.add('mode-carousel-svg__label--asset');
+          }, { once: true });
+          image.addEventListener('error', () => {
+            if (image.parentNode) {
+              image.parentNode.removeChild(image);
+            }
+            if (iconGroup) {
+              iconGroup.style.display = '';
+            }
+            labelText.textContent = fallbackLabel;
+            labelText.classList.remove('mode-carousel-svg__label--asset');
+            attemptAsset(index + 1);
+          }, { once: true });
+          visualHost.appendChild(image);
+        };
+        attemptAsset(0);
+      }
 
       group.appendChild(shadow);
       group.appendChild(glow);
@@ -2500,9 +2623,7 @@ export default class ThermostatUI {
       group.appendChild(panelSheen);
       group.appendChild(panelSpark);
       group.appendChild(panelReflection);
-      if (iconGroup) {
-        group.appendChild(iconGroup);
-      }
+      group.appendChild(visualHost);
       group.appendChild(labelText);
 
       const activate = (event, fromKey = false) => {

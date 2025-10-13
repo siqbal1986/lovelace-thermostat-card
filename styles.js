@@ -966,6 +966,24 @@ export function cssData(user) {
   .mode-carousel-svg__item--active .mode-carousel-svg__icon-group{
     filter: drop-shadow(0 20px 34px rgba(12, 20, 40, 0.48));
   }
+  /* TRIAL MERGE: surface PNG artwork while retaining SVG fallback glyphs. */
+  .mode-carousel-svg__visual{
+    pointer-events: none;
+  }
+  .mode-carousel-svg__icon-fallback{
+    pointer-events: none;
+    transition: opacity 0.35s ease, filter 0.35s ease;
+  }
+  .mode-carousel-svg__image{
+    opacity: 0.8;
+    pointer-events: none;
+    filter: drop-shadow(0 18px 32px rgba(8, 14, 26, 0.42));
+    transition: opacity 0.35s ease, filter 0.35s ease;
+  }
+  .mode-carousel-svg__item--active .mode-carousel-svg__image{
+    opacity: 0.92;
+    filter: drop-shadow(0 28px 48px rgba(10, 18, 32, 0.52));
+  }
   .mode-carousel-svg__icon-root *{
     transition: fill 0.35s ease, stroke 0.35s ease, fill-opacity 0.35s ease, stroke-opacity 0.35s ease;
   }
@@ -979,11 +997,17 @@ export function cssData(user) {
     opacity: 0.92;
   }
   .mode-carousel-svg__label{
-    font-size: clamp(12px, 2.5vw, 15px);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    fill: rgba(236, 242, 255, 0.9);
-    filter: drop-shadow(0 9px 18px rgba(8, 14, 28, 0.6));
+    font-size: clamp(11px, 2.2vw, 14px);
+    letter-spacing: 0.05em;
+    text-transform: none;
+    font-weight: 500;
+    fill: rgba(236, 244, 255, 0.78);
+    filter: drop-shadow(0 9px 18px rgba(8, 14, 28, 0.52));
+    pointer-events: none;
+  }
+  .mode-carousel-svg__label--asset{
+    letter-spacing: 0.04em;
+    fill: rgba(236, 244, 255, 0.84);
   }
   .dial__limit-flash{
     opacity: 0; /* Adjust transparency to blend the layer into the dial. */
