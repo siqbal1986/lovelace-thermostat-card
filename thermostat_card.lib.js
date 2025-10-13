@@ -89,8 +89,10 @@ export default class ThermostatUI {
     const toggleBody = SvgUtil.createSVGElement('g', { class: 'mode-menu__toggler-body' });
     let halo = null;
     let circle = null;
+    let ring = null;
     let inner = null;
     let gloss = null;
+    let crest = null;
     if (!omitBackdrop) {
       halo = SvgUtil.createSVGElement('circle', {
         class: 'mode-menu__toggler-halo',
@@ -104,6 +106,12 @@ export default class ThermostatUI {
         cy: 0,
         r: geometry.buttonRadius
       });
+      ring = SvgUtil.createSVGElement('circle', {
+        class: 'mode-menu__toggler-ring',
+        cx: 0,
+        cy: 0,
+        r: Math.max(geometry.buttonRadius - 1.8, geometry.buttonRadius * 0.82)
+      });
       inner = SvgUtil.createSVGElement('circle', {
         class: 'mode-menu__toggler-inner',
         cx: 0,
@@ -116,6 +124,10 @@ export default class ThermostatUI {
         cy: -geometry.buttonRadius * 0.45,
         rx: geometry.buttonRadius * 0.7,
         ry: geometry.buttonRadius * 0.55
+      });
+      crest = SvgUtil.createSVGElement('path', {
+        class: 'mode-menu__toggler-crest',
+        d: this._toggleCrestPath(geometry.buttonRadius)
       });
     }
     const icon = SvgUtil.createSVGElement('g', { class: 'mode-menu__toggler-icon' });
@@ -137,8 +149,10 @@ export default class ThermostatUI {
 
     if (halo) toggleBody.appendChild(halo);
     if (circle) toggleBody.appendChild(circle);
+    if (ring) toggleBody.appendChild(ring);
     if (inner) toggleBody.appendChild(inner);
     if (gloss) toggleBody.appendChild(gloss);
+    if (crest) toggleBody.appendChild(crest);
     toggleBody.appendChild(icon);
     toggler.appendChild(toggleBody);
 
@@ -181,7 +195,21 @@ export default class ThermostatUI {
     container.appendChild(toggler);
     container.appendChild(list);
 
-    return { container, toggler, toggleBody, circle, inner, halo, list, geometry };
+    return { container, toggler, toggleBody, circle, ring, inner, gloss, crest, halo, list, geometry };
+  }
+  // TRIAL MERGE: sculpt a specular crest so the toggle picks up a believable top light.
+  _toggleCrestPath(radius) {
+    const width = radius * 1.45;
+    const halfWidth = width / 2;
+    const top = -radius * 0.82;
+    const bottom = -radius * 0.08;
+    const lift = radius * 0.22;
+    return [
+      `M ${-halfWidth} ${bottom}`,
+      `Q 0 ${top} ${halfWidth} ${bottom}`,
+      `Q 0 ${bottom + lift} ${-halfWidth} ${bottom}`,
+      'Z'
+    ].join(' ');
   }
   // TRIAL MERGE: derive layout metrics for the SVG carousel items.
   _computeCarouselGeometry(radius) {
@@ -204,6 +232,23 @@ export default class ThermostatUI {
       `L ${halfWidth} ${halfHeight - baseCurve}`,
       `Q ${halfWidth} ${halfHeight} 0 ${halfHeight}`,
       `Q ${-halfWidth} ${halfHeight} ${-halfWidth} ${halfHeight - baseCurve}`,
+      'Z'
+    ].join(' ');
+  }
+  // TRIAL MERGE: carve an inner facet so each obelisk looks thick and refractive.
+  _carouselFacetPath(width, height) {
+    const halfHeight = height / 2;
+    const crest = -halfHeight * 0.92;
+    const base = halfHeight * 0.78;
+    const inset = width * 0.34;
+    const flare = inset * 1.08;
+    const curve = Math.max(width * 0.045, 3.5);
+    return [
+      `M ${-inset} ${crest}`,
+      `L ${inset} ${crest}`,
+      `L ${flare} ${base - curve}`,
+      `Q ${flare} ${base} 0 ${base}`,
+      `Q ${-flare} ${base} ${-flare} ${base - curve}`,
       'Z'
     ].join(' ');
   }
@@ -236,6 +281,20 @@ export default class ThermostatUI {
       'Z'
     ].join(' ');
   }
+  // TRIAL MERGE: add a razor-thin sparkle to mimic a grazing light source.
+  _carouselSparkPath(width, height) {
+    const halfHeight = height / 2;
+    const crest = -halfHeight * 0.65;
+    const tail = crest + halfHeight * 0.45;
+    const span = width * 0.22;
+    return [
+      `M ${-span * 0.45} ${crest + halfHeight * 0.05}`,
+      `Q 0 ${crest} ${span * 0.45} ${crest + halfHeight * 0.05}`,
+      `L ${span * 0.3} ${tail}`,
+      `Q 0 ${tail + halfHeight * 0.08} ${-span * 0.3} ${tail}`,
+      'Z'
+    ].join(' ');
+  }
   // TRIAL MERGE: build the carousel toggle and item rail entirely within the SVG glass layer.
   _buildModeToggleCarousel(radius) {
     const resolvedRadius = Number.isFinite(radius) && radius > 0 ? radius : this._resolveDialRadius(); // TRIAL MERGE: share the fallback radius with the SVG carousel builder.
@@ -243,6 +302,237 @@ export default class ThermostatUI {
     const { container } = base;
     container.classList.add('mode-menu--carousel'); // TRIAL MERGE: flag this container so carousel-specific styling can apply.
     container.setAttribute('pointer-events', 'visiblePainted'); // TRIAL MERGE: allow the SVG toggle to receive pointer input.
+
+    const gradientIds = this._modeCarouselGradientIds || {};
+    // TRIAL MERGE: embed dedicated gradients so the SVG carousel renders layered glass shading.
+    const defs = SvgUtil.createSVGElement('defs', { class: 'mode-carousel-svg__defs' });
+    const appendStops = (gradient, stops) => {
+      stops.forEach(([offset, color, opacity]) => {
+        gradient.appendChild(SvgUtil.createSVGElement('stop', {
+          offset,
+          'stop-color': color,
+          'stop-opacity': opacity
+        }));
+      });
+      return gradient;
+    };
+    const createGradient = (tag, attributes, stops) => {
+      const gradient = SvgUtil.createSVGElement(tag, attributes);
+      return appendStops(gradient, stops);
+    };
+    if (gradientIds.toggleHalo) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.toggleHalo,
+        cx: '50%',
+        cy: '58%',
+        r: '72%'
+      }, [
+        ['0%', '#c4dcff', 0.58],
+        ['38%', '#9ab6f0', 0.32],
+        ['68%', '#5f79c9', 0.18],
+        ['100%', '#1a284f', 0]
+      ]));
+    }
+    if (gradientIds.toggleBase) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.toggleBase,
+        cx: '48%',
+        cy: '40%',
+        r: '68%'
+      }, [
+        ['0%', '#fcfeff', 0.95],
+        ['40%', '#e3ecf9', 0.82],
+        ['72%', '#a2b8d8', 0.68],
+        ['100%', '#3b4b66', 0.82]
+      ]));
+    }
+    if (gradientIds.toggleRing) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.toggleRing,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
+        y2: '100%'
+      }, [
+        ['0%', '#ffffff', 0.88],
+        ['45%', '#dbe7ff', 0.52],
+        ['100%', '#5a7096', 0.85]
+      ]));
+    }
+    if (gradientIds.toggleInner) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.toggleInner,
+        cx: '48%',
+        cy: '45%',
+        r: '62%'
+      }, [
+        ['0%', '#ffffff', 0.9],
+        ['52%', '#d9e5f7', 0.55],
+        ['100%', '#7386a4', 0.38]
+      ]));
+    }
+    if (gradientIds.toggleSheen) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.toggleSheen,
+        cx: '28%',
+        cy: '22%',
+        r: '85%'
+      }, [
+        ['0%', '#ffffff', 0.85],
+        ['46%', '#f6f9ff', 0.35],
+        ['100%', '#ffffff', 0]
+      ]));
+    }
+    if (gradientIds.toggleCrest) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.toggleCrest,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
+        y2: '100%'
+      }, [
+        ['0%', '#ffffff', 0.72],
+        ['55%', '#f1f6ff', 0.18],
+        ['100%', '#ffffff', 0]
+      ]));
+    }
+    if (gradientIds.baseGlow) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.baseGlow,
+        cx: '50%',
+        cy: '38%',
+        r: '75%'
+      }, [
+        ['0%', '#d0e5ff', 0.42],
+        ['52%', '#a1bde8', 0.24],
+        ['100%', '#40537a', 0]
+      ]));
+    }
+    if (gradientIds.shadow) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.shadow,
+        cx: '50%',
+        cy: '56%',
+        r: '68%'
+      }, [
+        ['0%', '#0c101c', 0.55],
+        ['70%', '#0c101c', 0.32],
+        ['100%', '#0c101c', 0]
+      ]));
+    }
+    if (gradientIds.obelisk) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.obelisk,
+        x1: '50%',
+        y1: '0%',
+        x2: '50%',
+        y2: '100%'
+      }, [
+        ['0%', '#f9fbff', 0.9],
+        ['38%', '#e0e9f7', 0.78],
+        ['74%', '#a6bcd8', 0.62],
+        ['100%', '#4f6382', 0.78]
+      ]));
+    }
+    if (gradientIds.obeliskEdge) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.obeliskEdge,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
+        y2: '100%'
+      }, [
+        ['0%', '#ffffff', 0.88],
+        ['55%', '#d7e5ff', 0.5],
+        ['100%', '#5c7090', 0.82]
+      ]));
+    }
+    if (gradientIds.facet) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.facet,
+        x1: '50%',
+        y1: '0%',
+        x2: '50%',
+        y2: '100%'
+      }, [
+        ['0%', '#ffffff', 0.78],
+        ['45%', '#e3edfb', 0.52],
+        ['82%', '#9bb2d4', 0.35],
+        ['100%', '#5d6f8b', 0.5]
+      ]));
+    }
+    if (gradientIds.highlight) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.highlight,
+        x1: '50%',
+        y1: '0%',
+        x2: '50%',
+        y2: '100%'
+      }, [
+        ['0%', '#ffffff', 0],
+        ['52%', '#ffffff', 0.6],
+        ['100%', '#ffffff', 0]
+      ]));
+    }
+    if (gradientIds.spark) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.spark,
+        x1: '0%',
+        y1: '0%',
+        x2: '100%',
+        y2: '0%'
+      }, [
+        ['0%', '#ffffff', 0],
+        ['50%', '#ffffff', 0.9],
+        ['100%', '#ffffff', 0]
+      ]));
+    }
+    if (gradientIds.reflection) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.reflection,
+        x1: '50%',
+        y1: '0%',
+        x2: '50%',
+        y2: '100%'
+      }, [
+        ['0%', '#ffffff', 0.62],
+        ['58%', '#e3eeff', 0.28],
+        ['100%', '#ffffff', 0.06]
+      ]));
+    }
+    container.insertBefore(defs, container.firstChild);
+
+    if (base.halo && gradientIds.toggleHalo) {
+      base.halo.setAttribute('fill', `url(#${gradientIds.toggleHalo})`);
+      base.halo.setAttribute('stroke', 'rgba(212, 228, 255, 0.65)');
+      base.halo.setAttribute('stroke-width', '1.4');
+    }
+    if (base.circle && gradientIds.toggleBase) {
+      base.circle.setAttribute('fill', `url(#${gradientIds.toggleBase})`);
+      if (gradientIds.toggleRing) {
+        base.circle.setAttribute('stroke', `url(#${gradientIds.toggleRing})`);
+      }
+      base.circle.setAttribute('stroke-width', '1.8');
+      base.circle.setAttribute('opacity', '0.95');
+    }
+    if (base.ring && gradientIds.toggleRing) {
+      base.ring.setAttribute('fill', 'none');
+      base.ring.setAttribute('stroke', `url(#${gradientIds.toggleRing})`);
+      base.ring.setAttribute('stroke-width', '1.6');
+      base.ring.setAttribute('opacity', '0.85');
+    }
+    if (base.inner && gradientIds.toggleInner) {
+      base.inner.setAttribute('fill', `url(#${gradientIds.toggleInner})`);
+      base.inner.setAttribute('opacity', '0.92');
+    }
+    if (base.gloss && gradientIds.toggleSheen) {
+      base.gloss.setAttribute('fill', `url(#${gradientIds.toggleSheen})`);
+      base.gloss.setAttribute('opacity', '0.75');
+    }
+    if (base.crest && gradientIds.toggleCrest) {
+      base.crest.setAttribute('fill', `url(#${gradientIds.toggleCrest})`);
+      base.crest.setAttribute('opacity', '0.9');
+    }
 
     const geometry = this._computeCarouselGeometry(resolvedRadius);
     this._modeCarouselGeometry = geometry;
@@ -386,6 +676,22 @@ export default class ThermostatUI {
     this._modeCarouselTrack = null; // TRIAL MERGE: inner group that positions the frosted obelisks around the dial center.
     this._modeCarouselGeometry = null; // TRIAL MERGE: cached width/height/spacing used to lay out carousel items.
     this._modeCarouselHalo = null; // TRIAL MERGE: circular highlight drawn behind the SVG carousel.
+    this._modeCarouselGradientIds = {
+      toggleHalo: SvgUtil.uniqueId('mode-carousel-toggle-halo'), // TRIAL MERGE: gradients keep the frosted toggle consistent across rebuilds.
+      toggleBase: SvgUtil.uniqueId('mode-carousel-toggle-base'),
+      toggleRing: SvgUtil.uniqueId('mode-carousel-toggle-ring'),
+      toggleInner: SvgUtil.uniqueId('mode-carousel-toggle-inner'),
+      toggleSheen: SvgUtil.uniqueId('mode-carousel-toggle-sheen'),
+      toggleCrest: SvgUtil.uniqueId('mode-carousel-toggle-crest'),
+      baseGlow: SvgUtil.uniqueId('mode-carousel-base-glow'),
+      shadow: SvgUtil.uniqueId('mode-carousel-shadow'),
+      obelisk: SvgUtil.uniqueId('mode-carousel-obelisk'),
+      obeliskEdge: SvgUtil.uniqueId('mode-carousel-obelisk-edge'),
+      facet: SvgUtil.uniqueId('mode-carousel-obelisk-facet'),
+      highlight: SvgUtil.uniqueId('mode-carousel-obelisk-highlight'),
+      spark: SvgUtil.uniqueId('mode-carousel-obelisk-spark'),
+      reflection: SvgUtil.uniqueId('mode-carousel-obelisk-reflection')
+    };
     this._modeCarouselItems = []; // Data bag describing each carousel option.
     this._modeCarouselPendingModes = null; // Last set of HVAC modes supplied while the carousel was closed.
     this._modeCarouselPendingHass = null; // Last Home Assistant reference paired with the pending modes.
@@ -1532,8 +1838,11 @@ export default class ThermostatUI {
 
     const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._resolveDialRadius()); // TRIAL MERGE: reuse fallback-aware radius when laying out carousel items.
     const obeliskPath = this._carouselObeliskPath(geometry.itemWidth, geometry.itemHeight);
+    const facetPath = this._carouselFacetPath(geometry.itemWidth, geometry.itemHeight);
     const reflectionPath = this._carouselReflectionPath(geometry.itemWidth, geometry.itemHeight);
     const highlightPath = this._carouselHighlightPath(geometry.itemWidth, geometry.itemHeight);
+    const sparkPath = this._carouselSparkPath(geometry.itemWidth, geometry.itemHeight);
+    const gradientIds = this._modeCarouselGradientIds || {};
 
     options.forEach((option, index) => {
       const group = SvgUtil.createSVGElement('g', {
@@ -1553,19 +1862,58 @@ export default class ThermostatUI {
         rx: geometry.itemWidth * 0.45,
         ry: geometry.itemHeight * 0.12
       });
+      if (gradientIds.shadow) {
+        shadow.setAttribute('fill', `url(#${gradientIds.shadow})`);
+      }
+      const glow = SvgUtil.createSVGElement('ellipse', {
+        class: 'mode-carousel-svg__base-glow',
+        cx: 0,
+        cy: geometry.itemHeight * 0.46,
+        rx: geometry.itemWidth * 0.38,
+        ry: geometry.itemHeight * 0.14
+      }); // TRIAL MERGE: luminous floor that anchors each glass obelisk.
+      if (gradientIds.baseGlow) {
+        glow.setAttribute('fill', `url(#${gradientIds.baseGlow})`);
+      }
       const obelisk = SvgUtil.createSVGElement('path', {
         class: 'mode-carousel-svg__obelisk',
         d: obeliskPath
       });
+      if (gradientIds.obelisk) {
+        obelisk.setAttribute('fill', `url(#${gradientIds.obelisk})`);
+      }
+      if (gradientIds.obeliskEdge) {
+        obelisk.setAttribute('stroke', `url(#${gradientIds.obeliskEdge})`);
+      }
       const highlight = SvgUtil.createSVGElement('path', {
         // TRIAL MERGE: overlay a translucent ridge highlight for a frosted sheen.
         class: 'mode-carousel-svg__highlight',
         d: highlightPath
       });
+      if (gradientIds.highlight) {
+        highlight.setAttribute('fill', `url(#${gradientIds.highlight})`);
+      }
       const reflection = SvgUtil.createSVGElement('path', {
         class: 'mode-carousel-svg__reflection',
         d: reflectionPath
       });
+      if (gradientIds.reflection) {
+        reflection.setAttribute('fill', `url(#${gradientIds.reflection})`);
+      }
+      const facet = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__facet',
+        d: facetPath
+      }); // TRIAL MERGE: inner facet to imply thickness and refraction.
+      if (gradientIds.facet) {
+        facet.setAttribute('fill', `url(#${gradientIds.facet})`);
+      }
+      const spark = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__spark',
+        d: sparkPath
+      }); // TRIAL MERGE: razor-thin sparkle that hints at overhead light.
+      if (gradientIds.spark) {
+        spark.setAttribute('fill', `url(#${gradientIds.spark})`);
+      }
       const iconText = SvgUtil.createSVGElement('text', {
         class: 'mode-carousel-svg__icon',
         x: '0',
@@ -1583,8 +1931,11 @@ export default class ThermostatUI {
       labelText.textContent = option.label;
 
       group.appendChild(shadow);
+      group.appendChild(glow);
       group.appendChild(obelisk);
+      group.appendChild(facet);
       group.appendChild(highlight);
+      group.appendChild(spark);
       group.appendChild(reflection);
       group.appendChild(iconText);
       group.appendChild(labelText);
