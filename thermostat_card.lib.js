@@ -302,6 +302,22 @@ export default class ThermostatUI {
       'Z'
     ].join(' ');
   }
+  // TRIAL MERGE: sweep a refracted light ribbon through the glass panel for extra realism.
+  _carouselCausticPath(width, height) {
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    const ridge = -halfHeight * 0.12;
+    const valley = halfHeight * 0.28;
+    const sway = Math.max(width * 0.18, 14);
+    return [
+      `M ${-sway} ${ridge}`,
+      `Q ${-halfWidth * 0.25} ${ridge - halfHeight * 0.22} 0 ${ridge - halfHeight * 0.08}`,
+      `T ${sway} ${ridge}`,
+      `L ${sway * 0.72} ${valley}`,
+      `Q 0 ${valley + halfHeight * 0.12} ${-sway * 0.72} ${valley}`,
+      'Z'
+    ].join(' ');
+  }
   // TRIAL MERGE: select gradient palettes for each carousel icon variant so the SVG can dial in the right glow colours.
   _carouselIconPalette(option, gradientIds) {
     const mode = option && option.mode;
@@ -694,10 +710,10 @@ export default class ThermostatUI {
         cy: '58%',
         r: '72%'
       }, [
-        ['0%', '#c4dcff', 0.58],
-        ['38%', '#9ab6f0', 0.32],
-        ['68%', '#5f79c9', 0.18],
-        ['100%', '#1a284f', 0]
+        ['0%', '#e6f2ff', 0.42],
+        ['45%', '#bcd0f3', 0.22],
+        ['75%', '#748bd1', 0.12],
+        ['100%', '#1b2642', 0]
       ]));
     }
     if (gradientIds.toggleBase) {
@@ -707,10 +723,10 @@ export default class ThermostatUI {
         cy: '40%',
         r: '68%'
       }, [
-        ['0%', '#fcfeff', 0.95],
-        ['40%', '#e3ecf9', 0.82],
-        ['72%', '#a2b8d8', 0.68],
-        ['100%', '#3b4b66', 0.82]
+        ['0%', '#f9fcff', 0.7],
+        ['40%', '#dbe6f4', 0.46],
+        ['72%', '#a4bad4', 0.32],
+        ['100%', '#2f3f58', 0.5]
       ]));
     }
     if (gradientIds.toggleRing) {
@@ -721,9 +737,9 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#ffffff', 0.88],
-        ['45%', '#dbe7ff', 0.52],
-        ['100%', '#5a7096', 0.85]
+        ['0%', '#ffffff', 0.52],
+        ['45%', '#dfe9ff', 0.34],
+        ['100%', '#5a7096', 0.55]
       ]));
     }
     if (gradientIds.toggleInner) {
@@ -733,9 +749,9 @@ export default class ThermostatUI {
         cy: '45%',
         r: '62%'
       }, [
-        ['0%', '#ffffff', 0.9],
-        ['52%', '#d9e5f7', 0.55],
-        ['100%', '#7386a4', 0.38]
+        ['0%', '#ffffff', 0.62],
+        ['52%', '#dce7f7', 0.34],
+        ['100%', '#6f829d', 0.26]
       ]));
     }
     if (gradientIds.toggleSheen) {
@@ -745,8 +761,8 @@ export default class ThermostatUI {
         cy: '22%',
         r: '85%'
       }, [
-        ['0%', '#ffffff', 0.85],
-        ['46%', '#f6f9ff', 0.35],
+        ['0%', '#ffffff', 0.62],
+        ['46%', '#f6f9ff', 0.24],
         ['100%', '#ffffff', 0]
       ]));
     }
@@ -758,8 +774,8 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#ffffff', 0.72],
-        ['55%', '#f1f6ff', 0.18],
+        ['0%', '#ffffff', 0.5],
+        ['55%', '#f2f7ff', 0.14],
         ['100%', '#ffffff', 0]
       ]));
     }
@@ -770,8 +786,8 @@ export default class ThermostatUI {
         cy: '38%',
         r: '75%'
       }, [
-        ['0%', '#d0e5ff', 0.42],
-        ['52%', '#a1bde8', 0.24],
+        ['0%', '#dcecff', 0.28],
+        ['58%', '#a7c4ef', 0.18],
         ['100%', '#40537a', 0]
       ]));
     }
@@ -782,8 +798,8 @@ export default class ThermostatUI {
         cy: '56%',
         r: '68%'
       }, [
-        ['0%', '#0c101c', 0.55],
-        ['70%', '#0c101c', 0.32],
+        ['0%', '#0c101c', 0.38],
+        ['70%', '#0c101c', 0.22],
         ['100%', '#0c101c', 0]
       ]));
     }
@@ -795,10 +811,10 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#f7faff', 0.96],
-        ['32%', '#e4ecf8', 0.92],
-        ['68%', '#c6d4ea', 0.88],
-        ['100%', '#8f9fbf', 0.95]
+        ['0%', '#f9fbff', 0.64],
+        ['32%', '#e6eef8', 0.46],
+        ['68%', '#c1cede', 0.38],
+        ['100%', '#8190ab', 0.52]
       ]));
     }
     if (gradientIds.panelEdge) {
@@ -809,9 +825,9 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#ffffff', 0.95],
-        ['45%', '#dbe7fb', 0.58],
-        ['100%', '#5a6c8c', 0.88]
+        ['0%', '#ffffff', 0.52],
+        ['45%', '#dfe9fb', 0.34],
+        ['100%', '#5a6c8c', 0.58]
       ]));
     }
     if (gradientIds.panelInner) {
@@ -821,8 +837,8 @@ export default class ThermostatUI {
         cy: '42%',
         r: '64%'
       }, [
-        ['0%', '#ffffff', 0.92],
-        ['48%', '#f3f6ff', 0.3],
+        ['0%', '#ffffff', 0.42],
+        ['48%', '#f4f7ff', 0.16],
         ['100%', '#ffffff', 0]
       ]));
     }
@@ -834,8 +850,8 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#ffffff', 0.8],
-        ['38%', '#ffffff', 0.18],
+        ['0%', '#ffffff', 0.45],
+        ['38%', '#ffffff', 0.12],
         ['100%', '#ffffff', 0]
       ]));
     }
@@ -848,7 +864,7 @@ export default class ThermostatUI {
         y2: '0%'
       }, [
         ['0%', '#ffffff', 0],
-        ['46%', '#ffffff', 0.55],
+        ['46%', '#ffffff', 0.32],
         ['100%', '#ffffff', 0]
       ]));
     }
@@ -861,7 +877,21 @@ export default class ThermostatUI {
         y2: '0%'
       }, [
         ['0%', '#ffffff', 0],
-        ['40%', '#ffffff', 0.85],
+        ['40%', '#ffffff', 0.52],
+        ['100%', '#ffffff', 0]
+      ]));
+    }
+    if (gradientIds.panelCaustic) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.panelCaustic,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
+        y2: '100%'
+      }, [
+        ['0%', '#ffffff', 0],
+        ['35%', '#ffffff', 0.58],
+        ['65%', '#d9ecff', 0.26],
         ['100%', '#ffffff', 0]
       ]));
     }
@@ -873,10 +903,10 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#fff4df', 1],
-        ['36%', '#ffd18a', 0.96],
-        ['72%', '#ff934d', 0.98],
-        ['100%', '#ff5b2a', 0.98]
+        ['0%', '#fff2d8', 0.82],
+        ['36%', '#ffc37a', 0.64],
+        ['72%', '#ff8741', 0.68],
+        ['100%', '#ff5b2a', 0.78]
       ]));
     }
     if (gradientIds.iconHeatGlow) {
@@ -886,8 +916,8 @@ export default class ThermostatUI {
         cy: '50%',
         r: '60%'
       }, [
-        ['0%', '#ffddb0', 0.82],
-        ['52%', '#ff9f5a', 0.46],
+        ['0%', '#ffd8a0', 0.58],
+        ['52%', '#ff9850', 0.28],
         ['100%', '#ff6a30', 0]
       ]));
     }
@@ -899,10 +929,10 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#f4fbff', 1],
-        ['38%', '#cbe7ff', 0.95],
-        ['74%', '#7ac3ff', 0.92],
-        ['100%', '#3c8cff', 0.95]
+        ['0%', '#f4fbff', 0.82],
+        ['38%', '#c9e6ff', 0.6],
+        ['74%', '#76c1ff', 0.56],
+        ['100%', '#3c8cff', 0.78]
       ]));
     }
     if (gradientIds.iconCoolGlow) {
@@ -912,8 +942,8 @@ export default class ThermostatUI {
         cy: '50%',
         r: '60%'
       }, [
-        ['0%', '#d4ecff', 0.8],
-        ['55%', '#7fc9ff', 0.4],
+        ['0%', '#e1f3ff', 0.5],
+        ['55%', '#8ed5ff', 0.26],
         ['100%', '#3c8cff', 0]
       ]));
     }
@@ -925,9 +955,9 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#fff1d6', 1],
-        ['48%', '#ffc987', 0.95],
-        ['100%', '#ff813f', 0.98]
+        ['0%', '#fff0d2', 0.78],
+        ['48%', '#ffc27f', 0.6],
+        ['100%', '#ff813f', 0.74]
       ]));
     }
     if (gradientIds.iconDualCool) {
@@ -938,9 +968,9 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#f1f9ff', 1],
-        ['46%', '#bde2ff', 0.92],
-        ['100%', '#4aa5ff', 0.95]
+        ['0%', '#f1f9ff', 0.78],
+        ['46%', '#bce1ff', 0.55],
+        ['100%', '#4aa5ff', 0.74]
       ]));
     }
     if (gradientIds.iconDualGlow) {
@@ -950,8 +980,8 @@ export default class ThermostatUI {
         cy: '50%',
         r: '62%'
       }, [
-        ['0%', '#ffe0bd', 0.65],
-        ['48%', '#9bd6ff', 0.32],
+        ['0%', '#ffe0bd', 0.42],
+        ['48%', '#9bd6ff', 0.22],
         ['100%', '#5ca9ff', 0]
       ]));
     }
@@ -963,9 +993,9 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#f1f4f9', 0.94],
-        ['50%', '#c9d3e1', 0.9],
-        ['100%', '#8a97ab', 0.94]
+        ['0%', '#f1f4f9', 0.7],
+        ['50%', '#c9d3e1', 0.48],
+        ['100%', '#8a97ab', 0.7]
       ]));
     }
     if (gradientIds.iconOffGlow) {
@@ -975,8 +1005,8 @@ export default class ThermostatUI {
         cy: '50%',
         r: '58%'
       }, [
-        ['0%', '#dbe3f1', 0.6],
-        ['60%', '#9fafbe', 0.28],
+        ['0%', '#dfe5f1', 0.38],
+        ['60%', '#a5b3c7', 0.18],
         ['100%', '#5b677a', 0]
       ]));
     }
@@ -988,9 +1018,9 @@ export default class ThermostatUI {
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#f5f9ff', 0.95],
-        ['50%', '#d6e2f3', 0.9],
-        ['100%', '#7c92b6', 0.94]
+        ['0%', '#f5f9ff', 0.74],
+        ['50%', '#d6e2f3', 0.52],
+        ['100%', '#7c92b6', 0.72]
       ]));
     }
     if (gradientIds.iconNeutralGlow) {
@@ -1000,8 +1030,8 @@ export default class ThermostatUI {
         cy: '50%',
         r: '60%'
       }, [
-        ['0%', '#dfe7f5', 0.65],
-        ['58%', '#a3b5d1', 0.32],
+        ['0%', '#dfe7f5', 0.45],
+        ['58%', '#a5b7d3', 0.22],
         ['100%', '#5d6f8d', 0]
       ]));
     }
@@ -1009,34 +1039,34 @@ export default class ThermostatUI {
 
     if (base.halo && gradientIds.toggleHalo) {
       base.halo.setAttribute('fill', `url(#${gradientIds.toggleHalo})`);
-      base.halo.setAttribute('stroke', 'rgba(212, 228, 255, 0.65)');
-      base.halo.setAttribute('stroke-width', '1.4');
+      base.halo.setAttribute('stroke', 'rgba(224, 235, 255, 0.45)');
+      base.halo.setAttribute('stroke-width', '1.2');
     }
     if (base.circle && gradientIds.toggleBase) {
       base.circle.setAttribute('fill', `url(#${gradientIds.toggleBase})`);
       if (gradientIds.toggleRing) {
         base.circle.setAttribute('stroke', `url(#${gradientIds.toggleRing})`);
       }
-      base.circle.setAttribute('stroke-width', '1.8');
-      base.circle.setAttribute('opacity', '0.95');
+      base.circle.setAttribute('stroke-width', '1.5');
+      base.circle.setAttribute('opacity', '0.82');
     }
     if (base.ring && gradientIds.toggleRing) {
       base.ring.setAttribute('fill', 'none');
       base.ring.setAttribute('stroke', `url(#${gradientIds.toggleRing})`);
-      base.ring.setAttribute('stroke-width', '1.6');
-      base.ring.setAttribute('opacity', '0.85');
+      base.ring.setAttribute('stroke-width', '1.4');
+      base.ring.setAttribute('opacity', '0.5');
     }
     if (base.inner && gradientIds.toggleInner) {
       base.inner.setAttribute('fill', `url(#${gradientIds.toggleInner})`);
-      base.inner.setAttribute('opacity', '0.92');
+      base.inner.setAttribute('opacity', '0.58');
     }
     if (base.gloss && gradientIds.toggleSheen) {
       base.gloss.setAttribute('fill', `url(#${gradientIds.toggleSheen})`);
-      base.gloss.setAttribute('opacity', '0.75');
+      base.gloss.setAttribute('opacity', '0.5');
     }
     if (base.crest && gradientIds.toggleCrest) {
       base.crest.setAttribute('fill', `url(#${gradientIds.toggleCrest})`);
-      base.crest.setAttribute('opacity', '0.9');
+      base.crest.setAttribute('opacity', '0.55');
     }
 
     const geometry = this._computeCarouselGeometry(resolvedRadius);
@@ -1196,6 +1226,7 @@ export default class ThermostatUI {
       panelHighlight: SvgUtil.uniqueId('mode-carousel-panel-highlight'),
       panelSheen: SvgUtil.uniqueId('mode-carousel-panel-sheen'),
       panelSpark: SvgUtil.uniqueId('mode-carousel-panel-spark'),
+      panelCaustic: SvgUtil.uniqueId('mode-carousel-panel-caustic'), // TRIAL MERGE: ribbon highlight gradient for extra depth.
       iconHeat: SvgUtil.uniqueId('mode-carousel-icon-heat'),
       iconHeatGlow: SvgUtil.uniqueId('mode-carousel-icon-heat-glow'),
       iconCool: SvgUtil.uniqueId('mode-carousel-icon-cool'),
@@ -2419,6 +2450,14 @@ export default class ThermostatUI {
         panelHighlight.setAttribute('fill', `url(#${gradientIds.panelHighlight})`);
       }
       panelHighlight.setAttribute('stroke', 'none');
+      const panelCaustic = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-caustic',
+        d: this._carouselCausticPath(geometry.itemWidth, geometry.itemHeight)
+      });
+      if (gradientIds.panelCaustic) {
+        panelCaustic.setAttribute('fill', `url(#${gradientIds.panelCaustic})`);
+      }
+      panelCaustic.setAttribute('stroke', 'none');
       const panelSheen = SvgUtil.createSVGElement('path', {
         class: 'mode-carousel-svg__panel-sheen',
         d: sparkPath
@@ -2457,6 +2496,7 @@ export default class ThermostatUI {
       group.appendChild(panel);
       group.appendChild(panelInner);
       group.appendChild(panelHighlight);
+      group.appendChild(panelCaustic);
       group.appendChild(panelSheen);
       group.appendChild(panelSpark);
       group.appendChild(panelReflection);

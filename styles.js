@@ -663,72 +663,72 @@ export function cssData(user) {
   }
   /* TRIAL MERGE: halo fill now comes from SVG gradients; keep only bloom behaviour. */
   .mode-menu__toggler-halo{
-    opacity: 0.9;
-    filter: blur(18px);
+    opacity: 0.74;
+    filter: blur(22px);
     transition: opacity 0.4s ease, filter 0.4s ease;
   }
   /* TRIAL MERGE: the primary glass disk relies on gradient fills defined in SVG for richer frost. */
   .mode-menu__toggler-circle{
-    stroke-width: 1.8px;
-    filter: drop-shadow(0 18px 36px rgba(12, 18, 34, 0.62));
+    stroke-width: 1.6px;
+    filter: drop-shadow(0 16px 32px rgba(12, 18, 34, 0.42));
     transition: filter 0.35s ease, opacity 0.35s ease;
   }
   /* TRIAL MERGE: luminous ring floating above the toggle base. */
   .mode-menu__toggler-ring{
     pointer-events: none;
     mix-blend-mode: screen;
-    stroke-width: 1.6px;
-    opacity: 0.85;
+    stroke-width: 1.4px;
+    opacity: 0.58;
     transition: opacity 0.35s ease;
   }
   .mode-menu__toggler-inner{
-    opacity: 0.92;
+    opacity: 0.62;
     mix-blend-mode: screen;
     transition: opacity 0.35s ease;
   }
   .mode-menu__toggler-gloss{
-    opacity: 0.75;
+    opacity: 0.48;
     filter: blur(0.2px);
     transition: opacity 0.35s ease;
   }
   /* TRIAL MERGE: crest highlight emphasises overhead lighting. */
   .mode-menu__toggler-crest{
-    opacity: 0.9;
+    opacity: 0.55;
     mix-blend-mode: screen;
     transition: opacity 0.3s ease;
   }
   .mode-menu__toggler-icon{
     pointer-events: none; /* Icon should not intercept clicks. */
     transition: opacity 0.3s ease; /* Fade gently while the carousel is open. */
-    filter: drop-shadow(0 5px 14px rgba(10, 16, 28, 0.58));
+    filter: drop-shadow(0 5px 14px rgba(10, 16, 28, 0.42));
   }
   /* TRIAL MERGE: keep the SVG toggle visible while the carousel is expanded so it can close the menu. */
   .mode-menu.menu-open .mode-menu__toggler-circle{
-    opacity: 1;
-    filter: drop-shadow(0 20px 44px rgba(10, 18, 34, 0.68));
+    opacity: 0.92;
+    filter: drop-shadow(0 22px 44px rgba(10, 18, 34, 0.5));
   }
   /* TRIAL MERGE: intensify the halo when the carousel is active. */
   .mode-menu.menu-open .mode-menu__toggler-halo{
-    opacity: 1;
-    filter: blur(20px);
+    opacity: 0.9;
+    filter: blur(24px);
   }
   /* TRIAL MERGE: brighten the glass layers when the carousel opens. */
   .mode-menu.menu-open .mode-menu__toggler-ring{
-    opacity: 1;
+    opacity: 0.78;
   }
   .mode-menu.menu-open .mode-menu__toggler-inner{
-    opacity: 0.98;
+    opacity: 0.75;
   }
   /* TRIAL MERGE: retain the gloss highlight so the toggle looks active while the carousel is open. */
   .mode-menu.menu-open .mode-menu__toggler-gloss{
-    opacity: 0.82;
+    opacity: 0.6;
   }
   .mode-menu.menu-open .mode-menu__toggler-crest{
-    opacity: 0.95;
+    opacity: 0.68;
   }
   /* TRIAL MERGE: soften the icon rather than removing it so the toggle remains recognizable as a close control. */
   .mode-menu.menu-open .mode-menu__toggler-icon{
-    opacity: 0.8;
+    opacity: 0.75;
   }
   .mode-menu.menu-open.mode-menu--overlay .mode-menu__toggler-body{
     opacity: 0; /* Hide the HTML toggle skin when the carousel overlay is active. */
@@ -850,8 +850,8 @@ export function cssData(user) {
     pointer-events: auto;
   }
   .mode-carousel-svg__halo{
-    opacity: 0.92;
-    filter: drop-shadow(0 38px 62px rgba(12, 18, 32, 0.62));
+    opacity: 0.7;
+    filter: drop-shadow(0 34px 54px rgba(12, 18, 32, 0.38));
     pointer-events: none;
     transition: opacity 0.35s ease, filter 0.35s ease;
   }
@@ -863,99 +863,108 @@ export function cssData(user) {
     cursor: pointer;
     transition: opacity 0.35s ease;
     outline: none;
-    filter: drop-shadow(0 26px 48px rgba(10, 16, 30, 0.55));
+    filter: drop-shadow(0 22px 44px rgba(10, 16, 30, 0.38));
   }
   /* TRIAL MERGE: refine focus and drop-shadow treatments for the glass carousel panels. */
   .mode-carousel-svg__item:focus-visible .mode-carousel-svg__panel{
-    stroke-width: 3.2;
-    filter: drop-shadow(0 32px 66px rgba(14, 22, 40, 0.72));
+    stroke-width: 3;
+    filter: drop-shadow(0 30px 60px rgba(14, 22, 40, 0.48));
   }
   .mode-carousel-svg__item--active{
-    filter: drop-shadow(0 36px 66px rgba(12, 20, 38, 0.68));
+    filter: drop-shadow(0 30px 58px rgba(12, 20, 38, 0.46));
   }
   .mode-carousel-svg__panel{
-    stroke-width: 2.6;
+    stroke-width: 2.2;
     paint-order: stroke fill;
-    filter: drop-shadow(0 24px 54px rgba(12, 18, 34, 0.55));
+    filter: drop-shadow(0 20px 40px rgba(12, 18, 34, 0.38));
     transition: stroke 0.35s ease, fill-opacity 0.35s ease, filter 0.35s ease;
-    fill-opacity: 0.96;
+    fill-opacity: 0.58;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__panel{
-    filter: drop-shadow(0 42px 76px rgba(16, 24, 42, 0.7));
+    filter: drop-shadow(0 32px 60px rgba(16, 24, 42, 0.5));
   }
   /* TRIAL MERGE: soft shadow beneath each frosted card. */
   .mode-carousel-svg__shadow{
-    opacity: 0.62;
+    opacity: 0.42;
     filter: blur(6px);
     transition: opacity 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__shadow{
-    opacity: 0.82;
+    opacity: 0.6;
   }
   .mode-carousel-svg__base-glow{
-    opacity: 0.45;
+    opacity: 0.28;
     mix-blend-mode: screen;
     filter: blur(1.5px);
     transition: opacity 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__base-glow{
-    opacity: 0.68;
+    opacity: 0.45;
   }
   /* TRIAL MERGE: inner frosting and highlight layering for the panel slab. */
   .mode-carousel-svg__panel-inner{
-    opacity: 0.88;
+    opacity: 0.6;
     mix-blend-mode: screen;
-    filter: drop-shadow(0 18px 32px rgba(14, 22, 40, 0.42));
+    filter: drop-shadow(0 18px 32px rgba(14, 22, 40, 0.32));
     transition: opacity 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__panel-inner{
-    opacity: 1;
+    opacity: 0.78;
   }
   /* TRIAL MERGE: shimmering highlight and streak treatments for the new glass slabs. */
   .mode-carousel-svg__panel-highlight{
-    opacity: 0.48;
+    opacity: 0.32;
     mix-blend-mode: screen;
     filter: blur(0.4px);
     transition: opacity 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__panel-highlight{
+    opacity: 0.48;
+  }
+  .mode-carousel-svg__panel-caustic{
+    opacity: 0.5;
+    mix-blend-mode: screen;
+    filter: blur(0.35px);
+    transition: opacity 0.35s ease;
+  }
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-caustic{
     opacity: 0.68;
   }
   .mode-carousel-svg__panel-sheen{
-    opacity: 0.52;
+    opacity: 0.36;
     mix-blend-mode: screen;
     filter: blur(0.25px);
     transition: opacity 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__panel-sheen{
-    opacity: 0.7;
+    opacity: 0.52;
   }
   .mode-carousel-svg__panel-spark{
-    opacity: 0.78;
+    opacity: 0.5;
     mix-blend-mode: screen;
     filter: blur(0.35px);
     transition: opacity 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__panel-spark{
-    opacity: 0.94;
+    opacity: 0.68;
   }
   .mode-carousel-svg__panel-reflection{
-    opacity: 0.34;
+    opacity: 0.26;
     mix-blend-mode: screen;
     filter: blur(0.6px);
     transition: opacity 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__panel-reflection{
-    opacity: 0.5;
+    opacity: 0.4;
   }
   /* TRIAL MERGE: elevated glow stack for the bespoke SVG glyphs. */
   .mode-carousel-svg__icon-group{
     pointer-events: none;
-    filter: drop-shadow(0 16px 28px rgba(10, 16, 32, 0.5));
+    filter: drop-shadow(0 14px 24px rgba(10, 16, 32, 0.35));
     transition: filter 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__icon-group{
-    filter: drop-shadow(0 22px 40px rgba(12, 20, 40, 0.62));
+    filter: drop-shadow(0 20px 34px rgba(12, 20, 40, 0.48));
   }
   .mode-carousel-svg__icon-root *{
     transition: fill 0.35s ease, stroke 0.35s ease, fill-opacity 0.35s ease, stroke-opacity 0.35s ease;
