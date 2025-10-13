@@ -860,21 +860,23 @@ export function cssData(user) {
     outline: none;
     filter: drop-shadow(0 26px 48px rgba(10, 16, 30, 0.55));
   }
-  .mode-carousel-svg__item:focus-visible .mode-carousel-svg__obelisk{
-    stroke-width: 2.4;
+  /* TRIAL MERGE: refine focus and drop-shadow treatments for the glass carousel panels. */
+  .mode-carousel-svg__item:focus-visible .mode-carousel-svg__panel{
+    stroke-width: 3.2;
+    filter: drop-shadow(0 32px 70px rgba(4, 8, 18, 0.82));
   }
   .mode-carousel-svg__item--active{
-    filter: drop-shadow(0 32px 60px rgba(12, 18, 36, 0.62));
+    filter: drop-shadow(0 38px 70px rgba(4, 8, 18, 0.76));
   }
-  .mode-carousel-svg__obelisk{
-    stroke-width: 1.9;
+  .mode-carousel-svg__panel{
+    stroke-width: 2.6;
     paint-order: stroke fill;
-    filter: drop-shadow(0 20px 36px rgba(10, 16, 28, 0.48));
+    filter: drop-shadow(0 26px 58px rgba(3, 6, 14, 0.64));
     transition: stroke 0.35s ease, fill-opacity 0.35s ease, filter 0.35s ease;
-    fill-opacity: 0.92;
+    fill-opacity: 0.96;
   }
-  .mode-carousel-svg__item--active .mode-carousel-svg__obelisk{
-    filter: drop-shadow(0 34px 64px rgba(12, 20, 36, 0.58));
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel{
+    filter: drop-shadow(0 46px 82px rgba(6, 10, 20, 0.82));
   }
   /* TRIAL MERGE: soft shadow beneath each frosted card. */
   .mode-carousel-svg__shadow{
@@ -894,53 +896,80 @@ export function cssData(user) {
   .mode-carousel-svg__item--active .mode-carousel-svg__base-glow{
     opacity: 0.68;
   }
-  .mode-carousel-svg__facet{
-    opacity: 0.85;
+  /* TRIAL MERGE: inner frosting and highlight layering for the panel slab. */
+  .mode-carousel-svg__panel-inner{
+    opacity: 0.9;
     mix-blend-mode: screen;
-    filter: drop-shadow(0 14px 24px rgba(12, 18, 36, 0.4));
+    filter: drop-shadow(0 18px 34px rgba(4, 8, 18, 0.5));
     transition: opacity 0.35s ease;
   }
-  .mode-carousel-svg__item--active .mode-carousel-svg__facet{
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-inner{
     opacity: 1;
   }
-  /* TRIAL MERGE: shimmering highlight that suggests refraction. */
-  .mode-carousel-svg__highlight{
-    opacity: 0.38;
+  /* TRIAL MERGE: shimmering highlight and streak treatments for the new glass slabs. */
+  .mode-carousel-svg__panel-highlight{
+    opacity: 0.5;
     mix-blend-mode: screen;
+    filter: blur(0.45px);
     transition: opacity 0.35s ease;
   }
-  .mode-carousel-svg__item--active .mode-carousel-svg__highlight{
-    opacity: 0.56;
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-highlight{
+    opacity: 0.7;
   }
-  .mode-carousel-svg__spark{
+  .mode-carousel-svg__panel-sheen{
+    opacity: 0.56;
+    mix-blend-mode: screen;
+    filter: blur(0.3px);
+    transition: opacity 0.35s ease;
+  }
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-sheen{
+    opacity: 0.76;
+  }
+  .mode-carousel-svg__panel-spark{
     opacity: 0.82;
     mix-blend-mode: screen;
-    filter: blur(0.15px);
+    filter: blur(0.4px);
     transition: opacity 0.35s ease;
   }
-  .mode-carousel-svg__item--active .mode-carousel-svg__spark{
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-spark{
+    opacity: 0.96;
+  }
+  .mode-carousel-svg__panel-reflection{
+    opacity: 0.36;
+    mix-blend-mode: screen;
+    filter: blur(0.7px);
+    transition: opacity 0.35s ease;
+  }
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-reflection{
+    opacity: 0.54;
+  }
+  /* TRIAL MERGE: elevated glow stack for the bespoke SVG glyphs. */
+  .mode-carousel-svg__icon-group{
+    pointer-events: none;
+    filter: drop-shadow(0 18px 30px rgba(2, 4, 10, 0.68));
+    transition: filter 0.35s ease;
+  }
+  .mode-carousel-svg__item--active .mode-carousel-svg__icon-group{
+    filter: drop-shadow(0 26px 44px rgba(4, 8, 16, 0.78));
+  }
+  .mode-carousel-svg__icon-root *{
+    transition: fill 0.35s ease, stroke 0.35s ease, fill-opacity 0.35s ease, stroke-opacity 0.35s ease;
+  }
+  .mode-carousel-svg__icon-glow{
+    opacity: 0.66;
+    mix-blend-mode: screen;
+    filter: blur(13px);
+    transition: opacity 0.35s ease;
+  }
+  .mode-carousel-svg__item--active .mode-carousel-svg__icon-glow{
     opacity: 0.95;
   }
-  .mode-carousel-svg__reflection{
-    opacity: 0.32;
-    mix-blend-mode: screen;
-    transition: opacity 0.35s ease;
-  }
-  .mode-carousel-svg__item--active .mode-carousel-svg__reflection{
-    opacity: 0.52;
-  }
-  .mode-carousel-svg__icon{
-    font-size: clamp(26px, 4.2vw, 36px);
-    font-weight: 600;
-    fill: rgba(255, 255, 255, 0.94);
-    filter: drop-shadow(0 8px 18px rgba(8, 14, 28, 0.6));
-  }
   .mode-carousel-svg__label{
-    font-size: clamp(12px, 2.6vw, 16px);
-    letter-spacing: 0.1em;
+    font-size: clamp(12px, 2.5vw, 15px);
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    fill: rgba(236, 242, 255, 0.88);
-    filter: drop-shadow(0 7px 14px rgba(8, 14, 26, 0.58));
+    fill: rgba(236, 242, 255, 0.9);
+    filter: drop-shadow(0 9px 18px rgba(8, 14, 28, 0.6));
   }
   .dial__limit-flash{
     opacity: 0; /* Adjust transparency to blend the layer into the dial. */

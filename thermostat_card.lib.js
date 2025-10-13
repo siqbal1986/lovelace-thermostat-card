@@ -223,77 +223,444 @@ export default class ThermostatUI {
   _carouselObeliskPath(width, height) {
     const halfWidth = width / 2;
     const halfHeight = height / 2;
-    const topWidth = width * 0.6;
-    const halfTop = topWidth / 2;
-    const baseCurve = Math.max(width * 0.08, 6);
+    const radius = Math.max(width * 0.18, 16);
+    const topRadius = radius * 0.92;
+    const bottomRadius = radius * 1.12;
     return [
-      `M ${-halfTop} ${-halfHeight}`,
-      `L ${halfTop} ${-halfHeight}`,
-      `L ${halfWidth} ${halfHeight - baseCurve}`,
-      `Q ${halfWidth} ${halfHeight} 0 ${halfHeight}`,
-      `Q ${-halfWidth} ${halfHeight} ${-halfWidth} ${halfHeight - baseCurve}`,
+      `M ${-halfWidth + topRadius} ${-halfHeight}`,
+      `Q ${-halfWidth} ${-halfHeight} ${-halfWidth} ${-halfHeight + topRadius}`,
+      `L ${-halfWidth} ${halfHeight - bottomRadius}`,
+      `Q ${-halfWidth} ${halfHeight} ${-halfWidth + bottomRadius} ${halfHeight}`,
+      `L ${halfWidth - bottomRadius} ${halfHeight}`,
+      `Q ${halfWidth} ${halfHeight} ${halfWidth} ${halfHeight - bottomRadius}`,
+      `L ${halfWidth} ${-halfHeight + topRadius}`,
+      `Q ${halfWidth} ${-halfHeight} ${halfWidth - topRadius} ${-halfHeight}`,
       'Z'
     ].join(' ');
   }
-  // TRIAL MERGE: carve an inner facet so each obelisk looks thick and refractive.
+  // TRIAL MERGE: carve an inner facet so each glass panel reads as thick frosted acrylic.
   _carouselFacetPath(width, height) {
+    const halfWidth = width / 2;
     const halfHeight = height / 2;
-    const crest = -halfHeight * 0.92;
-    const base = halfHeight * 0.78;
-    const inset = width * 0.34;
-    const flare = inset * 1.08;
-    const curve = Math.max(width * 0.045, 3.5);
+    const insetX = Math.max(width * 0.14, 12);
+    const insetTop = Math.max(height * 0.18, 16);
+    const insetBottom = Math.max(height * 0.2, 20);
+    const radius = Math.max(width * 0.12, 10);
     return [
-      `M ${-inset} ${crest}`,
-      `L ${inset} ${crest}`,
-      `L ${flare} ${base - curve}`,
-      `Q ${flare} ${base} 0 ${base}`,
-      `Q ${-flare} ${base} ${-flare} ${base - curve}`,
+      `M ${-halfWidth + insetX + radius} ${-halfHeight + insetTop}`,
+      `Q ${-halfWidth + insetX} ${-halfHeight + insetTop} ${-halfWidth + insetX} ${-halfHeight + insetTop + radius}`,
+      `L ${-halfWidth + insetX} ${halfHeight - insetBottom - radius}`,
+      `Q ${-halfWidth + insetX} ${halfHeight - insetBottom} ${-halfWidth + insetX + radius} ${halfHeight - insetBottom}`,
+      `L ${halfWidth - insetX - radius} ${halfHeight - insetBottom}`,
+      `Q ${halfWidth - insetX} ${halfHeight - insetBottom} ${halfWidth - insetX} ${halfHeight - insetBottom - radius}`,
+      `L ${halfWidth - insetX} ${-halfHeight + insetTop + radius}`,
+      `Q ${halfWidth - insetX} ${-halfHeight + insetTop} ${halfWidth - insetX - radius} ${-halfHeight + insetTop}`,
       'Z'
     ].join(' ');
   }
-  // TRIAL MERGE: render a subtle mirrored streak near the base of the obelisk.
+  // TRIAL MERGE: render a luminous foot reflection toward the base of the panel.
   _carouselReflectionPath(width, height) {
     const halfWidth = width / 2;
     const halfHeight = height / 2;
-    const top = halfHeight * 0.35;
-    const bottom = halfHeight * 0.7;
+    const top = halfHeight * 0.22;
+    const bottom = halfHeight * 0.44;
+    const curve = Math.max(width * 0.42, 32);
     return [
-      `M ${-halfWidth * 0.4} ${top}`,
-      `Q 0 ${top - halfHeight * 0.1} ${halfWidth * 0.4} ${top}`,
-      `L ${halfWidth * 0.3} ${bottom}`,
-      `Q 0 ${bottom + halfHeight * 0.08} ${-halfWidth * 0.3} ${bottom}`,
+      `M ${-curve} ${top}`,
+      `Q 0 ${top - halfHeight * 0.08} ${curve} ${top}`,
+      `L ${curve * 0.72} ${bottom}`,
+      `Q 0 ${bottom + halfHeight * 0.08} ${-curve * 0.72} ${bottom}`,
       'Z'
     ].join(' ');
   }
-  // TRIAL MERGE: trace a soft highlight ridge to heighten the glass look of each obelisk.
+  // TRIAL MERGE: trace a pillowy highlight across the top third of the glass panel.
   _carouselHighlightPath(width, height) {
     const halfWidth = width / 2;
     const halfHeight = height / 2;
-    const insetWidth = halfWidth * 0.55;
-    const crest = -halfHeight * 0.55;
-    const trough = halfHeight * 0.45;
+    const crest = -halfHeight * 0.72;
+    const trough = -halfHeight * 0.24;
+    const span = Math.max(width * 0.48, 36);
     return [
-      `M ${-insetWidth} ${trough}`,
-      `Q 0 ${trough - halfHeight * 0.35} ${insetWidth} ${trough}`,
-      `L ${insetWidth * 0.78} ${crest}`,
-      `Q 0 ${crest - halfHeight * 0.15} ${-insetWidth * 0.78} ${crest}`,
+      `M ${-span} ${trough}`,
+      `Q 0 ${crest} ${span} ${trough}`,
+      `L ${span * 0.86} ${trough + halfHeight * 0.18}`,
+      `Q 0 ${trough + halfHeight * 0.28} ${-span * 0.86} ${trough + halfHeight * 0.18}`,
       'Z'
     ].join(' ');
   }
-  // TRIAL MERGE: add a razor-thin sparkle to mimic a grazing light source.
+  // TRIAL MERGE: add a vertical spark that mimics a refracted studio light.
   _carouselSparkPath(width, height) {
     const halfHeight = height / 2;
-    const crest = -halfHeight * 0.65;
-    const tail = crest + halfHeight * 0.45;
-    const span = width * 0.22;
+    const crest = -halfHeight * 0.35;
+    const tail = crest + halfHeight * 0.62;
+    const span = Math.max(width * 0.16, 12);
     return [
-      `M ${-span * 0.45} ${crest + halfHeight * 0.05}`,
-      `Q 0 ${crest} ${span * 0.45} ${crest + halfHeight * 0.05}`,
-      `L ${span * 0.3} ${tail}`,
-      `Q 0 ${tail + halfHeight * 0.08} ${-span * 0.3} ${tail}`,
+      `M ${-span * 0.4} ${crest}`,
+      `Q 0 ${crest - halfHeight * 0.08} ${span * 0.4} ${crest}`,
+      `L ${span * 0.28} ${tail}`,
+      `Q 0 ${tail + halfHeight * 0.06} ${-span * 0.28} ${tail}`,
       'Z'
     ].join(' ');
+  }
+  // TRIAL MERGE: select gradient palettes for each carousel icon variant so the SVG can dial in the right glow colours.
+  _carouselIconPalette(option, gradientIds) {
+    const mode = option && option.mode;
+    const type = option && option.type;
+    if (type === 'preset') {
+      return {
+        glow: gradientIds.iconNeutralGlow,
+        primary: gradientIds.iconNeutral,
+        accent: '#f7faff'
+      };
+    }
+    switch (mode) {
+      case 'heat':
+        return {
+          glow: gradientIds.iconHeatGlow,
+          primary: gradientIds.iconHeat,
+          accent: '#fff6eb'
+        };
+      case 'cool':
+        return {
+          glow: gradientIds.iconCoolGlow,
+          primary: gradientIds.iconCool,
+          accent: '#f6fbff'
+        };
+      case 'heat_cool':
+        return {
+          glow: gradientIds.iconDualGlow || gradientIds.iconNeutralGlow,
+          warm: gradientIds.iconDualWarm || gradientIds.iconHeat,
+          cool: gradientIds.iconDualCool || gradientIds.iconCool,
+          accent: '#ffffff'
+        };
+      case 'off':
+        return {
+          glow: gradientIds.iconOffGlow,
+          primary: gradientIds.iconOff,
+          accent: '#f1f4f9'
+        };
+      case 'fan_only':
+      case 'dry':
+      case 'auto':
+      default:
+        return {
+          glow: gradientIds.iconNeutralGlow,
+          primary: gradientIds.iconNeutral,
+          accent: '#f6f9ff'
+        };
+    }
+  }
+  // TRIAL MERGE: define reusable heat icon paths inspired by the provided frosted glass flame reference.
+  _carouselHeatIconShapes(fillId, accentColor = '#ffffff') {
+    const fill = fillId ? `url(#${fillId})` : '#ff914d';
+    return [
+      {
+        element: 'path',
+        attributes: {
+          d: [
+            'M 0 -60',
+            'C 22 -86 36 -114 26 -142',
+            'C 52 -108 52 -64 28 -30',
+            'C 18 -18 18 -4 26 14',
+            'C 12 4 4 -10 0 -24',
+            'C -4 -10 -6 6 10 36',
+            'C -24 16 -34 -12 -28 -44',
+            'C -24 -70 -8 -94 0 -122',
+            'C -16 -96 -30 -66 -28 -36',
+            'C -26 -6 -8 12 0 -60',
+            'Z'
+          ].join(' '),
+          fill,
+          'fill-rule': 'evenodd'
+        }
+      },
+      {
+        element: 'path',
+        attributes: {
+          d: [
+            'M 0 -38',
+            'C 12 -60 20 -82 14 -102',
+            'C 28 -80 26 -48 14 -26',
+            'C 10 -18 10 -6 14 8',
+            'C 6 2 2 -8 0 -18',
+            'C -2 -6 -4 8 8 26',
+            'C -10 12 -16 -4 -14 -22',
+            'C -12 -42 -2 -60 0 -74',
+            'C -10 -56 -18 -36 -16 -20',
+            'C -14 -2 0 10 0 -38',
+            'Z'
+          ].join(' '),
+          fill: accentColor,
+          'fill-opacity': '0.85'
+        }
+      }
+    ];
+  }
+  // TRIAL MERGE: snowflake geometry for cooling/blue modes drawn with stroked segments.
+  _carouselCoolIconShapes(fillId, accentColor = '#ffffff') {
+    const stroke = fillId ? `url(#${fillId})` : '#7fc9ff';
+    const shapes = [
+      {
+        element: 'path',
+        attributes: {
+          d: 'M 0 -60 L 0 60',
+          stroke,
+          'stroke-width': '14',
+          'stroke-linecap': 'round',
+          fill: 'none'
+        }
+      },
+      {
+        element: 'path',
+        attributes: {
+          d: 'M -48 0 L 48 0',
+          stroke,
+          'stroke-width': '14',
+          'stroke-linecap': 'round',
+          fill: 'none'
+        }
+      },
+      {
+        element: 'path',
+        attributes: {
+          d: 'M -36 -36 L 36 36',
+          stroke,
+          'stroke-width': '12',
+          'stroke-linecap': 'round',
+          fill: 'none'
+        }
+      },
+      {
+        element: 'path',
+        attributes: {
+          d: 'M 36 -36 L -36 36',
+          stroke,
+          'stroke-width': '12',
+          'stroke-linecap': 'round',
+          fill: 'none'
+        }
+      },
+      {
+        element: 'circle',
+        attributes: {
+          cx: '0',
+          cy: '0',
+          r: '14',
+          fill: accentColor,
+          'fill-opacity': '0.92',
+          stroke,
+          'stroke-width': '6'
+        }
+      }
+    ];
+    return shapes;
+  }
+  // TRIAL MERGE: neutral glass glyph used for OFF mode (power symbol inspired).
+  _carouselOffIconShapes(fillId, accentColor = '#ffffff') {
+    const stroke = fillId ? `url(#${fillId})` : '#9aa7bc';
+    return [
+      {
+        element: 'circle',
+        attributes: {
+          cx: '0',
+          cy: '4',
+          r: '44',
+          fill: 'none',
+          stroke,
+          'stroke-width': '11',
+          'stroke-linecap': 'round'
+        }
+      },
+      {
+        element: 'path',
+        attributes: {
+          d: 'M 0 -62 L 0 10',
+          stroke,
+          'stroke-width': '12',
+          'stroke-linecap': 'round',
+          fill: 'none'
+        }
+      },
+      {
+        element: 'circle',
+        attributes: {
+          cx: '0',
+          cy: '-80',
+          r: '12',
+          fill: accentColor,
+          'fill-opacity': '0.85'
+        }
+      }
+    ];
+  }
+  // TRIAL MERGE: fallback glass glyph for auto/preset/fan/dry using a swirling ribbon motif.
+  _carouselNeutralIconShapes(fillId, accentColor = '#ffffff') {
+    const stroke = fillId ? `url(#${fillId})` : '#8da5c8';
+    return [
+      {
+        element: 'path',
+        attributes: {
+          d: [
+            'M 28 -56',
+            'C 46 -36 40 -6 12 8',
+            'C -18 24 -34 12 -36 -8',
+            'C -38 -30 -20 -44 -4 -38',
+            'C 12 -32 20 -12 8 4',
+            'C 0 14 -16 18 -26 8'
+          ].join(' '),
+          stroke,
+          'stroke-width': '12',
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          fill: 'none'
+        }
+      },
+      {
+        element: 'path',
+        attributes: {
+          d: 'M -24 8 L -4 18 L -12 -2 Z',
+          fill: stroke,
+          'fill-opacity': '0.82'
+        }
+      },
+      {
+        element: 'circle',
+        attributes: {
+          cx: '20',
+          cy: '-70',
+          r: '10',
+          fill: accentColor,
+          'fill-opacity': '0.8'
+        }
+      }
+    ];
+  }
+  // TRIAL MERGE: convert carousel options into icon shape descriptors using the palette selections.
+  _carouselIconShapes(option, palette) {
+    const mode = option && option.mode;
+    const type = option && option.type;
+    if (type === 'preset') {
+      const fill = palette.primary ? `url(#${palette.primary})` : '#8ea4c6';
+      return [
+        {
+          element: 'rect',
+          attributes: {
+            x: '-42',
+            y: '-44',
+            width: '84',
+            height: '18',
+            rx: '9',
+            fill,
+            'fill-opacity': '0.9'
+          }
+        },
+        {
+          element: 'rect',
+          attributes: {
+            x: '-32',
+            y: '-10',
+            width: '64',
+            height: '18',
+            rx: '9',
+            fill,
+            'fill-opacity': '0.75'
+          }
+        },
+        {
+          element: 'rect',
+          attributes: {
+            x: '-24',
+            y: '24',
+            width: '48',
+            height: '18',
+            rx: '9',
+            fill,
+            'fill-opacity': '0.6'
+          }
+        }
+      ];
+    }
+    switch (mode) {
+      case 'heat':
+        return this._carouselHeatIconShapes(palette && palette.primary, palette && palette.accent);
+      case 'cool':
+        return this._carouselCoolIconShapes(palette && palette.primary, palette && palette.accent);
+      case 'heat_cool': {
+        const shapes = [];
+        const warmShapes = this._carouselHeatIconShapes(palette && palette.warm, palette && palette.accent);
+        warmShapes.forEach((shape) => {
+          const next = {
+            element: shape.element,
+            attributes: Object.assign({}, shape.attributes),
+            transform: `${shape.transform ? `${shape.transform} ` : ''}translate(-26, 0) scale(0.78)`
+          };
+          shapes.push(next);
+        });
+        const coolShapes = this._carouselCoolIconShapes(palette && palette.cool, palette && palette.accent);
+        coolShapes.forEach((shape) => {
+          const next = {
+            element: shape.element,
+            attributes: Object.assign({}, shape.attributes),
+            transform: `${shape.transform ? `${shape.transform} ` : ''}translate(30, 0) scale(0.82)`
+          };
+          shapes.push(next);
+        });
+        shapes.push({
+          element: 'path',
+          attributes: {
+            d: 'M -6 -60 L -6 60',
+            stroke: palette && palette.accent ? palette.accent : '#ffffff',
+            'stroke-width': '4',
+            'stroke-linecap': 'round',
+            'stroke-opacity': '0.65',
+            fill: 'none'
+          }
+        });
+        return shapes;
+      }
+      case 'off':
+        return this._carouselOffIconShapes(palette && palette.primary, palette && palette.accent);
+      case 'fan_only':
+      case 'dry':
+      case 'auto':
+      default:
+        return this._carouselNeutralIconShapes(palette && palette.primary, palette && palette.accent);
+    }
+  }
+  // TRIAL MERGE: build the multi-layered icon group (glow + glyph) for each carousel card.
+  _buildCarouselIconGroup(option, geometry, gradientIds) {
+    const palette = this._carouselIconPalette(option, gradientIds || {});
+    const group = SvgUtil.createSVGElement('g', { class: 'mode-carousel-svg__icon-group' });
+    const glow = SvgUtil.createSVGElement('ellipse', {
+      class: 'mode-carousel-svg__icon-glow',
+      cx: 0,
+      cy: -geometry.itemHeight * 0.14,
+      rx: geometry.itemWidth * 0.34,
+      ry: geometry.itemHeight * 0.22
+    });
+    if (palette && palette.glow) {
+      glow.setAttribute('fill', `url(#${palette.glow})`);
+    } else {
+      glow.setAttribute('fill', 'rgba(200, 220, 255, 0.38)');
+    }
+    group.appendChild(glow);
+
+    const iconScale = Math.min(geometry.itemWidth * 0.42, geometry.itemHeight * 0.44) / 120;
+    const iconRoot = SvgUtil.createSVGElement('g', {
+      class: 'mode-carousel-svg__icon-root',
+      transform: `translate(0, ${-geometry.itemHeight * 0.12}) scale(${iconScale})`
+    });
+    const shapes = this._carouselIconShapes(option, palette) || [];
+    shapes.forEach((shape) => {
+      const elementName = shape.element || 'path';
+      const node = SvgUtil.createSVGElement(elementName, shape.attributes || {});
+      if (shape.transform) {
+        node.setAttribute('transform', shape.transform);
+      }
+      iconRoot.appendChild(node);
+    });
+    group.appendChild(iconRoot);
+    return group;
   }
   // TRIAL MERGE: build the carousel toggle and item rail entirely within the SVG glass layer.
   _buildModeToggleCarousel(radius) {
@@ -420,84 +787,222 @@ export default class ThermostatUI {
         ['100%', '#0c101c', 0]
       ]));
     }
-    if (gradientIds.obelisk) {
+    if (gradientIds.panelFace) {
       defs.appendChild(createGradient('linearGradient', {
-        id: gradientIds.obelisk,
-        x1: '50%',
-        y1: '0%',
-        x2: '50%',
-        y2: '100%'
-      }, [
-        ['0%', '#f9fbff', 0.9],
-        ['38%', '#e0e9f7', 0.78],
-        ['74%', '#a6bcd8', 0.62],
-        ['100%', '#4f6382', 0.78]
-      ]));
-    }
-    if (gradientIds.obeliskEdge) {
-      defs.appendChild(createGradient('linearGradient', {
-        id: gradientIds.obeliskEdge,
+        id: gradientIds.panelFace,
         x1: '0%',
         y1: '0%',
         x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#ffffff', 0.88],
-        ['55%', '#d7e5ff', 0.5],
-        ['100%', '#5c7090', 0.82]
+        ['0%', '#f7faff', 0.96],
+        ['32%', '#e4ecf8', 0.92],
+        ['68%', '#c6d4ea', 0.88],
+        ['100%', '#8f9fbf', 0.95]
       ]));
     }
-    if (gradientIds.facet) {
+    if (gradientIds.panelEdge) {
       defs.appendChild(createGradient('linearGradient', {
-        id: gradientIds.facet,
-        x1: '50%',
+        id: gradientIds.panelEdge,
+        x1: '0%',
         y1: '0%',
-        x2: '50%',
+        x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#ffffff', 0.78],
-        ['45%', '#e3edfb', 0.52],
-        ['82%', '#9bb2d4', 0.35],
-        ['100%', '#5d6f8b', 0.5]
+        ['0%', '#ffffff', 0.95],
+        ['45%', '#dbe7fb', 0.58],
+        ['100%', '#5a6c8c', 0.88]
       ]));
     }
-    if (gradientIds.highlight) {
-      defs.appendChild(createGradient('linearGradient', {
-        id: gradientIds.highlight,
-        x1: '50%',
-        y1: '0%',
-        x2: '50%',
-        y2: '100%'
+    if (gradientIds.panelInner) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.panelInner,
+        cx: '50%',
+        cy: '42%',
+        r: '64%'
       }, [
-        ['0%', '#ffffff', 0],
-        ['52%', '#ffffff', 0.6],
+        ['0%', '#ffffff', 0.92],
+        ['48%', '#f3f6ff', 0.3],
         ['100%', '#ffffff', 0]
       ]));
     }
-    if (gradientIds.spark) {
+    if (gradientIds.panelHighlight) {
       defs.appendChild(createGradient('linearGradient', {
-        id: gradientIds.spark,
+        id: gradientIds.panelHighlight,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
+        y2: '100%'
+      }, [
+        ['0%', '#ffffff', 0.8],
+        ['38%', '#ffffff', 0.18],
+        ['100%', '#ffffff', 0]
+      ]));
+    }
+    if (gradientIds.panelSheen) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.panelSheen,
         x1: '0%',
         y1: '0%',
         x2: '100%',
         y2: '0%'
       }, [
         ['0%', '#ffffff', 0],
-        ['50%', '#ffffff', 0.9],
+        ['46%', '#ffffff', 0.55],
         ['100%', '#ffffff', 0]
       ]));
     }
-    if (gradientIds.reflection) {
+    if (gradientIds.panelSpark) {
       defs.appendChild(createGradient('linearGradient', {
-        id: gradientIds.reflection,
-        x1: '50%',
+        id: gradientIds.panelSpark,
+        x1: '0%',
         y1: '0%',
-        x2: '50%',
+        x2: '100%',
+        y2: '0%'
+      }, [
+        ['0%', '#ffffff', 0],
+        ['40%', '#ffffff', 0.85],
+        ['100%', '#ffffff', 0]
+      ]));
+    }
+    if (gradientIds.iconHeat) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.iconHeat,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
         y2: '100%'
       }, [
-        ['0%', '#ffffff', 0.62],
-        ['58%', '#e3eeff', 0.28],
-        ['100%', '#ffffff', 0.06]
+        ['0%', '#fff4df', 1],
+        ['36%', '#ffd18a', 0.96],
+        ['72%', '#ff934d', 0.98],
+        ['100%', '#ff5b2a', 0.98]
+      ]));
+    }
+    if (gradientIds.iconHeatGlow) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.iconHeatGlow,
+        cx: '50%',
+        cy: '50%',
+        r: '60%'
+      }, [
+        ['0%', '#ffddb0', 0.82],
+        ['52%', '#ff9f5a', 0.46],
+        ['100%', '#ff6a30', 0]
+      ]));
+    }
+    if (gradientIds.iconCool) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.iconCool,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
+        y2: '100%'
+      }, [
+        ['0%', '#f4fbff', 1],
+        ['38%', '#cbe7ff', 0.95],
+        ['74%', '#7ac3ff', 0.92],
+        ['100%', '#3c8cff', 0.95]
+      ]));
+    }
+    if (gradientIds.iconCoolGlow) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.iconCoolGlow,
+        cx: '50%',
+        cy: '50%',
+        r: '60%'
+      }, [
+        ['0%', '#d4ecff', 0.8],
+        ['55%', '#7fc9ff', 0.4],
+        ['100%', '#3c8cff', 0]
+      ]));
+    }
+    if (gradientIds.iconDualWarm) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.iconDualWarm,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
+        y2: '100%'
+      }, [
+        ['0%', '#fff1d6', 1],
+        ['48%', '#ffc987', 0.95],
+        ['100%', '#ff813f', 0.98]
+      ]));
+    }
+    if (gradientIds.iconDualCool) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.iconDualCool,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
+        y2: '100%'
+      }, [
+        ['0%', '#f1f9ff', 1],
+        ['46%', '#bde2ff', 0.92],
+        ['100%', '#4aa5ff', 0.95]
+      ]));
+    }
+    if (gradientIds.iconDualGlow) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.iconDualGlow,
+        cx: '50%',
+        cy: '50%',
+        r: '62%'
+      }, [
+        ['0%', '#ffe0bd', 0.65],
+        ['48%', '#9bd6ff', 0.32],
+        ['100%', '#5ca9ff', 0]
+      ]));
+    }
+    if (gradientIds.iconOff) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.iconOff,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
+        y2: '100%'
+      }, [
+        ['0%', '#f1f4f9', 0.94],
+        ['50%', '#c9d3e1', 0.9],
+        ['100%', '#8a97ab', 0.94]
+      ]));
+    }
+    if (gradientIds.iconOffGlow) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.iconOffGlow,
+        cx: '50%',
+        cy: '50%',
+        r: '58%'
+      }, [
+        ['0%', '#dbe3f1', 0.6],
+        ['60%', '#9fafbe', 0.28],
+        ['100%', '#5b677a', 0]
+      ]));
+    }
+    if (gradientIds.iconNeutral) {
+      defs.appendChild(createGradient('linearGradient', {
+        id: gradientIds.iconNeutral,
+        x1: '0%',
+        y1: '0%',
+        x2: '0%',
+        y2: '100%'
+      }, [
+        ['0%', '#f5f9ff', 0.95],
+        ['50%', '#d6e2f3', 0.9],
+        ['100%', '#7c92b6', 0.94]
+      ]));
+    }
+    if (gradientIds.iconNeutralGlow) {
+      defs.appendChild(createGradient('radialGradient', {
+        id: gradientIds.iconNeutralGlow,
+        cx: '50%',
+        cy: '50%',
+        r: '60%'
+      }, [
+        ['0%', '#dfe7f5', 0.65],
+        ['58%', '#a3b5d1', 0.32],
+        ['100%', '#5d6f8d', 0]
       ]));
     }
     container.insertBefore(defs, container.firstChild);
@@ -685,12 +1190,23 @@ export default class ThermostatUI {
       toggleCrest: SvgUtil.uniqueId('mode-carousel-toggle-crest'),
       baseGlow: SvgUtil.uniqueId('mode-carousel-base-glow'),
       shadow: SvgUtil.uniqueId('mode-carousel-shadow'),
-      obelisk: SvgUtil.uniqueId('mode-carousel-obelisk'),
-      obeliskEdge: SvgUtil.uniqueId('mode-carousel-obelisk-edge'),
-      facet: SvgUtil.uniqueId('mode-carousel-obelisk-facet'),
-      highlight: SvgUtil.uniqueId('mode-carousel-obelisk-highlight'),
-      spark: SvgUtil.uniqueId('mode-carousel-obelisk-spark'),
-      reflection: SvgUtil.uniqueId('mode-carousel-obelisk-reflection')
+      panelFace: SvgUtil.uniqueId('mode-carousel-panel-face'), // TRIAL MERGE: dedicated panel gradients replace the earlier obelisk fills.
+      panelEdge: SvgUtil.uniqueId('mode-carousel-panel-edge'),
+      panelInner: SvgUtil.uniqueId('mode-carousel-panel-inner'),
+      panelHighlight: SvgUtil.uniqueId('mode-carousel-panel-highlight'),
+      panelSheen: SvgUtil.uniqueId('mode-carousel-panel-sheen'),
+      panelSpark: SvgUtil.uniqueId('mode-carousel-panel-spark'),
+      iconHeat: SvgUtil.uniqueId('mode-carousel-icon-heat'),
+      iconHeatGlow: SvgUtil.uniqueId('mode-carousel-icon-heat-glow'),
+      iconCool: SvgUtil.uniqueId('mode-carousel-icon-cool'),
+      iconCoolGlow: SvgUtil.uniqueId('mode-carousel-icon-cool-glow'),
+      iconDualWarm: SvgUtil.uniqueId('mode-carousel-icon-dual-warm'),
+      iconDualCool: SvgUtil.uniqueId('mode-carousel-icon-dual-cool'),
+      iconDualGlow: SvgUtil.uniqueId('mode-carousel-icon-dual-glow'),
+      iconOff: SvgUtil.uniqueId('mode-carousel-icon-off'),
+      iconOffGlow: SvgUtil.uniqueId('mode-carousel-icon-off-glow'),
+      iconNeutral: SvgUtil.uniqueId('mode-carousel-icon-neutral'),
+      iconNeutralGlow: SvgUtil.uniqueId('mode-carousel-icon-neutral-glow')
     };
     this._modeCarouselItems = []; // Data bag describing each carousel option.
     this._modeCarouselPendingModes = null; // Last set of HVAC modes supplied while the carousel was closed.
@@ -1875,69 +2391,78 @@ export default class ThermostatUI {
       if (gradientIds.baseGlow) {
         glow.setAttribute('fill', `url(#${gradientIds.baseGlow})`);
       }
-      const obelisk = SvgUtil.createSVGElement('path', {
-        class: 'mode-carousel-svg__obelisk',
+      const panel = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel',
         d: obeliskPath
       });
-      if (gradientIds.obelisk) {
-        obelisk.setAttribute('fill', `url(#${gradientIds.obelisk})`);
+      if (gradientIds.panelFace) {
+        panel.setAttribute('fill', `url(#${gradientIds.panelFace})`);
       }
-      if (gradientIds.obeliskEdge) {
-        obelisk.setAttribute('stroke', `url(#${gradientIds.obeliskEdge})`);
+      if (gradientIds.panelEdge) {
+        panel.setAttribute('stroke', `url(#${gradientIds.panelEdge})`);
       }
-      const highlight = SvgUtil.createSVGElement('path', {
-        // TRIAL MERGE: overlay a translucent ridge highlight for a frosted sheen.
-        class: 'mode-carousel-svg__highlight',
+      panel.setAttribute('stroke-linejoin', 'round');
+      panel.setAttribute('stroke-linecap', 'round');
+      const panelInner = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-inner',
+        d: facetPath
+      });
+      if (gradientIds.panelInner) {
+        panelInner.setAttribute('fill', `url(#${gradientIds.panelInner})`);
+      }
+      panelInner.setAttribute('stroke', 'none');
+      const panelHighlight = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-highlight',
         d: highlightPath
       });
-      if (gradientIds.highlight) {
-        highlight.setAttribute('fill', `url(#${gradientIds.highlight})`);
+      if (gradientIds.panelHighlight) {
+        panelHighlight.setAttribute('fill', `url(#${gradientIds.panelHighlight})`);
       }
-      const reflection = SvgUtil.createSVGElement('path', {
-        class: 'mode-carousel-svg__reflection',
+      panelHighlight.setAttribute('stroke', 'none');
+      const panelSheen = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-sheen',
+        d: sparkPath
+      });
+      if (gradientIds.panelSheen) {
+        panelSheen.setAttribute('fill', `url(#${gradientIds.panelSheen})`);
+      }
+      panelSheen.setAttribute('stroke', 'none');
+      const panelSpark = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-spark',
+        d: sparkPath
+      });
+      if (gradientIds.panelSpark) {
+        panelSpark.setAttribute('fill', `url(#${gradientIds.panelSpark})`);
+      }
+      panelSpark.setAttribute('stroke', 'none');
+      const panelReflection = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-reflection',
         d: reflectionPath
       });
-      if (gradientIds.reflection) {
-        reflection.setAttribute('fill', `url(#${gradientIds.reflection})`);
+      if (gradientIds.panelHighlight) {
+        panelReflection.setAttribute('fill', `url(#${gradientIds.panelHighlight})`);
       }
-      const facet = SvgUtil.createSVGElement('path', {
-        class: 'mode-carousel-svg__facet',
-        d: facetPath
-      }); // TRIAL MERGE: inner facet to imply thickness and refraction.
-      if (gradientIds.facet) {
-        facet.setAttribute('fill', `url(#${gradientIds.facet})`);
-      }
-      const spark = SvgUtil.createSVGElement('path', {
-        class: 'mode-carousel-svg__spark',
-        d: sparkPath
-      }); // TRIAL MERGE: razor-thin sparkle that hints at overhead light.
-      if (gradientIds.spark) {
-        spark.setAttribute('fill', `url(#${gradientIds.spark})`);
-      }
-      const iconText = SvgUtil.createSVGElement('text', {
-        class: 'mode-carousel-svg__icon',
-        x: '0',
-        y: String(-geometry.itemHeight * 0.1),
-        'text-anchor': 'middle',
-        'dominant-baseline': 'middle'
-      });
-      iconText.textContent = this._emojiForCarousel(option);
+      panelReflection.setAttribute('stroke', 'none');
+      const iconGroup = this._buildCarouselIconGroup(option, geometry, gradientIds);
       const labelText = SvgUtil.createSVGElement('text', {
         class: 'mode-carousel-svg__label',
         x: '0',
-        y: String(geometry.itemHeight * 0.24),
+        y: String(geometry.itemHeight * 0.32),
         'text-anchor': 'middle'
       });
       labelText.textContent = option.label;
 
       group.appendChild(shadow);
       group.appendChild(glow);
-      group.appendChild(obelisk);
-      group.appendChild(facet);
-      group.appendChild(highlight);
-      group.appendChild(spark);
-      group.appendChild(reflection);
-      group.appendChild(iconText);
+      group.appendChild(panel);
+      group.appendChild(panelInner);
+      group.appendChild(panelHighlight);
+      group.appendChild(panelSheen);
+      group.appendChild(panelSpark);
+      group.appendChild(panelReflection);
+      if (iconGroup) {
+        group.appendChild(iconGroup);
+      }
       group.appendChild(labelText);
 
       const activate = (event, fromKey = false) => {
