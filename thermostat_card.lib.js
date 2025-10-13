@@ -25,6 +25,17 @@ export default class ThermostatUI {
       centerY,
     };
   }
+  // TRIAL MERGE: centralize the SVG toggler translation so reparenting never strands it at the SVG origin.
+  _applyModeMenuTogglerTransform() {
+    if (!this._modeMenuToggler) {
+      return;
+    }
+    const radius = Number(this._config && this._config.radius);
+    const geometry = this._modeMenuGeometry || this._computeModeMenuGeometry(radius);
+    this._modeMenuGeometry = geometry;
+    this._modeMenuToggler.setAttribute('transform', `translate(${geometry.centerX}, ${geometry.centerY})`);
+    this._modeMenuToggler.dataset.bottomOffset = String(geometry.bottomOffset);
+  }
   // TRIAL MERGE: allow optional backdrop skipping so the carousel toggle can share this builder without rendering extra discs.
   _buildModeButton(radius, options = {}) {
     const geometry = this._computeModeMenuGeometry(radius);
@@ -1655,6 +1666,7 @@ export default class ThermostatUI {
     }
     if (expanded && this._modeMenuToggler && this._modeMenuContainer && this._modeMenuContainer.appendChild) {
       this._modeMenuContainer.appendChild(this._modeMenuToggler); // TRIAL MERGE: keep the toggle on top so it can close the carousel.
+      this._applyModeMenuTogglerTransform(); // TRIAL MERGE: immediately restore the toggle translation after reparenting.
     }
   }
 
@@ -2139,6 +2151,7 @@ export default class ThermostatUI {
         } else if (this._root) {
           this._root.appendChild(container);
         }
+        this._applyModeMenuTogglerTransform(); // TRIAL MERGE: immediately align the toggler within the dial after mounting.
       } else {
         const { container, toggler, toggleBody, circle, inner, list, geometry } = this._buildModeButton(radius);
         this._modeMenuContainer = container;
@@ -2150,14 +2163,12 @@ export default class ThermostatUI {
         this._modeMenuItems = [];
         this._modeMenuGeometry = geometry;
         this._root.appendChild(container);
+        this._applyModeMenuTogglerTransform(); // TRIAL MERGE: keep the legacy menu button centered using the shared helper.
       }
     } else {
       this._modeMenuGeometry = this._computeModeMenuGeometry(radius);
       if (this._modeCarouselEnabled) {
-        if (this._modeMenuToggler) {
-          this._modeMenuToggler.setAttribute('transform', `translate(${this._modeMenuGeometry.centerX}, ${this._modeMenuGeometry.centerY})`);
-          this._modeMenuToggler.dataset.bottomOffset = String(this._modeMenuGeometry.bottomOffset);
-        }
+        this._applyModeMenuTogglerTransform(); // TRIAL MERGE: ensure the toggle translation survives carousel rebuilds.
         const geometry = this._computeCarouselGeometry(radius);
         this._modeCarouselGeometry = geometry;
         if (this._modeCarouselWrapper) {
@@ -2167,14 +2178,13 @@ export default class ThermostatUI {
           this._modeCarouselHalo.setAttribute('r', Math.max(geometry.dialRadius * 0.58, geometry.itemWidth * 0.8));
         }
       } else {
-        this._modeMenuToggler.setAttribute('transform', `translate(${this._modeMenuGeometry.centerX}, ${this._modeMenuGeometry.centerY})`);
+        this._applyModeMenuTogglerTransform(); // TRIAL MERGE: reuse the same centering logic when the legacy ring menu is active.
         if (this._modeMenuCircle) {
           this._modeMenuCircle.setAttribute('r', this._modeMenuGeometry.buttonRadius);
         }
         if (this._modeMenuInner) {
           this._modeMenuInner.setAttribute('r', Math.max(4, this._modeMenuGeometry.buttonRadius - 4));
         }
-        this._modeMenuToggler.dataset.bottomOffset = String(this._modeMenuGeometry.bottomOffset);
       }
     }
 
