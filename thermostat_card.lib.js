@@ -25,20 +25,51 @@ export default class ThermostatUI {
       centerY,
     };
   }
+  // TRIAL MERGE: derive the dial radius even when the config radius has not been populated yet.
+  _resolveDialRadius() {
+    const configRadius = Number(this._config && this._config.radius);
+    if (Number.isFinite(configRadius) && configRadius > 0) {
+      return configRadius;
+    }
+    const root = this._root;
+    if (root && root.viewBox && root.viewBox.baseVal) {
+      const { width, height } = root.viewBox.baseVal;
+      if (width > 0 && height > 0) {
+        return Math.min(width, height) / 2;
+      }
+    }
+    if (root && typeof root.getBoundingClientRect === 'function') {
+      const rect = root.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        return Math.min(rect.width, rect.height) / 2;
+      }
+    }
+    return 0;
+  }
+  // TRIAL MERGE: refresh cached mode-toggle geometry whenever fallbacks reveal a better radius.
+  _ensureModeMenuGeometry() {
+    const geometry = this._modeMenuGeometry;
+    if (geometry && geometry.centerX > 0 && geometry.centerY > 0) {
+      return geometry;
+    }
+    const radius = this._resolveDialRadius();
+    const computed = this._computeModeMenuGeometry(radius);
+    this._modeMenuGeometry = computed;
+    return computed;
+  }
   // TRIAL MERGE: centralize the SVG toggler translation so reparenting never strands it at the SVG origin.
   _applyModeMenuTogglerTransform() {
     if (!this._modeMenuToggler) {
       return;
     }
-    const radius = Number(this._config && this._config.radius);
-    const geometry = this._modeMenuGeometry || this._computeModeMenuGeometry(radius);
-    this._modeMenuGeometry = geometry;
+    const geometry = this._ensureModeMenuGeometry();
     this._modeMenuToggler.setAttribute('transform', `translate(${geometry.centerX}, ${geometry.centerY})`);
     this._modeMenuToggler.dataset.bottomOffset = String(geometry.bottomOffset);
   }
   // TRIAL MERGE: allow optional backdrop skipping so the carousel toggle can share this builder without rendering extra discs.
   _buildModeButton(radius, options = {}) {
-    const geometry = this._computeModeMenuGeometry(radius);
+    const resolvedRadius = Number.isFinite(radius) && radius > 0 ? radius : this._resolveDialRadius(); // TRIAL MERGE: tolerate missing radius by falling back to live SVG metrics.
+    const geometry = this._computeModeMenuGeometry(resolvedRadius);
     const container = SvgUtil.createSVGElement('g', { class: 'mode-menu' });
     const omitBackdrop = options && options.omitBackdrop === true;
 
@@ -181,12 +212,13 @@ export default class ThermostatUI {
   }
   // TRIAL MERGE: build the carousel toggle and item rail entirely within the SVG glass layer.
   _buildModeToggleCarousel(radius) {
-    const base = this._buildModeButton(radius);
+    const resolvedRadius = Number.isFinite(radius) && radius > 0 ? radius : this._resolveDialRadius(); // TRIAL MERGE: share the fallback radius with the SVG carousel builder.
+    const base = this._buildModeButton(resolvedRadius);
     const { container } = base;
     container.classList.add('mode-menu--carousel'); // TRIAL MERGE: flag this container so carousel-specific styling can apply.
     container.setAttribute('pointer-events', 'visiblePainted'); // TRIAL MERGE: allow the SVG toggle to receive pointer input.
 
-    const geometry = this._computeCarouselGeometry(radius);
+    const geometry = this._computeCarouselGeometry(resolvedRadius);
     this._modeCarouselGeometry = geometry;
     const dialRadius = geometry.dialRadius;
 
@@ -223,7 +255,7 @@ export default class ThermostatUI {
     };
   }
   _modeMenuTransformFor(angle, distance, scale) {
-    const geometry = this._modeMenuGeometry || this._computeModeMenuGeometry(this._config.radius);
+    const geometry = this._ensureModeMenuGeometry(); // TRIAL MERGE: reuse the fallback-aware geometry when animating legacy menu items.
     const centerX = geometry.radius;
     const centerY = geometry.radius;
     const clamped = Math.max(0, Math.min(1, Number.isFinite(scale) ? scale : 0));
@@ -1465,7 +1497,7 @@ export default class ThermostatUI {
       return;
     }
 
-    const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._config.radius);
+    const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._resolveDialRadius()); // TRIAL MERGE: reuse fallback-aware radius when laying out carousel items.
     const obeliskPath = this._carouselObeliskPath(geometry.itemWidth, geometry.itemHeight);
     const reflectionPath = this._carouselReflectionPath(geometry.itemWidth, geometry.itemHeight);
 
@@ -1557,7 +1589,7 @@ export default class ThermostatUI {
       return;
     }
     const total = this._modeCarouselItems.length;
-    const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._config.radius);
+    const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._resolveDialRadius()); // TRIAL MERGE: keep carousel spacing stable even if the config radius is zero during updates.
     const spacing = geometry.spacing;
     this._modeCarouselItems.forEach((item, index) => {
       const element = item.element;
@@ -2122,8 +2154,9 @@ export default class ThermostatUI {
     e.stopPropagation();
   }
   _buildDialog() {
-    const radius = Number(this._config && this._config.radius);
-    if (!Number.isFinite(radius) || !this._root) {
+    const rawRadius = Number(this._config && this._config.radius);
+    const radius = Number.isFinite(rawRadius) && rawRadius > 0 ? rawRadius : this._resolveDialRadius(); // TRIAL MERGE: reuse live dial metrics when the stored radius comes back as zero.
+    if (!Number.isFinite(radius) || radius <= 0 || !this._root) {
       return null;
     }
 
