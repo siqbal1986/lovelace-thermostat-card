@@ -661,53 +661,67 @@ export function cssData(user) {
   .mode-menu__toggler-body--open{
     transform: scale(0.95); /* Compress slightly while the menu is open. */
   }
+  /* TRIAL MERGE: glassy halo that softly lifts the toggle from the dial. */
+  .mode-menu__toggler-halo{
+    fill: rgba(188, 210, 255, 0.18);
+    filter: blur(12px);
+    opacity: 0.85;
+    transition: opacity 0.3s ease, filter 0.3s ease;
+  }
   .mode-menu__toggler-circle{
-    fill: rgba(44, 54, 72, 0.92); /* Rich metallic base. */
-    stroke: rgba(255, 255, 255, 0.22); /* Subtle rim. */
-    stroke-width: 1.2px; /* Light outline thickness. */
-    filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.55)); /* Depth similar to original button. */
+    fill: rgba(242, 248, 255, 0.28); /* Frosted glass base. */
+    stroke: rgba(255, 255, 255, 0.55); /* Brighter rim for glass edge. */
+    stroke-width: 1.6px; /* Light outline thickness. */
+    filter: drop-shadow(0 14px 26px rgba(10, 16, 34, 0.55)); /* Depth similar to original button. */
     transition: filter 0.3s ease, opacity 0.25s ease; /* Fade gently when the carousel opens. */
   }
   .mode-menu.menu-open .mode-menu__toggler-circle{
-    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.5)); /* Adjust lighting while pressed. */
+    filter: drop-shadow(0 10px 24px rgba(8, 14, 32, 0.55)); /* Adjust lighting while pressed. */
   }
   .mode-menu__toggler-inner{
-    fill: rgba(28, 34, 48, 0.85); /* Slightly darker inner disk. */
-    stroke: rgba(255, 255, 255, 0.08); /* Soft rim highlight. */
-    stroke-width: 0.5px; /* Minimal thickness. */
+    fill: rgba(209, 224, 244, 0.22); /* Subtle milky center. */
+    stroke: rgba(255, 255, 255, 0.45); /* Soft rim highlight. */
+    stroke-width: 0.8px; /* Minimal thickness. */
+    mix-blend-mode: screen; /* Blend highlight into the glass. */
     transition: opacity 0.25s ease; /* Fade gently while carousel is open. */
   }
   .mode-menu__toggler-gloss{
-    fill: rgba(255, 255, 255, 0.18); /* Hint of reflective sheen. */
+    fill: rgba(255, 255, 255, 0.32); /* Hint of reflective sheen. */
     transition: opacity 0.25s ease; /* Fade gently while carousel is open. */
   }
   .mode-menu__toggler-icon{
     pointer-events: none; /* Icon should not intercept clicks. */
     transition: opacity 0.25s ease; /* Fade gently while carousel is open. */
+    filter: drop-shadow(0 4px 10px rgba(10, 16, 28, 0.55));
   }
   /* TRIAL MERGE: keep the SVG toggle visible while the carousel is expanded so it can close the menu. */
   .mode-menu.menu-open .mode-menu__toggler-circle{
     opacity: 1;
-    filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.58));
+    filter: drop-shadow(0 14px 28px rgba(8, 14, 28, 0.6));
+  }
+  /* TRIAL MERGE: intensify the halo when the carousel is active. */
+  .mode-menu.menu-open .mode-menu__toggler-halo{
+    opacity: 1;
+    filter: blur(14px);
   }
   /* TRIAL MERGE: lightly brighten the inner disc instead of hiding it when the carousel opens. */
   .mode-menu.menu-open .mode-menu__toggler-inner{
     opacity: 1;
-    fill: rgba(38, 46, 64, 0.92);
+    fill: rgba(235, 244, 255, 0.32);
   }
   /* TRIAL MERGE: retain the gloss highlight so the toggle looks active while the carousel is open. */
   .mode-menu.menu-open .mode-menu__toggler-gloss{
-    opacity: 0.85;
+    opacity: 0.9;
   }
   /* TRIAL MERGE: soften the icon rather than removing it so the toggle remains recognizable as a close control. */
   .mode-menu.menu-open .mode-menu__toggler-icon{
-    opacity: 0.75;
+    opacity: 0.78;
   }
   .mode-menu.menu-open.mode-menu--overlay .mode-menu__toggler-body{
     opacity: 0; /* Hide the HTML toggle skin when the carousel overlay is active. */
   }
   .mode-menu__toggler-bar{
-    fill: rgba(18, 24, 38, 0.85); /* Dark accent for hamburger lines. */
+    fill: rgba(48, 64, 92, 0.82); /* Cooler accent for hamburger lines. */
     transition: transform 0.3s ease, opacity 0.3s ease; /* Animate between hamburger and close states. */
     transform-box: fill-box; /* Rotate around its center. */
     transform-origin: center; /* Keep rotation centered. */
@@ -821,10 +835,10 @@ export function cssData(user) {
     pointer-events: auto;
   }
   .mode-carousel-svg__halo{
-    fill: rgba(26, 33, 46, 0.42);
-    stroke: rgba(255, 255, 255, 0.18);
-    stroke-width: 1.5;
-    filter: blur(18px);
+    fill: rgba(200, 216, 255, 0.16);
+    stroke: rgba(255, 255, 255, 0.38);
+    stroke-width: 1.6;
+    filter: drop-shadow(0 28px 40px rgba(12, 20, 40, 0.55));
     pointer-events: none;
   }
   .mode-carousel-svg__items{
@@ -837,39 +851,62 @@ export function cssData(user) {
     outline: none;
   }
   .mode-carousel-svg__item:focus-visible .mode-carousel-svg__obelisk{
-    stroke: rgba(255, 255, 255, 0.9);
-    stroke-width: 2.2;
+    stroke: rgba(255, 255, 255, 0.92);
+    stroke-width: 2.4;
   }
   .mode-carousel-svg__obelisk{
-    fill: rgba(255, 255, 255, 0.24);
-    stroke: rgba(255, 255, 255, 0.28);
-    stroke-width: 1.6;
+    fill: rgba(236, 244, 255, 0.2);
+    stroke: rgba(255, 255, 255, 0.52);
+    stroke-width: 1.8;
     paint-order: stroke fill;
-    filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.45));
-    transition: stroke 0.25s ease, fill 0.25s ease;
+    filter: drop-shadow(0 18px 32px rgba(10, 16, 28, 0.45));
+    transition: stroke 0.25s ease, fill 0.25s ease, filter 0.25s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__obelisk{
-    fill: rgba(255, 255, 255, 0.32);
-    stroke: rgba(255, 255, 255, 0.42);
+    fill: rgba(244, 250, 255, 0.32);
+    stroke: rgba(255, 255, 255, 0.72);
+    filter: drop-shadow(0 22px 36px rgba(12, 20, 36, 0.5));
+  }
+  /* TRIAL MERGE: soft shadow beneath each frosted card. */
+  .mode-carousel-svg__shadow{
+    fill: rgba(8, 12, 24, 0.35);
+    filter: blur(9px);
+    opacity: 0.55;
+    transition: opacity 0.25s ease;
+  }
+  .mode-carousel-svg__item--active .mode-carousel-svg__shadow{
+    opacity: 0.75;
+  }
+  /* TRIAL MERGE: shimmering highlight that suggests refraction. */
+  .mode-carousel-svg__highlight{
+    fill: rgba(255, 255, 255, 0.55);
+    opacity: 0.28;
+    mix-blend-mode: screen;
+    transition: opacity 0.25s ease;
+  }
+  .mode-carousel-svg__item--active .mode-carousel-svg__highlight{
+    opacity: 0.45;
   }
   .mode-carousel-svg__reflection{
-    fill: rgba(255, 255, 255, 0.32);
-    opacity: 0.28;
+    fill: rgba(255, 255, 255, 0.72);
+    opacity: 0.22;
+    mix-blend-mode: screen;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__reflection{
     opacity: 0.42;
   }
   .mode-carousel-svg__icon{
-    font-size: clamp(24px, 4vw, 32px);
+    font-size: clamp(24px, 4vw, 34px);
     font-weight: 600;
-    fill: rgba(255, 255, 255, 0.92);
-    text-shadow: 0 6px 12px rgba(0, 0, 0, 0.45);
+    fill: rgba(255, 255, 255, 0.94);
+    text-shadow: 0 6px 14px rgba(8, 14, 28, 0.55);
   }
   .mode-carousel-svg__label{
     font-size: clamp(12px, 2.5vw, 15px);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    fill: rgba(240, 245, 255, 0.85);
+    fill: rgba(236, 242, 255, 0.86);
+    filter: drop-shadow(0 6px 10px rgba(8, 14, 24, 0.55));
   }
   .dial__limit-flash{
     opacity: 0; /* Adjust transparency to blend the layer into the dial. */

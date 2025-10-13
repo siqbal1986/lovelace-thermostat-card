@@ -87,10 +87,17 @@ export default class ThermostatUI {
     toggler.dataset.bottomOffset = String(geometry.bottomOffset);
 
     const toggleBody = SvgUtil.createSVGElement('g', { class: 'mode-menu__toggler-body' });
+    let halo = null;
     let circle = null;
     let inner = null;
     let gloss = null;
     if (!omitBackdrop) {
+      halo = SvgUtil.createSVGElement('circle', {
+        class: 'mode-menu__toggler-halo',
+        cx: 0,
+        cy: geometry.buttonRadius * 0.15,
+        r: geometry.buttonRadius * 1.18
+      });
       circle = SvgUtil.createSVGElement('circle', {
         class: 'mode-menu__toggler-circle',
         cx: 0,
@@ -128,6 +135,7 @@ export default class ThermostatUI {
       icon.appendChild(bar);
     });
 
+    if (halo) toggleBody.appendChild(halo);
     if (circle) toggleBody.appendChild(circle);
     if (inner) toggleBody.appendChild(inner);
     if (gloss) toggleBody.appendChild(gloss);
@@ -173,7 +181,7 @@ export default class ThermostatUI {
     container.appendChild(toggler);
     container.appendChild(list);
 
-    return { container, toggler, toggleBody, circle, inner, list, geometry };
+    return { container, toggler, toggleBody, circle, inner, halo, list, geometry };
   }
   // TRIAL MERGE: derive layout metrics for the SVG carousel items.
   _computeCarouselGeometry(radius) {
@@ -210,6 +218,21 @@ export default class ThermostatUI {
       `Q 0 ${top - halfHeight * 0.1} ${halfWidth * 0.4} ${top}`,
       `L ${halfWidth * 0.3} ${bottom}`,
       `Q 0 ${bottom + halfHeight * 0.08} ${-halfWidth * 0.3} ${bottom}`,
+      'Z'
+    ].join(' ');
+  }
+  // TRIAL MERGE: trace a soft highlight ridge to heighten the glass look of each obelisk.
+  _carouselHighlightPath(width, height) {
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    const insetWidth = halfWidth * 0.55;
+    const crest = -halfHeight * 0.55;
+    const trough = halfHeight * 0.45;
+    return [
+      `M ${-insetWidth} ${trough}`,
+      `Q 0 ${trough - halfHeight * 0.35} ${insetWidth} ${trough}`,
+      `L ${insetWidth * 0.78} ${crest}`,
+      `Q 0 ${crest - halfHeight * 0.15} ${-insetWidth * 0.78} ${crest}`,
       'Z'
     ].join(' ');
   }
@@ -1510,6 +1533,7 @@ export default class ThermostatUI {
     const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._resolveDialRadius()); // TRIAL MERGE: reuse fallback-aware radius when laying out carousel items.
     const obeliskPath = this._carouselObeliskPath(geometry.itemWidth, geometry.itemHeight);
     const reflectionPath = this._carouselReflectionPath(geometry.itemWidth, geometry.itemHeight);
+    const highlightPath = this._carouselHighlightPath(geometry.itemWidth, geometry.itemHeight);
 
     options.forEach((option, index) => {
       const group = SvgUtil.createSVGElement('g', {
@@ -1521,9 +1545,22 @@ export default class ThermostatUI {
         'data-type': option.type
       });
 
+      const shadow = SvgUtil.createSVGElement('ellipse', {
+        // TRIAL MERGE: anchor each glass obelisk with a soft elliptical shadow.
+        class: 'mode-carousel-svg__shadow',
+        cx: 0,
+        cy: geometry.itemHeight * 0.48,
+        rx: geometry.itemWidth * 0.45,
+        ry: geometry.itemHeight * 0.12
+      });
       const obelisk = SvgUtil.createSVGElement('path', {
         class: 'mode-carousel-svg__obelisk',
         d: obeliskPath
+      });
+      const highlight = SvgUtil.createSVGElement('path', {
+        // TRIAL MERGE: overlay a translucent ridge highlight for a frosted sheen.
+        class: 'mode-carousel-svg__highlight',
+        d: highlightPath
       });
       const reflection = SvgUtil.createSVGElement('path', {
         class: 'mode-carousel-svg__reflection',
@@ -1545,7 +1582,9 @@ export default class ThermostatUI {
       });
       labelText.textContent = option.label;
 
+      group.appendChild(shadow);
       group.appendChild(obelisk);
+      group.appendChild(highlight);
       group.appendChild(reflection);
       group.appendChild(iconText);
       group.appendChild(labelText);
