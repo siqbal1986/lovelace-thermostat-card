@@ -975,13 +975,13 @@ export function cssData(user) {
     transition: opacity 0.35s ease, filter 0.35s ease;
   }
   .mode-carousel-svg__image{
-    opacity: 0.8;
+    opacity: 0.7; /* TRIAL MERGE: match the requested 70% opacity for PNG assets. */
     pointer-events: none;
     filter: drop-shadow(0 18px 32px rgba(8, 14, 26, 0.42));
     transition: opacity 0.35s ease, filter 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__image{
-    opacity: 0.92;
+    opacity: 0.7; /* TRIAL MERGE: keep assets at 70% opacity even when focused. */
     filter: drop-shadow(0 28px 48px rgba(10, 18, 32, 0.52));
   }
   .mode-carousel-svg__icon-root *{

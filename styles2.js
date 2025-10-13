@@ -970,13 +970,13 @@ export function cssData(user) {
     transition: opacity 0.35s ease, filter 0.35s ease;
   }
   .mode-carousel-svg__image{
-    opacity: 0.8;
+    opacity: 0.7; /* TRIAL MERGE: match the requested 70% opacity for PNG assets. */
     pointer-events: none;
     filter: drop-shadow(0 20px 36px rgba(0, 4, 12, 0.52));
     transition: opacity 0.35s ease, filter 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__image{
-    opacity: 0.94;
+    opacity: 0.7; /* TRIAL MERGE: keep assets at 70% opacity even when focused. */
     filter: drop-shadow(0 32px 54px rgba(2, 6, 16, 0.62));
   }
   .mode-carousel-svg__icon-root *{

@@ -238,14 +238,21 @@ export default class ThermostatUI {
       'Z'
     ].join(' ');
   }
+  // TRIAL MERGE: reuse the facet inset metrics anywhere we need to align assets with the glass window.
+  _carouselFacetInsets(width, height) {
+    return {
+      insetX: Math.max(width * 0.14, 12),
+      insetTop: Math.max(height * 0.18, 16),
+      insetBottom: Math.max(height * 0.2, 20),
+      radius: Math.max(width * 0.12, 10)
+    };
+  }
   // TRIAL MERGE: carve an inner facet so each glass panel reads as thick frosted acrylic.
   _carouselFacetPath(width, height) {
     const halfWidth = width / 2;
     const halfHeight = height / 2;
-    const insetX = Math.max(width * 0.14, 12);
-    const insetTop = Math.max(height * 0.18, 16);
-    const insetBottom = Math.max(height * 0.2, 20);
-    const radius = Math.max(width * 0.12, 10);
+    const facet = this._carouselFacetInsets(width, height);
+    const { insetX, insetTop, insetBottom, radius } = facet;
     return [
       `M ${-halfWidth + insetX + radius} ${-halfHeight + insetTop}`,
       `Q ${-halfWidth + insetX} ${-halfHeight + insetTop} ${-halfWidth + insetX} ${-halfHeight + insetTop + radius}`,
@@ -2564,8 +2571,19 @@ export default class ThermostatUI {
 
       const assetCandidates = this._carouselImageCandidates(option);
       if (assetCandidates && assetCandidates.length) {
-        const imageWidth = geometry.itemWidth * 0.58;
-        const imageHeight = geometry.itemHeight * 0.5;
+        // TRIAL MERGE: reuse the facet insets so PNG art hugs the glass window.
+        const facetMetrics = this._carouselFacetInsets(geometry.itemWidth, geometry.itemHeight);
+        const clipId = SvgUtil.uniqueId('mode-carousel-asset-clip'); // TRIAL MERGE: clip PNG assets to the facet outline to erase any border.
+        const clipPath = SvgUtil.createSVGElement('clipPath', {
+          id: clipId,
+          'clipPathUnits': 'userSpaceOnUse'
+        });
+        clipPath.appendChild(SvgUtil.createSVGElement('path', { d: facetPath }));
+        visualHost.appendChild(clipPath);
+        const imageWidth = Math.max(10, geometry.itemWidth - facetMetrics.insetX * 2);
+        const imageHeight = Math.max(10, geometry.itemHeight - (facetMetrics.insetTop + facetMetrics.insetBottom));
+        const imageX = -imageWidth / 2;
+        const imageY = -geometry.itemHeight / 2 + facetMetrics.insetTop;
         const attemptAsset = (index) => {
           if (!assetCandidates[index]) {
             if (iconGroup) {
@@ -2578,12 +2596,13 @@ export default class ThermostatUI {
           const candidate = assetCandidates[index];
           const image = SvgUtil.createSVGElement('image', {
             class: 'mode-carousel-svg__image',
-            x: String(-imageWidth / 2),
-            y: String(-imageHeight * 0.45),
+            x: String(imageX),
+            y: String(imageY),
             width: String(imageWidth),
             height: String(imageHeight),
-            opacity: '0.8',
-            'preserveAspectRatio': 'xMidYMid meet'
+            opacity: '0.7',
+            'clip-path': `url(#${clipId})`,
+            'preserveAspectRatio': 'xMidYMid slice'
           });
           try {
             image.setAttributeNS('http://www.w3.org/1999/xlink', 'href', candidate.url);
