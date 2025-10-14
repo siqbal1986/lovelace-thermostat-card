@@ -2302,10 +2302,20 @@ export default class ThermostatUI {
         if (event.button !== undefined && event.button !== 0) {
           return;
         }
+        if (!Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+          return;
+        }
+        const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+        const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._resolveDialRadius());
+        const spacing = geometry && Number.isFinite(geometry.spacing) && geometry.spacing !== 0 ? geometry.spacing : 1;
+        const total = this._modeCarouselItems.length;
+        const baseIndex = total ? ((this._modeCarouselActiveIndex % total) + total) % total : 0; // TRIAL MERGE: normalize the starting index for swipe gestures.
         this._modeCarouselSwipeContext = {
-          pointerId: event.pointerId !== undefined ? event.pointerId : 'mouse',
+          pointerId,
           startX: event.clientX,
-          lastX: event.clientX
+          spacing,
+          baseIndex,
+          lastFractional: 0
         };
         if (this._modeCarouselTrack.setPointerCapture && event.pointerId !== undefined) {
           try { this._modeCarouselTrack.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
@@ -2319,15 +2329,28 @@ export default class ThermostatUI {
         if (!ctx || ctx.pointerId !== pointerId) {
           return;
         }
-        const delta = event.clientX - ctx.lastX;
-        if (Math.abs(delta) >= 6) {
-          this._modeCarouselActiveIndex = delta > 0
-            ? (this._modeCarouselActiveIndex - 1 + this._modeCarouselItems.length) % this._modeCarouselItems.length
-            : (this._modeCarouselActiveIndex + 1) % this._modeCarouselItems.length;
-          ctx.lastX = event.clientX;
-          this._updateCarouselClasses();
-          this._resetCarouselTimer();
+        if (!Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+          return;
         }
+        const spacing = ctx.spacing || 1;
+        const total = this._modeCarouselItems.length;
+        const deltaX = event.clientX - ctx.startX;
+        const rawShift = spacing ? deltaX / spacing : 0;
+        const roundedShift = Math.round(rawShift);
+        let nextIndex = ctx.baseIndex - roundedShift;
+        if (total > 0) {
+          nextIndex %= total;
+          if (nextIndex < 0) {
+            nextIndex += total;
+          }
+        }
+        if (this._modeCarouselActiveIndex !== nextIndex) {
+          this._modeCarouselActiveIndex = nextIndex;
+        }
+        const fractional = Math.max(Math.min(rawShift - roundedShift, 0.5), -0.5); // TRIAL MERGE: preserve a smooth drag offset while swiping.
+        ctx.lastFractional = fractional;
+        this._updateCarouselClasses(fractional);
+        this._resetCarouselTimer();
         event.preventDefault();
       };
       const pointerUp = (event) => {
@@ -2337,14 +2360,16 @@ export default class ThermostatUI {
           return;
         }
         this._modeCarouselSwipeContext = null;
-        if (ctx.pointerId !== undefined && this._modeCarouselTrack.releasePointerCapture) {
-          try { this._modeCarouselTrack.releasePointerCapture(ctx.pointerId); } catch (_) { /* ignore */ }
+        if (event.pointerId !== undefined && this._modeCarouselTrack.releasePointerCapture) {
+          try { this._modeCarouselTrack.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
         }
+        this._updateCarouselClasses();
+        this._resetCarouselTimer();
         event.preventDefault();
       };
       this._modeCarouselPointerHandlers = { pointerDown, pointerMove, pointerUp };
-      this._modeCarouselTrack.addEventListener('pointerdown', pointerDown);
-      this._modeCarouselTrack.addEventListener('pointermove', pointerMove);
+      this._modeCarouselTrack.addEventListener('pointerdown', pointerDown, { passive: false, capture: true });
+      this._modeCarouselTrack.addEventListener('pointermove', pointerMove, { passive: false });
       this._modeCarouselTrack.addEventListener('pointerup', pointerUp);
       this._modeCarouselTrack.addEventListener('pointercancel', pointerUp);
       this._modeCarouselTrack.addEventListener('mouseleave', pointerUp);
@@ -2357,7 +2382,7 @@ export default class ThermostatUI {
   _destroyModeCarouselElements() {
     if (this._modeCarouselPointerHandlers && this._modeCarouselTrack) {
       const { pointerDown, pointerMove, pointerUp } = this._modeCarouselPointerHandlers;
-      try { this._modeCarouselTrack.removeEventListener('pointerdown', pointerDown); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('pointerdown', pointerDown, { capture: true }); } catch (_) { /* ignore */ }
       try { this._modeCarouselTrack.removeEventListener('pointermove', pointerMove); } catch (_) { /* ignore */ }
       try { this._modeCarouselTrack.removeEventListener('pointerup', pointerUp); } catch (_) { /* ignore */ }
       try { this._modeCarouselTrack.removeEventListener('pointercancel', pointerUp); } catch (_) { /* ignore */ }
@@ -2694,13 +2719,14 @@ export default class ThermostatUI {
     this._modeCarouselActiveIndex = nextIndex;
   }
 
-  _updateCarouselClasses() {
+  _updateCarouselClasses(fractionalShift = 0) {
     if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
       return;
     }
     const total = this._modeCarouselItems.length;
     const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._resolveDialRadius()); // TRIAL MERGE: keep carousel spacing stable even if the config radius is zero during updates.
     const spacing = geometry.spacing;
+    const clampedShift = Number.isFinite(fractionalShift) ? Math.max(Math.min(fractionalShift, 0.5), -0.5) : 0;
     this._modeCarouselItems.forEach((item, index) => {
       const element = item.element;
       if (!element) {
@@ -2714,9 +2740,10 @@ export default class ThermostatUI {
       } else if (offset < -total / 2) {
         offset += total;
       }
+      const renderOffset = offset + clampedShift; // TRIAL MERGE: allow fractional translations during swipe/drag gestures.
       element.dataset.offset = String(offset);
       const absOffset = Math.abs(offset);
-      const translateX = offset * spacing;
+      const translateX = renderOffset * spacing;
       const scale = offset === 0 ? 1 : absOffset === 1 ? 0.5 : 0.3;
       element.setAttribute('transform', `translate(${translateX}, 0) scale(${scale})`);
       element.style.opacity = offset === 0 ? '1' : absOffset === 1 ? '0.35' : '0.15';
