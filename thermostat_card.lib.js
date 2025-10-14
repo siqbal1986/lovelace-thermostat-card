@@ -726,6 +726,18 @@ export default class ThermostatUI {
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ');
   }
+  // TRIAL MERGE: collapse equivalent preset labels like "Preset Hold" and "Hold" into a single carousel entry.
+  _normalizePresetKey(value) {
+    if (typeof value !== 'string') {
+      return '';
+    }
+    const sanitized = value.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    if (!sanitized.length) {
+      return '';
+    }
+    const collapsed = sanitized.replace(/^(preset_)+/, '');
+    return collapsed.length ? collapsed : sanitized;
+  }
   // TRIAL MERGE: build the multi-layered icon group (glow + glyph) for each carousel card.
   _buildCarouselIconGroup(option, geometry, gradientIds) {
     const palette = this._carouselIconPalette(option, gradientIds || {});
@@ -2509,15 +2521,15 @@ export default class ThermostatUI {
       const presetMap = new Map();
       presetModes.forEach((mode) => {
         if (typeof mode === 'string' && mode.length) {
-          const key = mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-          if (!presetMap.has(key)) {
+          const key = this._normalizePresetKey(mode); // TRIAL MERGE: collapse duplicate preset spellings like "Preset Hold".
+          if (key && !presetMap.has(key)) {
             presetMap.set(key, mode);
           }
         }
       });
       if (typeof this.preset_mode === 'string' && this.preset_mode.length) {
-        const key = this.preset_mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-        if (!presetMap.has(key)) {
+        const key = this._normalizePresetKey(this.preset_mode); // TRIAL MERGE: normalize the active preset key as well.
+        if (key && !presetMap.has(key)) {
           presetMap.set(key, this.preset_mode);
         }
       }
