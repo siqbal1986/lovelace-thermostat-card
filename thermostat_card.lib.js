@@ -69,6 +69,9 @@ export default class ThermostatUI {
     if (this._modeMenuToggler) {
       this._modeMenuToggler.dataset.bottomOffset = String(geometry.bottomOffset);
     }
+    if (this._modeCarouselEnabled) {
+      this._updateCarouselStatusLayout(); // TRIAL MERGE: keep the preset/fan readouts centered with the toggle translation.
+    }
   }
   // TRIAL MERGE: allow optional backdrop skipping so the carousel toggle can share this builder without rendering extra discs.
   _buildModeButton(radius, options = {}) {
@@ -1197,13 +1200,50 @@ export default class ThermostatUI {
     container.appendChild(wrapper);
     container.appendChild(anchor); // Ensure the anchor (and toggle) render above the carousel track.
 
+    // TRIAL MERGE: add frosted readouts that surface the active preset and fan modes beside the toggle.
+    const statusGroup = SvgUtil.createSVGElement('g', {
+      class: 'mode-carousel-svg__status',
+      'pointer-events': 'none'
+    });
+    const buildStatus = (kind, labelText) => {
+      const group = SvgUtil.createSVGElement('g', {
+        class: `mode-carousel-svg__status-item mode-carousel-svg__status-item--${kind}`
+      });
+      const label = SvgUtil.createSVGElement('text', {
+        class: 'mode-carousel-svg__status-label',
+        'text-anchor': 'middle'
+      });
+      label.textContent = labelText;
+      const backdrop = SvgUtil.createSVGElement('rect', {
+        class: 'mode-carousel-svg__status-backdrop'
+      });
+      const value = SvgUtil.createSVGElement('text', {
+        class: 'mode-carousel-svg__status-value',
+        'text-anchor': 'middle',
+        'dominant-baseline': 'middle'
+      });
+      value.textContent = '—';
+      group.appendChild(label);
+      group.appendChild(backdrop);
+      group.appendChild(value);
+      return { group, label, backdrop, value };
+    };
+    const presetStatus = buildStatus('preset', 'Preset');
+    const fanStatus = buildStatus('fan', 'Fan');
+    statusGroup.appendChild(presetStatus.group);
+    statusGroup.appendChild(fanStatus.group);
+    container.appendChild(statusGroup);
+
     return {
       ...base,
       list: null,
       anchor,
       wrapper,
       track,
-      halo
+      halo,
+      statusGroup,
+      presetStatus,
+      fanStatus
     };
   }
   _modeMenuTransformFor(angle, distance, scale) {
@@ -1307,6 +1347,15 @@ export default class ThermostatUI {
     this._modeCarouselTrack = null; // TRIAL MERGE: inner group that positions the frosted obelisks around the dial center.
     this._modeCarouselGeometry = null; // TRIAL MERGE: cached width/height/spacing used to lay out carousel items.
     this._modeCarouselHalo = null; // TRIAL MERGE: circular highlight drawn behind the SVG carousel.
+    this._modeCarouselStatusGroup = null; // TRIAL MERGE: wrapper for the preset/fan readouts that flank the toggle.
+    this._modeCarouselPresetGroup = null; // TRIAL MERGE: left-side status cluster dedicated to preset mode text.
+    this._modeCarouselFanGroup = null; // TRIAL MERGE: right-side status cluster dedicated to fan mode text.
+    this._modeCarouselPresetLabelNode = null; // TRIAL MERGE: small caption that reads "Preset" above the preset value.
+    this._modeCarouselPresetValueNode = null; // TRIAL MERGE: dynamic preset mode string beneath the toggle.
+    this._modeCarouselPresetBackdropNode = null; // TRIAL MERGE: frosted rectangle that frames the preset value.
+    this._modeCarouselFanLabelNode = null; // TRIAL MERGE: small caption that reads "Fan" above the fan value.
+    this._modeCarouselFanValueNode = null; // TRIAL MERGE: dynamic fan mode label rendered inside the right status box.
+    this._modeCarouselFanBackdropNode = null; // TRIAL MERGE: frosted rectangle that frames the fan value.
     this._modeCarouselGradientIds = {
       toggleHalo: SvgUtil.uniqueId('mode-carousel-toggle-halo'), // TRIAL MERGE: gradients keep the frosted toggle consistent across rebuilds.
       toggleBase: SvgUtil.uniqueId('mode-carousel-toggle-base'),
@@ -1491,6 +1540,7 @@ export default class ThermostatUI {
     this._updateText('high', this.temperature.high);
     this._setActiveMode(this.hvac_state); // Highlight the active HVAC mode in the dialog carousel.
     this._updateColor(this.hvac_state, this.preset_mode); // Apply appropriate color theme to the dial.
+    this._updateCarouselStatusText(); // TRIAL MERGE: refresh preset/fan readouts with the latest entity state.
   }
 
   _renderDial({ refreshDialog = false, hass = null, updateAmbient = true, resetEdit = false } = {}) {
@@ -2865,6 +2915,77 @@ export default class ThermostatUI {
     }
     this._updateCarouselClasses(fractional);
   }
+  // TRIAL MERGE: position and scale the preset/fan readouts so they track the toggle geometry.
+  _updateCarouselStatusLayout() {
+    if (!this._modeCarouselEnabled || !this._modeCarouselStatusGroup) {
+      return;
+    }
+    const geometry = this._ensureModeMenuGeometry();
+    if (!geometry || !Number.isFinite(geometry.centerX) || !Number.isFinite(geometry.centerY)) {
+      return;
+    }
+    const buttonRadius = geometry.buttonRadius || 0;
+    const baseY = geometry.centerY + buttonRadius * 1.6;
+    this._modeCarouselStatusGroup.setAttribute('transform', `translate(${geometry.centerX}, ${baseY})`);
+
+    const width = Math.max(buttonRadius * 2.6, 64);
+    const height = Math.max(buttonRadius * 0.9, 28);
+    const gap = Math.max(buttonRadius * 0.75, 18);
+    const centerSpacing = width + gap;
+    const labelFont = Math.max(buttonRadius * 0.28, 10);
+    const valueFont = Math.max(buttonRadius * 0.36, 12);
+    const labelOffset = height / 2 + Math.max(buttonRadius * 0.3, 8);
+
+    const apply = (group, rect, label, value, direction) => {
+      if (group) {
+        const offset = direction * centerSpacing / 2;
+        group.setAttribute('transform', `translate(${offset}, 0)`);
+      }
+      if (rect) {
+        rect.setAttribute('x', `${-width / 2}`);
+        rect.setAttribute('y', `${-height / 2}`);
+        rect.setAttribute('width', `${width}`);
+        rect.setAttribute('height', `${height}`);
+        rect.setAttribute('rx', `${height * 0.42}`);
+        rect.setAttribute('ry', `${height * 0.42}`);
+      }
+      if (label) {
+        label.setAttribute('y', `${-labelOffset}`);
+        label.setAttribute('font-size', `${labelFont}`);
+      }
+      if (value) {
+        value.setAttribute('y', '0');
+        value.setAttribute('font-size', `${valueFont}`);
+      }
+    };
+
+    apply(this._modeCarouselPresetGroup, this._modeCarouselPresetBackdropNode, this._modeCarouselPresetLabelNode, this._modeCarouselPresetValueNode, -1);
+    apply(this._modeCarouselFanGroup, this._modeCarouselFanBackdropNode, this._modeCarouselFanLabelNode, this._modeCarouselFanValueNode, 1);
+  }
+  // TRIAL MERGE: refresh the preset/fan captions so they mirror the latest Home Assistant state.
+  _updateCarouselStatusText() {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    const format = (value) => {
+      if (typeof value !== 'string') {
+        return '—';
+      }
+      const trimmed = value.trim();
+      if (!trimmed.length) {
+        return '—';
+      }
+      const key = trimmed.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+      const pretty = this._formatCarouselAssetLabel(key);
+      return pretty.length ? pretty : trimmed;
+    };
+    if (this._modeCarouselPresetValueNode) {
+      this._modeCarouselPresetValueNode.textContent = format(this.preset_mode);
+    }
+    if (this._modeCarouselFanValueNode) {
+      this._modeCarouselFanValueNode.textContent = format(this.fan_mode);
+    }
+  }
 
   _updateCarouselActiveFromState() {
     if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
@@ -3538,6 +3659,7 @@ export default class ThermostatUI {
     } catch (_) { /* ignore */ }
     this.preset_mode = preset;
     this._updateColor(this.hvac_state, this.preset_mode);
+    this._updateCarouselStatusText(); // TRIAL MERGE: immediately mirror the chosen preset in the status readout.
     this._updateCarouselActiveFromState();
     this._updateCarouselClasses();
     this._setModeMenuOpen(false);
@@ -3559,6 +3681,7 @@ export default class ThermostatUI {
       });
     } catch (_) { /* ignore */ }
     this.fan_mode = fanMode;
+    this._updateCarouselStatusText(); // TRIAL MERGE: immediately mirror the chosen fan mode in the status readout.
     this._updateCarouselActiveFromState();
     this._updateCarouselClasses();
     this._setModeMenuOpen(false);
@@ -3585,7 +3708,7 @@ export default class ThermostatUI {
     if (!this._modeMenuContainer) {
       if (this._modeCarouselEnabled) {
         // TRIAL MERGE: mount the carousel toggle within the glass layer so it follows SVG stacking.
-        const { container, anchor, toggler, toggleBody, circle, inner, geometry, wrapper, track, halo } = this._buildModeToggleCarousel(radius);
+        const { container, anchor, toggler, toggleBody, circle, inner, geometry, wrapper, track, halo, statusGroup, presetStatus, fanStatus } = this._buildModeToggleCarousel(radius);
         this._modeMenuContainer = container;
         this._modeMenuAnchor = anchor;
         this._modeMenuToggler = toggler;
@@ -3598,6 +3721,15 @@ export default class ThermostatUI {
         this._modeCarouselWrapper = wrapper;
         this._modeCarouselTrack = track;
         this._modeCarouselHalo = halo;
+        this._modeCarouselStatusGroup = statusGroup; // TRIAL MERGE: remember the status wrapper for later layout updates.
+        this._modeCarouselPresetGroup = presetStatus ? presetStatus.group : null; // TRIAL MERGE: store preset cluster for transforms.
+        this._modeCarouselFanGroup = fanStatus ? fanStatus.group : null; // TRIAL MERGE: store fan cluster for transforms.
+        this._modeCarouselPresetLabelNode = presetStatus ? presetStatus.label : null; // TRIAL MERGE: capture preset label node.
+        this._modeCarouselPresetValueNode = presetStatus ? presetStatus.value : null; // TRIAL MERGE: capture preset value node.
+        this._modeCarouselPresetBackdropNode = presetStatus ? presetStatus.backdrop : null; // TRIAL MERGE: capture preset frosted rectangle.
+        this._modeCarouselFanLabelNode = fanStatus ? fanStatus.label : null; // TRIAL MERGE: capture fan label node.
+        this._modeCarouselFanValueNode = fanStatus ? fanStatus.value : null; // TRIAL MERGE: capture fan value node.
+        this._modeCarouselFanBackdropNode = fanStatus ? fanStatus.backdrop : null; // TRIAL MERGE: capture fan frosted rectangle.
         if (this._modeCarouselWrapper && this._modeCarouselWrapper.style) {
           this._modeCarouselWrapper.style.pointerEvents = 'none';
         }
@@ -3608,6 +3740,8 @@ export default class ThermostatUI {
           this._root.appendChild(container);
         }
         this._applyModeMenuTogglerTransform(); // TRIAL MERGE: immediately align the toggler within the dial after mounting.
+        this._updateCarouselStatusLayout(); // TRIAL MERGE: position the preset/fan readouts relative to the toggle.
+        this._updateCarouselStatusText(); // TRIAL MERGE: seed the readouts with the current preset and fan labels.
       } else {
         const { container, toggler, toggleBody, circle, inner, list, geometry } = this._buildModeButton(radius);
         this._modeMenuContainer = container;
@@ -3623,18 +3757,19 @@ export default class ThermostatUI {
         this._applyModeMenuTogglerTransform(); // TRIAL MERGE: keep the legacy menu button centered using the shared helper.
       }
     } else {
-      this._modeMenuGeometry = this._computeModeMenuGeometry(radius);
-      if (this._modeCarouselEnabled) {
-        this._applyModeMenuTogglerTransform(); // TRIAL MERGE: ensure the toggle translation survives carousel rebuilds.
-        const geometry = this._computeCarouselGeometry(radius);
-        this._modeCarouselGeometry = geometry;
-        if (this._modeCarouselWrapper) {
-          this._modeCarouselWrapper.setAttribute('transform', `translate(${geometry.dialRadius}, ${geometry.dialRadius})`);
-        }
-        if (this._modeCarouselHalo) {
-          this._modeCarouselHalo.setAttribute('r', Math.max(geometry.dialRadius * 0.58, geometry.itemWidth * 0.8));
-        }
-      } else {
+        this._modeMenuGeometry = this._computeModeMenuGeometry(radius);
+        if (this._modeCarouselEnabled) {
+          this._applyModeMenuTogglerTransform(); // TRIAL MERGE: ensure the toggle translation survives carousel rebuilds.
+          const geometry = this._computeCarouselGeometry(radius);
+          this._modeCarouselGeometry = geometry;
+          if (this._modeCarouselWrapper) {
+            this._modeCarouselWrapper.setAttribute('transform', `translate(${geometry.dialRadius}, ${geometry.dialRadius})`);
+          }
+          if (this._modeCarouselHalo) {
+            this._modeCarouselHalo.setAttribute('r', Math.max(geometry.dialRadius * 0.58, geometry.itemWidth * 0.8));
+          }
+          this._updateCarouselStatusLayout(); // TRIAL MERGE: keep the preset/fan readouts aligned with the dial geometry.
+        } else {
         this._applyModeMenuTogglerTransform(); // TRIAL MERGE: reuse the same centering logic when the legacy ring menu is active.
         if (this._modeMenuCircle) {
           this._modeMenuCircle.setAttribute('r', this._modeMenuGeometry.buttonRadius);

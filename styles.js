@@ -953,6 +953,33 @@ export function cssData(user) {
     opacity: 0.7; /* TRIAL MERGE: keep assets at 70% opacity even when focused. */
     filter: drop-shadow(0 28px 48px rgba(10, 18, 32, 0.52));
   }
+  /* TRIAL MERGE: frosted readouts that flank the toggle with preset/fan labels. */
+  .mode-carousel-svg__status{
+    pointer-events: none;
+    filter: drop-shadow(0 14px 28px rgba(22, 34, 58, 0.25));
+  }
+  .mode-carousel-svg__status-item{
+    opacity: 0.92;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .mode-carousel-svg__status-backdrop{
+    fill: rgba(255, 255, 255, 0.26);
+    stroke: rgba(255, 255, 255, 0.45);
+    stroke-width: 1.1;
+    paint-order: stroke;
+    mix-blend-mode: screen;
+  }
+  .mode-carousel-svg__status-label{
+    fill: rgba(255, 255, 255, 0.7);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .mode-carousel-svg__status-value{
+    fill: rgba(255, 255, 255, 0.92);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
   .mode-carousel-svg__icon-root *{
     transition: fill 0.35s ease, stroke 0.35s ease, fill-opacity 0.35s ease, stroke-opacity 0.35s ease;
   }
