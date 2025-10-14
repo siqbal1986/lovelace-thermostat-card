@@ -2697,9 +2697,11 @@ export default class ThermostatUI {
         panelReflection.setAttribute('fill', `url(#${gradientIds.panelHighlight})`);
       }
       panelReflection.setAttribute('stroke', 'none');
-      const fallbackLabel = typeof option.label === 'string' && option.label.length
+      const configuredLabel = typeof option.label === 'string' && option.label.length
         ? option.label
-        : this._formatCarouselAssetLabel(option.mode || '');
+        : '';
+      const fallbackLabel = this._formatCarouselAssetLabel(option.mode || '');
+      const defaultLabel = configuredLabel || fallbackLabel;
       const iconGroup = this._buildCarouselIconGroup(option, geometry, gradientIds);
       const visualHost = SvgUtil.createSVGElement('g', {
         class: 'mode-carousel-svg__visual'
@@ -2714,8 +2716,8 @@ export default class ThermostatUI {
         y: String(geometry.itemHeight * 0.36),
         'text-anchor': 'middle'
       });
-      labelText.textContent = fallbackLabel;
-      labelText.setAttribute('data-default-label', fallbackLabel);
+      labelText.textContent = defaultLabel;
+      labelText.setAttribute('data-default-label', defaultLabel);
 
       const assetCandidates = this._carouselImageCandidates(option);
       if (assetCandidates && assetCandidates.length) {
@@ -2742,7 +2744,7 @@ export default class ThermostatUI {
             if (iconGroup) {
               iconGroup.style.display = '';
             }
-            labelText.textContent = fallbackLabel;
+            labelText.textContent = defaultLabel;
             labelText.classList.remove('mode-carousel-svg__label--asset');
             return;
           }
@@ -2767,7 +2769,9 @@ export default class ThermostatUI {
             if (iconGroup) {
               iconGroup.style.display = 'none';
             }
-            labelText.textContent = this._formatCarouselAssetLabel(candidate.name);
+            const assetLabel = this._formatCarouselAssetLabel(candidate.name);
+            const displayLabel = configuredLabel || assetLabel || fallbackLabel || defaultLabel;
+            labelText.textContent = displayLabel;
             labelText.classList.add('mode-carousel-svg__label--asset');
           }, { once: true });
           image.addEventListener('error', () => {
@@ -2777,7 +2781,7 @@ export default class ThermostatUI {
             if (iconGroup) {
               iconGroup.style.display = '';
             }
-            labelText.textContent = fallbackLabel;
+            labelText.textContent = defaultLabel;
             labelText.classList.remove('mode-carousel-svg__label--asset');
             attemptAsset(index + 1);
           }, { once: true });
