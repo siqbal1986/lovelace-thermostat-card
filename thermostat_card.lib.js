@@ -2743,10 +2743,26 @@ export default class ThermostatUI {
       const renderOffset = offset + clampedShift; // TRIAL MERGE: allow fractional translations during swipe/drag gestures.
       element.dataset.offset = String(offset);
       const absOffset = Math.abs(offset);
+      const absRenderOffset = Math.abs(renderOffset);
       const translateX = renderOffset * spacing;
-      const scale = offset === 0 ? 1 : absOffset === 1 ? 0.5 : 0.3;
+      let scale;
+      let opacity;
+      if (absRenderOffset <= 1) {
+        const eased = absRenderOffset; // TRIAL MERGE: interpolate between the centre (0) and adjacent card (1).
+        scale = 1 - 0.5 * eased;
+        opacity = 1 - 0.65 * eased;
+      } else if (absRenderOffset <= 2) {
+        const eased = absRenderOffset - 1; // TRIAL MERGE: continue easing toward the outer carousel positions.
+        scale = 0.5 - 0.2 * eased;
+        opacity = 0.35 - 0.2 * eased;
+      } else {
+        scale = 0.3;
+        opacity = 0.15;
+      }
+      scale = Math.max(Math.min(scale, 1), 0.1); // TRIAL MERGE: avoid degenerate transforms from rounding noise.
+      opacity = Math.max(Math.min(opacity, 1), 0);
       element.setAttribute('transform', `translate(${translateX}, 0) scale(${scale})`);
-      element.style.opacity = offset === 0 ? '1' : absOffset === 1 ? '0.35' : '0.15';
+      element.style.opacity = opacity.toString();
       element.style.pointerEvents = absOffset <= 1 ? 'auto' : 'none';
       if (offset === 0) {
         element.classList.add('mode-carousel-svg__item--active');
