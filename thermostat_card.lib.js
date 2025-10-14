@@ -1273,6 +1273,7 @@ export default class ThermostatUI {
     const timeoutSeconds = Number(config && config.mode_carousel_timeout);
     const resolvedSeconds = Number.isFinite(timeoutSeconds) ? Math.max(timeoutSeconds, 0) : 4; // TRIAL MERGE: align the auto-select window with the 4s snap requirement.
     this._modeCarouselAutoCloseMs = resolvedSeconds * 1000; // Milliseconds before the carousel auto-commits.
+    this._modeCarouselManualOverride = false; // TRIAL MERGE: track when user steering should supersede hass-driven state sync.
     // TRIAL MERGE: track the SVG-based carousel elements that live inside the dial rather than an HTML overlay.
     this._modeCarouselWrapper = null; // TRIAL MERGE: group that reveals the carousel items when the toggle opens.
     this._modeCarouselTrack = null; // TRIAL MERGE: inner group that positions the frosted obelisks around the dial center.
@@ -2215,6 +2216,9 @@ export default class ThermostatUI {
       return;
     }
     const expanded = !!open;
+    if (this._modeCarouselEnabled) {
+      this._modeCarouselManualOverride = false; // TRIAL MERGE: reset manual steering state whenever the carousel toggles.
+    }
     if (expanded) {
       this._dragDisabled = true;
       const activePointerId = this._dragContext ? this._dragContext.pointerId : undefined;
@@ -2276,8 +2280,14 @@ export default class ThermostatUI {
       });
     }
     if (this._modeCarouselEnabled) {
-      this._updateCarouselActiveFromState();
-      this._updateCarouselClasses();
+      const manualActive = this._modeCarouselManualOverride && this._modeMenuContainer && this._modeMenuContainer.classList.contains('menu-open');
+      if (!manualActive) {
+        this._updateCarouselActiveFromState();
+      }
+      const fractional = manualActive && this._modeCarouselSwipeContext && Number.isFinite(this._modeCarouselSwipeContext.lastFractional)
+        ? this._modeCarouselSwipeContext.lastFractional
+        : 0; // TRIAL MERGE: preserve the drag offset while hass updates toggle the active hvac mode.
+      this._updateCarouselClasses(fractional);
     }
   }
 
@@ -2310,6 +2320,7 @@ export default class ThermostatUI {
         const spacing = geometry && Number.isFinite(geometry.spacing) && geometry.spacing !== 0 ? geometry.spacing : 1;
         const total = this._modeCarouselItems.length;
         const baseIndex = total ? ((this._modeCarouselActiveIndex % total) + total) % total : 0; // TRIAL MERGE: normalize the starting index for swipe gestures.
+        this._modeCarouselManualOverride = true; // TRIAL MERGE: pause hass-driven snaps while the user is dragging.
         this._modeCarouselSwipeContext = {
           pointerId,
           startX: event.clientX,
@@ -2431,6 +2442,7 @@ export default class ThermostatUI {
     }
 
     this._modeCarouselItems = [];
+    this._modeCarouselManualOverride = false; // TRIAL MERGE: release manual steering once the carousel has been torn down.
   }
 
   _updateCarouselOptions(modes, hass) { // eslint-disable-line no-unused-vars
@@ -2721,8 +2733,17 @@ export default class ThermostatUI {
       });
     });
 
-    this._updateCarouselActiveFromState();
-    this._updateCarouselClasses();
+    const manualActive = this._modeCarouselManualOverride && this._modeMenuContainer && this._modeMenuContainer.classList.contains('menu-open');
+    if (!manualActive) {
+      this._updateCarouselActiveFromState();
+    } else if (this._modeCarouselItems.length) {
+      const clampedIndex = Math.min(Math.max(this._modeCarouselActiveIndex, 0), this._modeCarouselItems.length - 1);
+      this._modeCarouselActiveIndex = clampedIndex; // TRIAL MERGE: keep manual steering aligned with the rebuilt item list.
+    }
+    const fractional = manualActive && this._modeCarouselSwipeContext && Number.isFinite(this._modeCarouselSwipeContext.lastFractional)
+      ? this._modeCarouselSwipeContext.lastFractional
+      : 0; // TRIAL MERGE: preserve in-progress drag offsets when hass updates rebuild the carousel.
+    this._updateCarouselClasses(fractional);
   }
 
   _updateCarouselActiveFromState() {
@@ -2803,6 +2824,7 @@ export default class ThermostatUI {
     if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
       return;
     }
+    this._modeCarouselManualOverride = true; // TRIAL MERGE: mark dial rotations as user-driven carousel steering.
     const total = this._modeCarouselItems.length;
     if (direction > 0) {
       this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex + 1) % total;
@@ -2900,6 +2922,7 @@ export default class ThermostatUI {
         return;
       }
       const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      this._modeCarouselManualOverride = true; // TRIAL MERGE: respect dial-driven navigation until a selection commits.
       this._modeCarouselDialContext = {
         pointerId,
         lastAngle: angle,
@@ -2981,6 +3004,7 @@ export default class ThermostatUI {
       return;
     }
     this._clearCarouselTimer();
+    this._modeCarouselManualOverride = false; // TRIAL MERGE: hand control back to hass once a selection has been made.
     if (!option) {
       if (!Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
         this._setModeMenuOpen(false);
