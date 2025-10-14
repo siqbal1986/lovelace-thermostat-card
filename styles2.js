@@ -862,21 +862,25 @@ export function cssData(user) {
   }
   /* TRIAL MERGE: refine focus and drop-shadow treatments for the glass carousel panels. */
   .mode-carousel-svg__item:focus-visible .mode-carousel-svg__panel{
-    stroke-width: 3;
-    filter: drop-shadow(0 30px 64px rgba(4, 8, 18, 0.5));
+    stroke-width: 0;
+    filter: none;
+    opacity: 0;
   }
   .mode-carousel-svg__item--active{
     filter: drop-shadow(0 30px 60px rgba(4, 8, 18, 0.48));
   }
+  /* TRIAL MERGE: hide the frosted slab in the dark theme so PNG artwork floats without a box. */
   .mode-carousel-svg__panel{
-    stroke-width: 2.2;
-    paint-order: stroke fill;
-    filter: drop-shadow(0 22px 46px rgba(3, 6, 14, 0.42));
-    transition: stroke 0.35s ease, fill-opacity 0.35s ease, filter 0.35s ease;
-    fill-opacity: 0.58;
+    stroke-width: 0;
+    paint-order: fill;
+    filter: none;
+    fill-opacity: 0;
+    opacity: 0;
+    transition: opacity 0.35s ease;
   }
   .mode-carousel-svg__item--active .mode-carousel-svg__panel{
-    filter: drop-shadow(0 34px 64px rgba(6, 10, 20, 0.58));
+    filter: none;
+    opacity: 0;
   }
   /* TRIAL MERGE: soft shadow beneath each frosted card. */
   .mode-carousel-svg__shadow{
@@ -896,61 +900,26 @@ export function cssData(user) {
   .mode-carousel-svg__item--active .mode-carousel-svg__base-glow{
     opacity: 0.45;
   }
-  /* TRIAL MERGE: inner frosting and highlight layering for the panel slab. */
-  .mode-carousel-svg__panel-inner{
-    opacity: 0.6;
-    mix-blend-mode: screen;
-    filter: drop-shadow(0 18px 32px rgba(4, 8, 18, 0.36));
-    transition: opacity 0.35s ease;
-  }
-  .mode-carousel-svg__item--active .mode-carousel-svg__panel-inner{
-    opacity: 0.78;
-  }
-  /* TRIAL MERGE: shimmering highlight and streak treatments for the new glass slabs. */
-  .mode-carousel-svg__panel-highlight{
-    opacity: 0.32;
-    mix-blend-mode: screen;
-    filter: blur(0.45px);
-    transition: opacity 0.35s ease;
-  }
-  .mode-carousel-svg__item--active .mode-carousel-svg__panel-highlight{
-    opacity: 0.48;
-  }
-  .mode-carousel-svg__panel-caustic{
-    opacity: 0.5;
-    mix-blend-mode: screen;
-    filter: blur(0.35px);
-    transition: opacity 0.35s ease;
-  }
-  .mode-carousel-svg__item--active .mode-carousel-svg__panel-caustic{
-    opacity: 0.68;
-  }
-  .mode-carousel-svg__panel-sheen{
-    opacity: 0.36;
-    mix-blend-mode: screen;
-    filter: blur(0.3px);
-    transition: opacity 0.35s ease;
-  }
-  .mode-carousel-svg__item--active .mode-carousel-svg__panel-sheen{
-    opacity: 0.54;
-  }
-  .mode-carousel-svg__panel-spark{
-    opacity: 0.5;
-    mix-blend-mode: screen;
-    filter: blur(0.4px);
-    transition: opacity 0.35s ease;
-  }
-  .mode-carousel-svg__item--active .mode-carousel-svg__panel-spark{
-    opacity: 0.68;
-  }
+  /* TRIAL MERGE: suppress the auxiliary glass layers in the dark theme to eliminate the lingering border. */
+  .mode-carousel-svg__panel-inner,
+  .mode-carousel-svg__panel-highlight,
+  .mode-carousel-svg__panel-caustic,
+  .mode-carousel-svg__panel-sheen,
+  .mode-carousel-svg__panel-spark,
   .mode-carousel-svg__panel-reflection{
-    opacity: 0.26;
-    mix-blend-mode: screen;
-    filter: blur(0.7px);
+    opacity: 0;
+    mix-blend-mode: normal;
+    filter: none;
     transition: opacity 0.35s ease;
   }
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-inner,
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-highlight,
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-caustic,
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-sheen,
+  .mode-carousel-svg__item--active .mode-carousel-svg__panel-spark,
   .mode-carousel-svg__item--active .mode-carousel-svg__panel-reflection{
-    opacity: 0.4;
+    opacity: 0;
+    filter: none;
   }
   /* TRIAL MERGE: elevated glow stack for the bespoke SVG glyphs. */
   .mode-carousel-svg__icon-group{

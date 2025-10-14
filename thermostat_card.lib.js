@@ -2580,10 +2580,15 @@ export default class ThermostatUI {
         });
         clipPath.appendChild(SvgUtil.createSVGElement('path', { d: facetPath }));
         visualHost.appendChild(clipPath);
-        const imageWidth = Math.max(10, geometry.itemWidth - facetMetrics.insetX * 2);
-        const imageHeight = Math.max(10, geometry.itemHeight - (facetMetrics.insetTop + facetMetrics.insetBottom));
+        const baseImageWidth = Math.max(10, geometry.itemWidth - facetMetrics.insetX * 2);
+        const baseImageHeight = Math.max(10, geometry.itemHeight - (facetMetrics.insetTop + facetMetrics.insetBottom));
+        const assetScale = 1.3; // TRIAL MERGE: enlarge carousel PNGs by an additional 30% so they fully fill the glass opening.
+        const imageWidth = Math.max(10, baseImageWidth * assetScale);
+        const imageHeight = Math.max(10, baseImageHeight * assetScale);
         const imageX = -imageWidth / 2;
-        const imageY = -geometry.itemHeight / 2 + facetMetrics.insetTop;
+        const baseTop = -geometry.itemHeight / 2 + facetMetrics.insetTop;
+        const baseCenterY = baseTop + baseImageHeight / 2;
+        const imageY = baseCenterY - imageHeight / 2;
         const attemptAsset = (index) => {
           if (!assetCandidates[index]) {
             if (iconGroup) {
