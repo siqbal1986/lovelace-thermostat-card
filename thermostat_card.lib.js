@@ -2519,6 +2519,7 @@ export default class ThermostatUI {
       : [];
     if (presetModes.length || (typeof this.preset_mode === 'string' && this.preset_mode.length)) {
       const presetMap = new Map();
+      const presetEntries = [];
       presetModes.forEach((mode) => {
         if (typeof mode === 'string' && mode.length) {
           const key = this._normalizePresetKey(mode); // TRIAL MERGE: collapse duplicate preset spellings like "Preset Hold".
@@ -2534,13 +2535,12 @@ export default class ThermostatUI {
         }
       }
       const prettyPreset = this.preset_mode ? this.preset_mode.replace(/_/g, ' ') : null;
-      options.push({ mode: 'preset', label: prettyPreset ? `Preset (${prettyPreset})` : 'Preset', type: 'preset' });
       const addPresetOption = (key, label) => {
         const raw = presetMap.get(key);
         if (!raw) {
           return;
         }
-        options.push({ mode: raw, label, type: 'preset-mode' });
+        presetEntries.push({ mode: raw, label, type: 'preset-mode' });
         presetMap.delete(key);
       };
       addPresetOption('away', 'Preset Away'); // TRIAL MERGE: surface explicit away/none presets when available.
@@ -2548,8 +2548,13 @@ export default class ThermostatUI {
       presetMap.forEach((raw, key) => {
         const pretty = this._formatCarouselAssetLabel(key);
         const fallbackLabel = pretty ? `Preset ${pretty}` : 'Preset';
-        options.push({ mode: raw, label: fallbackLabel, type: 'preset-mode' });
+        presetEntries.push({ mode: raw, label: fallbackLabel, type: 'preset-mode' });
       });
+      if (presetEntries.length) {
+        presetEntries.forEach((entry) => options.push(entry));
+      } else {
+        options.push({ mode: 'preset', label: prettyPreset ? `Preset (${prettyPreset})` : 'Preset', type: 'preset' });
+      }
     }
 
     if (hvacSet.has('off')) {
