@@ -2318,9 +2318,14 @@ export default class ThermostatUI {
       if (!manualActive) {
         this._updateCarouselActiveFromState();
       }
-      const fractional = manualActive && this._modeCarouselSwipeContext && Number.isFinite(this._modeCarouselSwipeContext.lastFractional)
-        ? this._modeCarouselSwipeContext.lastFractional
-        : 0; // TRIAL MERGE: preserve the drag offset while hass updates toggle the active hvac mode.
+      let fractional = 0; // TRIAL MERGE: preserve in-progress carousel steering offsets while hass updates roll in.
+      if (manualActive) {
+        if (this._modeCarouselSwipeContext && Number.isFinite(this._modeCarouselSwipeContext.lastFractional)) {
+          fractional = this._modeCarouselSwipeContext.lastFractional;
+        } else if (this._modeCarouselDialContext && Number.isFinite(this._modeCarouselDialContext.lastFractional)) {
+          fractional = this._modeCarouselDialContext.lastFractional;
+        }
+      }
       this._updateCarouselClasses(fractional);
     }
   }
@@ -2850,9 +2855,14 @@ export default class ThermostatUI {
       const clampedIndex = Math.min(Math.max(this._modeCarouselActiveIndex, 0), this._modeCarouselItems.length - 1);
       this._modeCarouselActiveIndex = clampedIndex; // TRIAL MERGE: keep manual steering aligned with the rebuilt item list.
     }
-    const fractional = manualActive && this._modeCarouselSwipeContext && Number.isFinite(this._modeCarouselSwipeContext.lastFractional)
-      ? this._modeCarouselSwipeContext.lastFractional
-      : 0; // TRIAL MERGE: preserve in-progress drag offsets when hass updates rebuild the carousel.
+    let fractional = 0; // TRIAL MERGE: keep swipe or dial drag offsets alive while the carousel options refresh.
+    if (manualActive) {
+      if (this._modeCarouselSwipeContext && Number.isFinite(this._modeCarouselSwipeContext.lastFractional)) {
+        fractional = this._modeCarouselSwipeContext.lastFractional;
+      } else if (this._modeCarouselDialContext && Number.isFinite(this._modeCarouselDialContext.lastFractional)) {
+        fractional = this._modeCarouselDialContext.lastFractional;
+      }
+    }
     this._updateCarouselClasses(fractional);
   }
 
@@ -3030,7 +3040,7 @@ export default class ThermostatUI {
     if (!this._modeCarouselEnabled || this._modeCarouselDialHandlersAttached) {
       return;
     }
-    const target = this._modeCarouselWrapper || this._root;
+    const target = this._root || this._modeCarouselWrapper;
     if (!target) {
       return;
     }
@@ -3050,12 +3060,14 @@ export default class ThermostatUI {
       this._modeCarouselDialContext = {
         pointerId,
         lastAngle: angle,
-        accumulator: 0
+        accumulator: 0,
+        lastFractional: 0
       };
       if (event.pointerId !== undefined && typeof event.currentTarget.setPointerCapture === 'function') {
         try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
       }
       event.preventDefault();
+      event.stopPropagation(); // TRIAL MERGE: keep native dial handlers from swallowing carousel rotation gestures.
       this._resetCarouselTimer();
     };
     const pointerMove = (event) => {
@@ -3085,6 +3097,12 @@ export default class ThermostatUI {
         this._stepCarousel(1);
         ctx.accumulator += threshold;
       }
+      const fractional = Math.max(Math.min(ctx.accumulator / threshold, 0.5), -0.5);
+      ctx.lastFractional = fractional;
+      this._updateCarouselClasses(fractional);
+      this._resetCarouselTimer();
+      event.preventDefault();
+      event.stopPropagation();
     };
     const pointerUp = (event) => {
       const ctx = this._modeCarouselDialContext;
@@ -3094,12 +3112,16 @@ export default class ThermostatUI {
         if (event.pointerId !== undefined && typeof event.currentTarget.releasePointerCapture === 'function') {
           try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
         }
+        this._updateCarouselClasses();
       }
+      this._resetCarouselTimer();
+      event.preventDefault();
+      event.stopPropagation();
     };
     target.addEventListener('pointerdown', pointerDown, { passive: false });
-    target.addEventListener('pointermove', pointerMove);
-    target.addEventListener('pointerup', pointerUp);
-    target.addEventListener('pointercancel', pointerUp);
+    target.addEventListener('pointermove', pointerMove, { passive: false });
+    target.addEventListener('pointerup', pointerUp, { passive: false });
+    target.addEventListener('pointercancel', pointerUp, { passive: false });
     target.addEventListener('lostpointercapture', pointerUp);
     this._modeCarouselDialHandlersAttached = true;
     this._modeCarouselDialHandlers = { pointerDown, pointerMove, pointerUp, target };
