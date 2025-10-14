@@ -3076,6 +3076,264 @@ export default class ThermostatUI {
         element.classList.add('mode-carousel-svg__item--away');
       }
     });
+
+    this._updateCarouselActiveFromState();
+    this._updateCarouselClasses();
+    this._positionModeCarousel();
+  }
+
+  _updateCarouselActiveFromState() {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      this._modeCarouselActiveIndex = 0;
+      return;
+    }
+    const hvacMode = this.hvac_state;
+    let nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'hvac' && item.mode === hvacMode);
+    if (nextIndex === -1 && this.preset_mode) {
+      nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'preset');
+    }
+    if (nextIndex === -1) {
+      nextIndex = Math.min(Math.max(this._modeCarouselActiveIndex, 0), this._modeCarouselItems.length - 1);
+    }
+    this._modeCarouselActiveIndex = nextIndex;
+  }
+
+  _updateCarouselClasses() {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      return;
+    }
+    const total = this._modeCarouselItems.length;
+    this._modeCarouselItems.forEach((item, index) => {
+      const element = item.element;
+      if (!element) {
+        return;
+      }
+      element.classList.remove('mode-carousel__item--active', 'mode-carousel__item--prev', 'mode-carousel__item--next', 'mode-carousel__item--away');
+      element.removeAttribute('aria-current');
+      let offset = index - this._modeCarouselActiveIndex;
+      if (offset > total / 2) {
+        offset -= total;
+      } else if (offset < -total / 2) {
+        offset += total;
+      }
+      element.dataset.offset = String(offset);
+      if (offset === 0) {
+        element.classList.add('mode-carousel__item--active');
+        element.setAttribute('aria-current', 'true');
+      } else if (offset === -1 || (total > 2 && offset === total - 1)) {
+        element.classList.add('mode-carousel__item--prev');
+      } else if (offset === 1 || (total > 2 && offset === -(total - 1))) {
+        element.classList.add('mode-carousel__item--next');
+      } else {
+        element.classList.add('mode-carousel__item--away');
+      }
+    });
+  }
+
+  _stepCarousel(direction) {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      return;
+    }
+    const total = this._modeCarouselItems.length;
+    if (direction > 0) {
+      this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex + 1) % total;
+    } else if (direction < 0) {
+      this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex - 1 + total) % total;
+    }
+    this._updateCarouselClasses();
+    this._resetCarouselTimer();
+  }
+
+  _resetCarouselTimer() {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._clearCarouselTimer();
+    if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+      return;
+    }
+    if (!Number.isFinite(this._modeCarouselAutoCloseMs) || this._modeCarouselAutoCloseMs <= 0) {
+      return;
+    }
+    this._modeCarouselTimer = setTimeout(() => {
+      this._modeCarouselTimer = null;
+      this._commitCarouselSelection('timeout');
+    }, this._modeCarouselAutoCloseMs);
+  }
+
+  _clearCarouselTimer() {
+    if (this._modeCarouselTimer) {
+      clearTimeout(this._modeCarouselTimer);
+      this._modeCarouselTimer = null;
+    }
+  }
+
+  _toggleCarouselOpen(expanded) {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._ensureModeCarouselElements();
+    const wrapper = this._modeCarouselWrapper;
+    if (!wrapper) {
+      return;
+    }
+    if (expanded) {
+      wrapper.classList.add('mode-carousel--open');
+      wrapper.setAttribute('aria-hidden', 'false');
+      wrapper.style.pointerEvents = 'auto';
+      this._positionModeCarousel();
+      this._updateCarouselActiveFromState();
+      this._updateCarouselClasses();
+      this._resetCarouselTimer();
+      this._attachCarouselDialControls();
+    } else {
+      wrapper.classList.remove('mode-carousel--open');
+      wrapper.setAttribute('aria-hidden', 'true');
+      wrapper.style.pointerEvents = 'none';
+      this._clearCarouselTimer();
+      this._detachCarouselDialControls();
+      this._modeCarouselSwipeContext = null;
+    }
+  }
+
+  _attachCarouselDialControls() {
+    if (!this._modeCarouselEnabled || this._modeCarouselDialHandlersAttached) {
+      return;
+    }
+    const target = this._modeCarouselWrapper || this._root;
+    if (!target) {
+      return;
+    }
+    const pointerDown = (event) => {
+      if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+        return;
+      }
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+      const angle = this._pointerNormalizedAngle(event);
+      if (angle === null) {
+        return;
+      }
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      this._modeCarouselDialContext = {
+        pointerId,
+        lastAngle: angle,
+        accumulator: 0
+      };
+      if (event.pointerId !== undefined && typeof event.currentTarget.setPointerCapture === 'function') {
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+      }
+      event.preventDefault();
+      this._resetCarouselTimer();
+    };
+    const pointerMove = (event) => {
+      const ctx = this._modeCarouselDialContext;
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      if (!ctx || ctx.pointerId !== pointerId) {
+        return;
+      }
+      const angle = this._pointerNormalizedAngle(event);
+      if (angle === null) {
+        return;
+      }
+      let delta = angle - ctx.lastAngle;
+      if (delta > 180) {
+        delta -= 360;
+      } else if (delta < -180) {
+        delta += 360;
+      }
+      ctx.accumulator += delta;
+      ctx.lastAngle = angle;
+      const threshold = 18;
+      while (ctx.accumulator >= threshold) {
+        this._stepCarousel(-1);
+        ctx.accumulator -= threshold;
+      }
+      while (ctx.accumulator <= -threshold) {
+        this._stepCarousel(1);
+        ctx.accumulator += threshold;
+      }
+    };
+    const pointerUp = (event) => {
+      const ctx = this._modeCarouselDialContext;
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      if (ctx && ctx.pointerId === pointerId) {
+        this._modeCarouselDialContext = null;
+        if (event.pointerId !== undefined && typeof event.currentTarget.releasePointerCapture === 'function') {
+          try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        }
+      }
+    };
+    target.addEventListener('pointerdown', pointerDown, { passive: false });
+    target.addEventListener('pointermove', pointerMove);
+    target.addEventListener('pointerup', pointerUp);
+    target.addEventListener('pointercancel', pointerUp);
+    target.addEventListener('lostpointercapture', pointerUp);
+    this._modeCarouselDialHandlersAttached = true;
+    this._modeCarouselDialHandlers = { pointerDown, pointerMove, pointerUp, target };
+  }
+
+  _detachCarouselDialControls() {
+    if (!this._modeCarouselDialHandlersAttached || !this._modeCarouselDialHandlers) {
+      this._modeCarouselDialContext = null;
+      return;
+    }
+    const { pointerDown, pointerMove, pointerUp, target } = this._modeCarouselDialHandlers;
+    if (target) {
+      target.removeEventListener('pointerdown', pointerDown);
+      target.removeEventListener('pointermove', pointerMove);
+      target.removeEventListener('pointerup', pointerUp);
+      target.removeEventListener('pointercancel', pointerUp);
+      target.removeEventListener('lostpointercapture', pointerUp);
+    }
+    this._modeCarouselDialHandlersAttached = false;
+    this._modeCarouselDialHandlers = null;
+    this._modeCarouselDialContext = null;
+  }
+
+  _commitCarouselSelection(source, option, triggerEvent) { // eslint-disable-line no-unused-vars
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._clearCarouselTimer();
+    if (!option) {
+      if (!Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+        this._setModeMenuOpen(false);
+        return;
+      }
+      option = this._modeCarouselItems[this._modeCarouselActiveIndex] || null;
+    }
+    if (!option) {
+      this._setModeMenuOpen(false);
+      return;
+    }
+    if (option.type === 'preset') {
+      this._handlePresetSelection(triggerEvent);
+      this._setModeMenuOpen(false);
+      return;
+    }
+    const hass = this._lastHass;
+    if (hass) {
+      const event = triggerEvent || { stopPropagation() {} };
+      if (typeof event.stopPropagation !== 'function') {
+        event.stopPropagation = () => {};
+      }
+      this._setMode(event, option.mode, hass);
+    } else {
+      this._setModeMenuOpen(false);
+    }
+  }
+
+  _handlePresetSelection(triggerEvent) {
+    if (triggerEvent && typeof triggerEvent.stopPropagation === 'function') {
+      triggerEvent.stopPropagation();
+    }
+    if (typeof this._config.propWin === 'function' && this.entity && this.entity.entity_id) {
+      try {
+        this._config.propWin(this.entity.entity_id);
+      } catch (_) { /* ignore */ }
+    }
   }
 
   _stepCarousel(direction) {
