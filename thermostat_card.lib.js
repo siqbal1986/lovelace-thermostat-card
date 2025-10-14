@@ -2925,7 +2925,7 @@ export default class ThermostatUI {
       return;
     }
     const buttonRadius = geometry.buttonRadius || 0;
-    const verticalScale = 0.9; // TRIAL MERGE: raise the status clusters by 10% so they sit closer to the toggle.
+    const verticalScale = 0.75; // TRIAL MERGE: raise the status clusters by an additional 15% so they nestle tighter to the toggle.
     const baseY = geometry.centerY + buttonRadius * 1.6 * verticalScale;
     this._modeCarouselStatusGroup.setAttribute('transform', `translate(${geometry.centerX}, ${baseY})`);
 
@@ -2934,13 +2934,14 @@ export default class ThermostatUI {
     const height = Math.max(buttonRadius * 0.9 * sizeScale, 14);
     const gap = Math.max(buttonRadius * 0.75 * sizeScale, 9);
     const centerSpacing = width + gap;
+    const spacingScale = 1.2; // TRIAL MERGE: push the preset/fan badges 20% farther apart for breathing room.
     const labelFont = Math.max(buttonRadius * 0.28 * sizeScale, 5);
     const valueFont = Math.max(buttonRadius * 0.36 * sizeScale, 6);
     const labelOffset = height / 2 + Math.max(buttonRadius * 0.3 * sizeScale, 4);
 
     const apply = (group, rect, label, value, direction) => {
       if (group) {
-        const offset = direction * centerSpacing / 2;
+        const offset = direction * centerSpacing * spacingScale / 2;
         group.setAttribute('transform', `translate(${offset}, 0)`);
       }
       if (rect) {
