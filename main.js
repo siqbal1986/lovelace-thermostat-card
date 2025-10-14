@@ -67,7 +67,10 @@ class ThermostatCard extends HTMLElement {
       target_temperature_high: entity.attributes.target_temp_high, // High setpoint for dual-mode systems.
       hvac_state: entity.state, // Primary HVAC mode (heat, cool, off, etc.).
       hvac_modes:entity.attributes.hvac_modes, // All available HVAC modes so the mode selector can list them.
+      // TRIAL MERGE: surface preset and fan metadata so the SVG carousel can expose dedicated options.
       preset_mode: entity.attributes.preset_mode, // Optional preset (eco, away, etc.).
+      fan_mode: entity.attributes.fan_mode, // Active fan mode (auto, on, diffuse, etc.).
+      fan_modes: entity.attributes.fan_modes, // Supported fan modes to render in the carousel when available.
       away: (entity.attributes.away_mode == 'on' ? true : false) // Legacy away flag used by some thermostats.
     }
 
@@ -93,7 +96,9 @@ class ThermostatCard extends HTMLElement {
         this._saved_state.target_temperature_high != new_state.target_temperature_high ||
         this._saved_state.hvac_state != new_state.hvac_state ||
         this._saved_state.preset_mode != new_state.preset_mode ||
-        this._saved_state.away != new_state.away)) {
+        this._saved_state.away != new_state.away ||
+        this._saved_state.fan_mode != new_state.fan_mode ||
+        this._saved_state.fan_modes != new_state.fan_modes)) {
       this._saved_state = new_state; // Cache the incoming state so we can detect future changes and avoid unnecessary redraws.
       this.thermostat.updateState(new_state,hass); // Hand the state data to the SVG/UI helper for rendering.
       // Phase 2: apply optional anchor-aligned adjustments (no DOM moves)
@@ -495,6 +500,17 @@ ThermostatCard.prototype._applyModeClip = function(){
     if (!root) return;
     const menu = root.querySelector('.mode-menu');
     const host = root.querySelector('#mode-carousel');
+    if (cfg.mode_carousel_ui === true) {
+      if (menu) {
+        menu.style.clipPath = '';
+        menu.style.webkitClipPath = '';
+      }
+      if (host) {
+        host.style.clipPath = '';
+        host.style.webkitClipPath = '';
+      }
+      return;
+    }
     if (!cfg._modeClipPolygon) {
       (async ()=>{
         try{

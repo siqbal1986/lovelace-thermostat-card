@@ -11,8 +11,9 @@ export default class ThermostatUI {
   _computeModeMenuGeometry(radius) {
     const safeRadius = Number.isFinite(radius) ? radius : 0;
     const diameter = safeRadius * 2;
-    const buttonRadius = Math.max(24, Math.min(safeRadius * 0.18, 34));
-    const bottomOffset = safeRadius * 0.2;
+    const baseButtonRadius = Math.max(24, Math.min(safeRadius * 0.18, 34));
+    const buttonRadius = baseButtonRadius * 0.64; // TRIAL MERGE: shrink the toggle by another 20% for the refreshed layout request.
+    const bottomOffset = Math.max(0, safeRadius * 0.2 - safeRadius * 0.08); // TRIAL MERGE: drop the toggle an additional 3% lower toward the rim.
     const minCenterY = safeRadius + buttonRadius * 0.15;
     const proposedCenterY = diameter - bottomOffset - buttonRadius;
     const centerY = Math.max(minCenterY, proposedCenterY);
