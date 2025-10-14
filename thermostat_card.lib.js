@@ -1271,7 +1271,7 @@ export default class ThermostatUI {
     this._modeMenuScale = 0; // Remember the most recent expansion state so transforms can be recomputed quickly.
     this._modeCarouselEnabled = config && config.mode_carousel_ui === true; // Flag for the experimental carousel UI.
     const timeoutSeconds = Number(config && config.mode_carousel_timeout);
-    const resolvedSeconds = Number.isFinite(timeoutSeconds) ? Math.max(timeoutSeconds, 0) : 5;
+    const resolvedSeconds = Number.isFinite(timeoutSeconds) ? Math.max(timeoutSeconds, 0) : 4; // TRIAL MERGE: align the auto-select window with the 4s snap requirement.
     this._modeCarouselAutoCloseMs = resolvedSeconds * 1000; // Milliseconds before the carousel auto-commits.
     // TRIAL MERGE: track the SVG-based carousel elements that live inside the dial rather than an HTML overlay.
     this._modeCarouselWrapper = null; // TRIAL MERGE: group that reveals the carousel items when the toggle opens.
@@ -2315,7 +2315,8 @@ export default class ThermostatUI {
           startX: event.clientX,
           spacing,
           baseIndex,
-          lastFractional: 0
+          lastFractional: 0,
+          lastRawShift: 0 // TRIAL MERGE: remember the total swipe distance so release logic can snap to the nearest card.
         };
         if (this._modeCarouselTrack.setPointerCapture && event.pointerId !== undefined) {
           try { this._modeCarouselTrack.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
@@ -2349,6 +2350,7 @@ export default class ThermostatUI {
         }
         const fractional = Math.max(Math.min(rawShift - roundedShift, 0.5), -0.5); // TRIAL MERGE: preserve a smooth drag offset while swiping.
         ctx.lastFractional = fractional;
+        ctx.lastRawShift = rawShift; // TRIAL MERGE: retain the raw shift so release snapping can consider partial drags.
         this._updateCarouselClasses(fractional);
         this._resetCarouselTimer();
         event.preventDefault();
@@ -2358,6 +2360,26 @@ export default class ThermostatUI {
         const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
         if (!ctx || ctx.pointerId !== pointerId) {
           return;
+        }
+        const total = Array.isArray(this._modeCarouselItems) ? this._modeCarouselItems.length : 0;
+        const baseIndex = total ? ((ctx.baseIndex % total) + total) % total : 0;
+        const rawShift = Number.isFinite(ctx.lastRawShift) ? ctx.lastRawShift : 0;
+        const snapThreshold = 0.18; // TRIAL MERGE: treat small drags as intent to change when the card nears the centre.
+        let targetShift = 0;
+        if (rawShift > snapThreshold) {
+          const rounded = Math.round(rawShift);
+          targetShift = Math.max(1, rounded);
+        } else if (rawShift < -snapThreshold) {
+          const rounded = Math.round(rawShift);
+          targetShift = Math.min(-1, rounded);
+        }
+        if (targetShift !== 0 && total > 0) {
+          let nextIndex = baseIndex - targetShift;
+          nextIndex %= total;
+          if (nextIndex < 0) {
+            nextIndex += total;
+          }
+          this._modeCarouselActiveIndex = nextIndex;
         }
         this._modeCarouselSwipeContext = null;
         if (event.pointerId !== undefined && this._modeCarouselTrack.releasePointerCapture) {
