@@ -3057,11 +3057,20 @@ export default class ThermostatUI {
       }
       const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
       this._modeCarouselManualOverride = true; // TRIAL MERGE: respect dial-driven navigation until a selection commits.
+      const baseRotation = Number.isFinite(this._ringRotation)
+        ? this._ringRotation
+        : this._computeRingRotationFromValue(
+          typeof this._target === 'number'
+            ? this._target
+            : (typeof this.ambient === 'number' ? this.ambient : this.min_value)
+        );
       this._modeCarouselDialContext = {
         pointerId,
         lastAngle: angle,
         accumulator: 0,
-        lastFractional: 0
+        lastFractional: 0,
+        baseRotation: Number.isFinite(baseRotation) ? baseRotation : 0,
+        visualRotation: Number.isFinite(baseRotation) ? baseRotation : 0
       };
       if (event.pointerId !== undefined && typeof event.currentTarget.setPointerCapture === 'function') {
         try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
@@ -3087,6 +3096,11 @@ export default class ThermostatUI {
         delta += 360;
       }
       ctx.accumulator += delta;
+      const inertia = 0.5; // TRIAL MERGE: mirror the dial's rotational sensitivity while swiping through the carousel.
+      const visualBase = Number.isFinite(ctx.visualRotation) ? ctx.visualRotation : ctx.baseRotation || 0;
+      ctx.visualRotation = visualBase + delta * inertia;
+      this._ringRotation = ctx.visualRotation;
+      this._applyRingRotation();
       ctx.lastAngle = angle;
       const threshold = 18;
       while (ctx.accumulator >= threshold) {
@@ -3108,6 +3122,15 @@ export default class ThermostatUI {
       const ctx = this._modeCarouselDialContext;
       const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
       if (ctx && ctx.pointerId === pointerId) {
+        const restoreRotation = Number.isFinite(ctx.baseRotation)
+          ? ctx.baseRotation
+          : this._computeRingRotationFromValue(
+            typeof this._target === 'number'
+              ? this._target
+              : (typeof this.ambient === 'number' ? this.ambient : this.min_value)
+          );
+        this._ringRotation = Number.isFinite(restoreRotation) ? restoreRotation : (this._ringRotation || 0);
+        this._applyRingRotation();
         this._modeCarouselDialContext = null;
         if (event.pointerId !== undefined && typeof event.currentTarget.releasePointerCapture === 'function') {
           try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
