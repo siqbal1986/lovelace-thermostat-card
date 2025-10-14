@@ -330,11 +330,18 @@ export default class ThermostatUI {
   _carouselIconPalette(option, gradientIds) {
     const mode = option && option.mode;
     const type = option && option.type;
-    if (type === 'preset') {
+    if (type === 'preset' || type === 'preset-mode') {
       return {
         glow: gradientIds.iconNeutralGlow,
         primary: gradientIds.iconNeutral,
         accent: '#f7faff'
+      };
+    }
+    if (type === 'fan-mode') {
+      return {
+        glow: gradientIds.iconNeutralGlow,
+        primary: gradientIds.iconNeutral,
+        accent: '#f3f8ff'
       };
     }
     switch (mode) {
@@ -667,12 +674,20 @@ export default class ThermostatUI {
       }
     };
     const mode = typeof option.mode === 'string' ? option.mode.toLowerCase() : '';
-    if (option.type === 'preset') {
-      const preset = typeof this.preset_mode === 'string' && this.preset_mode.length
-        ? this.preset_mode.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+    if (option.type === 'preset' || option.type === 'preset-mode') {
+      const basePreset = option.type === 'preset-mode'
+        ? (typeof option.mode === 'string' ? option.mode : '')
+        : this.preset_mode;
+      const preset = typeof basePreset === 'string' && basePreset.length
+        ? basePreset.toLowerCase().replace(/[^a-z0-9]+/g, '_')
         : 'none';
       include(`preset_${preset}`);
       include('preset_none');
+    } else if (option.type === 'fan-mode') {
+      const fanMode = typeof option.mode === 'string' ? option.mode : '';
+      const normalizedFan = fanMode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      include(`fan_${normalizedFan || 'mode'}`); // TRIAL MERGE: prefer fan-specific artwork like fan_auto.png.
+      include('fan');
     } else if (option.type === 'hvac') {
       switch (mode) {
         case 'cool':
@@ -1399,6 +1414,10 @@ export default class ThermostatUI {
       root.appendChild(glass);
       this._glassGroup = glass;
     }
+    this.preset_mode = null; // TRIAL MERGE: cache the active preset so the carousel can highlight preset options.
+    this.fan_mode = null; // TRIAL MERGE: remember the active fan mode for dedicated carousel items.
+    this.fan_modes = []; // TRIAL MERGE: list of supported fan modes advertised by the entity.
+
     this._root.addEventListener('pointerdown', this._handleDialPointerDown, { passive: false }); // Capture pointer events for drag interactions.
     this._root.addEventListener('pointermove', this._handleDialPointerMove);
     this._root.addEventListener('pointerup', this._handleDialPointerUp);
@@ -1421,6 +1440,8 @@ export default class ThermostatUI {
     this.hvac_state = options.hvac_state; // Remember the active HVAC mode.
     this.preset_mode = options.preset_mode; // Preset information is used to adjust colors/labels.
     this.hvac_modes = options.hvac_modes; // Provide the list of available modes to the dialog builder.
+    this.fan_mode = options.fan_mode; // TRIAL MERGE: capture the current fan mode for carousel highlighting.
+    this.fan_modes = Array.isArray(options.fan_modes) ? options.fan_modes : []; // TRIAL MERGE: normalize fan mode lists for carousel rendering.
     this.temperature = {
       low: options.target_temperature_low, // Populate the setter above which updates dual-mode flag.
       high: options.target_temperature_high,
@@ -2484,9 +2505,39 @@ export default class ThermostatUI {
     const presetModes = this.entity && this.entity.attributes && Array.isArray(this.entity.attributes.preset_modes)
       ? this.entity.attributes.preset_modes
       : [];
-    if (presetModes.length) {
+    if (presetModes.length || (typeof this.preset_mode === 'string' && this.preset_mode.length)) {
+      const presetMap = new Map();
+      presetModes.forEach((mode) => {
+        if (typeof mode === 'string' && mode.length) {
+          const key = mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+          if (!presetMap.has(key)) {
+            presetMap.set(key, mode);
+          }
+        }
+      });
+      if (typeof this.preset_mode === 'string' && this.preset_mode.length) {
+        const key = this.preset_mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        if (!presetMap.has(key)) {
+          presetMap.set(key, this.preset_mode);
+        }
+      }
       const prettyPreset = this.preset_mode ? this.preset_mode.replace(/_/g, ' ') : null;
       options.push({ mode: 'preset', label: prettyPreset ? `Preset (${prettyPreset})` : 'Preset', type: 'preset' });
+      const addPresetOption = (key, label) => {
+        const raw = presetMap.get(key);
+        if (!raw) {
+          return;
+        }
+        options.push({ mode: raw, label, type: 'preset-mode' });
+        presetMap.delete(key);
+      };
+      addPresetOption('away', 'Preset Away'); // TRIAL MERGE: surface explicit away/none presets when available.
+      addPresetOption('none', 'Preset None');
+      presetMap.forEach((raw, key) => {
+        const pretty = this._formatCarouselAssetLabel(key);
+        const fallbackLabel = pretty ? `Preset ${pretty}` : 'Preset';
+        options.push({ mode: raw, label: fallbackLabel, type: 'preset-mode' });
+      });
     }
 
     if (hvacSet.has('off')) {
@@ -2497,6 +2548,43 @@ export default class ThermostatUI {
     hvacSet.forEach((mode) => {
       options.push({ mode, label: mode.replace(/_/g, ' '), type: 'hvac' });
     });
+
+    const fanModesAttr = this.entity && this.entity.attributes && Array.isArray(this.entity.attributes.fan_modes)
+      ? this.entity.attributes.fan_modes
+      : (Array.isArray(this.fan_modes) ? this.fan_modes : []); // TRIAL MERGE: fall back to cached modes when dialog rebuilds mid-drag.
+    if (fanModesAttr.length || (typeof this.fan_mode === 'string' && this.fan_mode.length)) {
+      const fanMap = new Map();
+      fanModesAttr.forEach((mode) => {
+        if (typeof mode === 'string' && mode.length) {
+          const key = mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+          if (!fanMap.has(key)) {
+            fanMap.set(key, mode);
+          }
+        }
+      });
+      if (typeof this.fan_mode === 'string' && this.fan_mode.length) {
+        const key = this.fan_mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        if (!fanMap.has(key)) {
+          fanMap.set(key, this.fan_mode);
+        }
+      }
+      const addFanOption = (key, label) => {
+        const raw = fanMap.get(key);
+        if (!raw) {
+          return;
+        }
+        options.push({ mode: raw, label, type: 'fan-mode' });
+        fanMap.delete(key);
+      };
+      addFanOption('auto', 'Fan Auto'); // TRIAL MERGE: add dedicated fan mode controls to the carousel.
+      addFanOption('on', 'Fan On');
+      addFanOption('diffuse', 'Fan Diffuse');
+      fanMap.forEach((raw, key) => {
+        const pretty = this._formatCarouselAssetLabel(key);
+        const fallbackLabel = pretty ? `Fan ${pretty}` : 'Fan';
+        options.push({ mode: raw, label: fallbackLabel, type: 'fan-mode' });
+      });
+    }
 
     if (!options.length) {
       if (this._modeCarouselWrapper) {
@@ -2755,7 +2843,21 @@ export default class ThermostatUI {
     const hvacMode = this.hvac_state;
     let nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'hvac' && item.mode === hvacMode);
     if (nextIndex === -1 && this.preset_mode) {
-      nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'preset');
+      const presetKey = this.preset_mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const presetSpecific = this._modeCarouselItems.findIndex((item) => item.type === 'preset-mode'
+        && typeof item.mode === 'string'
+        && item.mode.toLowerCase().replace(/[^a-z0-9]+/g, '_') === presetKey);
+      if (presetSpecific !== -1) {
+        nextIndex = presetSpecific;
+      } else {
+        nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'preset');
+      }
+    }
+    if (nextIndex === -1 && this.fan_mode) {
+      const fanKey = this.fan_mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'fan-mode'
+        && typeof item.mode === 'string'
+        && item.mode.toLowerCase().replace(/[^a-z0-9]+/g, '_') === fanKey);
     }
     if (nextIndex === -1) {
       nextIndex = Math.min(Math.max(this._modeCarouselActiveIndex, 0), this._modeCarouselItems.length - 1);
@@ -3020,6 +3122,14 @@ export default class ThermostatUI {
     if (option.type === 'preset') {
       this._handlePresetSelection(triggerEvent);
       this._setModeMenuOpen(false);
+      return;
+    }
+    if (option.type === 'preset-mode') {
+      this._setPresetMode(triggerEvent, option.mode, this._lastHass);
+      return;
+    }
+    if (option.type === 'fan-mode') {
+      this._setFanMode(triggerEvent, option.mode, this._lastHass);
       return;
     }
     const hass = this._lastHass;
@@ -3343,6 +3453,49 @@ export default class ThermostatUI {
 
   openProp() {
     this._config.propWin(this.entity.entity_id)
+  }
+  _setPresetMode(event, mode, hass) { // TRIAL MERGE: helper to call Home Assistant's preset service from the carousel.
+    if (event && typeof event.stopPropagation === 'function') {
+      event.stopPropagation();
+    }
+    const preset = typeof mode === 'string' && mode.length ? mode : '';
+    const entityId = this._config && this._config.entity;
+    if (!preset || !hass || !entityId || typeof hass.callService !== 'function') {
+      this._setModeMenuOpen(false);
+      return;
+    }
+    try {
+      hass.callService('climate', 'set_preset_mode', {
+        entity_id: entityId,
+        preset_mode: preset,
+      });
+    } catch (_) { /* ignore */ }
+    this.preset_mode = preset;
+    this._updateColor(this.hvac_state, this.preset_mode);
+    this._updateCarouselActiveFromState();
+    this._updateCarouselClasses();
+    this._setModeMenuOpen(false);
+  }
+  _setFanMode(event, mode, hass) { // TRIAL MERGE: helper to change the fan mode directly from the carousel options.
+    if (event && typeof event.stopPropagation === 'function') {
+      event.stopPropagation();
+    }
+    const fanMode = typeof mode === 'string' && mode.length ? mode : '';
+    const entityId = this._config && this._config.entity;
+    if (!fanMode || !hass || !entityId || typeof hass.callService !== 'function') {
+      this._setModeMenuOpen(false);
+      return;
+    }
+    try {
+      hass.callService('climate', 'set_fan_mode', {
+        entity_id: entityId,
+        fan_mode: fanMode,
+      });
+    } catch (_) { /* ignore */ }
+    this.fan_mode = fanMode;
+    this._updateCarouselActiveFromState();
+    this._updateCarouselClasses();
+    this._setModeMenuOpen(false);
   }
   _setMode(e, mode, hass) {
     let config = this._config;
