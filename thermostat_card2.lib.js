@@ -1002,11 +1002,17 @@ export default class ThermostatUI {
     if (id == 'title') {
       lblTarget[0].textContent = value;
       lblTarget[1].textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: keep dial labels centered after title updates.
+      }
     }
     // Ensure correct glyph and clear fractional in dual edit mode
     if (this.in_control && id == 'target' && this.dual) {
       lblTarget[0].textContent = '·';
       lblTarget[1].textContent = '';
+    }
+    if (typeof this._scheduleDialTextLayout === 'function') {
+      this._scheduleDialTextLayout(); // TRIAL MERGE: realign dial labels after numeric updates.
     }
   }
 
@@ -2020,6 +2026,9 @@ if (!ThermostatUI.prototype.__textPatchedV2) {
     if (id === 'title') {
       if (main) main.textContent = value != null ? String(value) : '';
       if (sup) sup.textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: keep dial titles centered after updates.
+      }
       return;
     }
     const n = Number(value);
@@ -2038,6 +2047,9 @@ if (!ThermostatUI.prototype.__textPatchedV2) {
     if (this.in_control && id === 'target' && this.dual) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+    }
+    if (typeof this._scheduleDialTextLayout === 'function') {
+      this._scheduleDialTextLayout(); // TRIAL MERGE: realign dial labels after text updates.
     }
   };
   ThermostatUI.prototype._updateText = overrideUpdateText;
@@ -2060,11 +2072,17 @@ if (!ThermostatUI.prototype.__textPatchedV3) {
     if (id === 'title') {
       if (main) main.textContent = value != null ? String(value) : '';
       if (sup) sup.textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: keep dial titles centered after updates.
+      }
       return;
     }
     if (value === null || value === undefined) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: reapply layout when values clear out.
+      }
       return;
     }
     const n = Number(value);
@@ -2083,6 +2101,9 @@ if (!ThermostatUI.prototype.__textPatchedV3) {
     if (this.in_control && id === 'target' && this.dual) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+    }
+    if (typeof this._scheduleDialTextLayout === 'function') {
+      this._scheduleDialTextLayout(); // TRIAL MERGE: ensure dial text stays centered after updates.
     }
   };
   ThermostatUI.prototype._updateText = overrideUpdateTextV3;
