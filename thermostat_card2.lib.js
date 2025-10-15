@@ -26,6 +26,71 @@ export default class ThermostatUI {
       centerY,
     };
   }
+  _scheduleDialTextLayout() {
+    if (!this._dialTextNodes || this._dialTextNodes.size === 0) {
+      return; // TRIAL MERGE: nothing to position yet.
+    }
+    if (this._dialTextLayoutFrame !== null) {
+      return; // TRIAL MERGE: an alignment pass is already queued.
+    }
+    const scheduler = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (cb) => setTimeout(cb, 16);
+    this._dialTextLayoutFrame = scheduler(() => {
+      this._dialTextLayoutFrame = null;
+      this._applyDialTextLayout();
+    }); // TRIAL MERGE: defer until the dial size is measurable.
+  }
+  _applyDialTextLayout() {
+    if (!this._dialTextNodes || this._dialTextNodes.size === 0) {
+      return; // TRIAL MERGE: nothing to position.
+    }
+    const radius = this._resolveTextLayoutRadius();
+    if (!Number.isFinite(radius) || radius <= 0) {
+      this._scheduleDialTextLayout();
+      return; // TRIAL MERGE: retry when the dial reports a valid radius.
+    }
+    this._dialTextNodes.forEach(({ node, superscript, offset, superscriptExtra, isTitle }) => {
+      if (!node) {
+        return;
+      }
+      const baseOffset = Number.isFinite(offset) ? offset : 0;
+      node.setAttribute('x', radius + baseOffset);
+      node.setAttribute('y', isTitle ? radius - radius / 2 : radius);
+      if (superscript) {
+        const extra = Number.isFinite(superscriptExtra) ? superscriptExtra : 0;
+        const totalOffset = baseOffset + extra;
+        superscript.setAttribute('x', radius + radius / 3.1 + totalOffset);
+        superscript.setAttribute('y', radius - radius / 6);
+      }
+    });
+  }
+  _resolveTextLayoutRadius() {
+    const configRadius = Number(this._config && this._config.radius);
+    if (Number.isFinite(configRadius) && configRadius > 0) {
+      return configRadius; // TRIAL MERGE: prefer configured radius when available.
+    }
+    const root = this._root;
+    if (root && root.viewBox && root.viewBox.baseVal) {
+      const { width, height } = root.viewBox.baseVal;
+      if (width > 0 && height > 0) {
+        return Math.min(width, height) / 2; // TRIAL MERGE: infer radius from SVG metadata.
+      }
+    }
+    if (root && typeof root.getBoundingClientRect === 'function') {
+      const rect = root.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        return Math.min(rect.width, rect.height) / 2; // TRIAL MERGE: fallback to rendered size.
+      }
+    }
+    if (this._container && typeof this._container.getBoundingClientRect === 'function') {
+      const rect = this._container.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        return Math.min(rect.width, rect.height) / 2; // TRIAL MERGE: container bounds as a last resort.
+      }
+    }
+    return 0;
+  }
   _buildModeButton(radius) {
     const geometry = this._computeModeMenuGeometry(radius);
     const container = SvgUtil.createSVGElement('g', { class: 'mode-menu' });
@@ -207,6 +272,9 @@ export default class ThermostatUI {
     this._modeMenuItems = []; // Keep the individual list items handy so we can toggle active states.
     this._modeMenuGeometry = null; // Cache geometry for the toggle to support responsive layouts.
     this._modeMenuScale = 0; // Remember the most recent expansion state so transforms can be recomputed quickly.
+    this._dialTextNodes = new Map(); // TRIAL MERGE: cache dial labels so we can realign them when the SVG resizes.
+    this._dialTextLayoutFrame = null; // TRIAL MERGE: remember pending animation frame ids for deferred label positioning.
+    this._dialTextObserver = null; // TRIAL MERGE: resize observer used to trigger label realignment.
     this._metalRingIds = {
       gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'), // Unique IDs for CSS-only fallbacks (legacy support).
       sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
@@ -282,6 +350,16 @@ export default class ThermostatUI {
     this.c_body.appendChild(root); // Place the SVG inside the padded wrapper.
     this._container.appendChild(this.c_body); // Add the dial assembly to the main container.
     this._root = root; // Remember the SVG root for future queries and event handling.
+    if (typeof ResizeObserver === 'function') {
+      try {
+        if (this._dialTextObserver) this._dialTextObserver.disconnect();
+      } catch (_) { /* ignore cleanup errors */ }
+      this._dialTextObserver = new ResizeObserver(() => this._scheduleDialTextLayout()); // TRIAL MERGE: track resizes so dial labels stay centered.
+      try {
+        this._dialTextObserver.observe(root);
+      } catch (_) { /* ignore observer failures */ }
+    }
+    this._scheduleDialTextLayout(); // TRIAL MERGE: defer label positioning until the SVG has measurable bounds.
     // Add glass highlights and vignette on top for a realistic dome
     const glass = this._buildGlassOverlays(config.radius);
     if (glass) {
@@ -924,11 +1002,17 @@ export default class ThermostatUI {
     if (id == 'title') {
       lblTarget[0].textContent = value;
       lblTarget[1].textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: keep dial labels centered after title updates.
+      }
     }
     // Ensure correct glyph and clear fractional in dual edit mode
     if (this.in_control && id == 'target' && this.dual) {
       lblTarget[0].textContent = '·';
       lblTarget[1].textContent = '';
+    }
+    if (typeof this._scheduleDialTextLayout === 'function') {
+      this._scheduleDialTextLayout(); // TRIAL MERGE: realign dial labels after numeric updates.
     }
   }
 
@@ -1768,6 +1852,14 @@ export default class ThermostatUI {
     }); // Second span holds the fractional digit so it can be positioned like a superscript.
     target.appendChild(text);
     target.appendChild(superscript);
+    this._dialTextNodes.set(name, { // TRIAL MERGE: remember the layout metadata for responsive updates.
+      node: target,
+      superscript,
+      offset,
+      superscriptExtra: 0,
+      isTitle: name === 'title'
+    });
+    this._scheduleDialTextLayout(); // TRIAL MERGE: ensure labels realign once the SVG radius is measurable.
     return target;
   }
 
@@ -1934,6 +2026,9 @@ if (!ThermostatUI.prototype.__textPatchedV2) {
     if (id === 'title') {
       if (main) main.textContent = value != null ? String(value) : '';
       if (sup) sup.textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: keep dial titles centered after updates.
+      }
       return;
     }
     const n = Number(value);
@@ -1952,6 +2047,9 @@ if (!ThermostatUI.prototype.__textPatchedV2) {
     if (this.in_control && id === 'target' && this.dual) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+    }
+    if (typeof this._scheduleDialTextLayout === 'function') {
+      this._scheduleDialTextLayout(); // TRIAL MERGE: realign dial labels after text updates.
     }
   };
   ThermostatUI.prototype._updateText = overrideUpdateText;
@@ -1974,11 +2072,17 @@ if (!ThermostatUI.prototype.__textPatchedV3) {
     if (id === 'title') {
       if (main) main.textContent = value != null ? String(value) : '';
       if (sup) sup.textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: keep dial titles centered after updates.
+      }
       return;
     }
     if (value === null || value === undefined) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: reapply layout when values clear out.
+      }
       return;
     }
     const n = Number(value);
@@ -1997,6 +2101,9 @@ if (!ThermostatUI.prototype.__textPatchedV3) {
     if (this.in_control && id === 'target' && this.dual) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+    }
+    if (typeof this._scheduleDialTextLayout === 'function') {
+      this._scheduleDialTextLayout(); // TRIAL MERGE: ensure dial text stays centered after updates.
     }
   };
   ThermostatUI.prototype._updateText = overrideUpdateTextV3;

@@ -73,6 +73,77 @@ export default class ThermostatUI {
       this._updateCarouselStatusLayout(); // TRIAL MERGE: keep the preset/fan readouts centered with the toggle translation.
     }
   }
+  _scheduleDialTextLayout() {
+    if (!this._dialTextNodes || this._dialTextNodes.size === 0) {
+      return; // TRIAL MERGE: nothing to align yet so skip scheduling work.
+    }
+    if (this._dialTextLayoutFrame !== null) {
+      return; // TRIAL MERGE: an alignment frame is already queued.
+    }
+    const scheduler = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (cb) => setTimeout(cb, 16);
+    this._dialTextLayoutFrame = scheduler(() => {
+      this._dialTextLayoutFrame = null;
+      this._applyDialTextLayout();
+    }); // TRIAL MERGE: defer layout until the browser can measure the SVG dimensions.
+  }
+  _applyDialTextLayout() {
+    if (!this._dialTextNodes || this._dialTextNodes.size === 0) {
+      return; // TRIAL MERGE: nothing to position.
+    }
+    const radius = this._resolveTextLayoutRadius();
+    if (!Number.isFinite(radius) || radius <= 0) {
+      this._scheduleDialTextLayout();
+      return; // TRIAL MERGE: retry later when the dial has a measurable radius.
+    }
+    this._dialTextNodes.forEach(({ node, superscript, offset, superscriptExtra, isTitle }) => {
+      if (!node) {
+        return;
+      }
+      const baseOffset = Number.isFinite(offset) ? offset : 0;
+      node.setAttribute('x', radius + baseOffset);
+      node.setAttribute('y', isTitle ? radius - radius / 2 : radius);
+      if (superscript) {
+        const extra = Number.isFinite(superscriptExtra) ? superscriptExtra : 0;
+        const totalOffset = baseOffset + extra;
+        superscript.setAttribute('x', radius + radius / 3.1 + totalOffset);
+        superscript.setAttribute('y', radius - radius / 6);
+      }
+    });
+  }
+  _resolveTextLayoutRadius() {
+    if (typeof this._resolveDialRadius === 'function') {
+      const viaHelper = this._resolveDialRadius();
+      if (Number.isFinite(viaHelper) && viaHelper > 0) {
+        return viaHelper; // TRIAL MERGE: prefer the dial helper that already considers layered anchors.
+      }
+    }
+    const configRadius = Number(this._config && this._config.radius);
+    if (Number.isFinite(configRadius) && configRadius > 0) {
+      return configRadius; // TRIAL MERGE: fall back to configured radius if available.
+    }
+    const root = this._root;
+    if (root && root.viewBox && root.viewBox.baseVal) {
+      const { width, height } = root.viewBox.baseVal;
+      if (width > 0 && height > 0) {
+        return Math.min(width, height) / 2; // TRIAL MERGE: infer radius from the SVG viewBox.
+      }
+    }
+    if (root && typeof root.getBoundingClientRect === 'function') {
+      const rect = root.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        return Math.min(rect.width, rect.height) / 2; // TRIAL MERGE: final fallback uses the rendered size.
+      }
+    }
+    if (this._container && typeof this._container.getBoundingClientRect === 'function') {
+      const rect = this._container.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        return Math.min(rect.width, rect.height) / 2; // TRIAL MERGE: use container bounds when the SVG has not reported yet.
+      }
+    }
+    return 0;
+  }
   // TRIAL MERGE: allow optional backdrop skipping so the carousel toggle can share this builder without rendering extra discs.
   _buildModeButton(radius, options = {}) {
     const resolvedRadius = Number.isFinite(radius) && radius > 0 ? radius : this._resolveDialRadius(); // TRIAL MERGE: tolerate missing radius by falling back to live SVG metrics.
@@ -1394,6 +1465,9 @@ export default class ThermostatUI {
     this._modeCarouselDialContext = null; // Tracks dial rotation gestures while the carousel is open.
     this._modeCarouselDialHandlersAttached = false; // Ensure dial gesture listeners are only installed once.
     this._modeCarouselDialHandlers = null; // Store bound handlers so they can be removed when closing the carousel.
+    this._dialTextNodes = new Map(); // TRIAL MERGE: track dial label nodes so their anchors can be recomputed when layout shifts.
+    this._dialTextLayoutFrame = null; // TRIAL MERGE: remember an animation frame id while a dial text layout update is pending.
+    this._dialTextObserver = null; // TRIAL MERGE: resize observer handle that triggers dial text realignment when the SVG scales.
     this._metalRingIds = {
       gradient: SvgUtil.uniqueId('dial__metal-ring-gradient'), // Unique IDs for CSS-only fallbacks (legacy support).
       sheen: SvgUtil.uniqueId('dial__metal-ring-sheen'),
@@ -1469,6 +1543,16 @@ export default class ThermostatUI {
     this.c_body.appendChild(root); // Place the SVG inside the padded wrapper.
     this._container.appendChild(this.c_body); // Add the dial assembly to the main container.
     this._root = root; // Remember the SVG root for future queries and event handling.
+    if (typeof ResizeObserver === 'function') {
+      try {
+        if (this._dialTextObserver) this._dialTextObserver.disconnect();
+      } catch (_) { /* ignore cleanup errors */ }
+      this._dialTextObserver = new ResizeObserver(() => this._scheduleDialTextLayout()); // TRIAL MERGE: react to host resizes so text stays centered.
+      try {
+        this._dialTextObserver.observe(root);
+      } catch (_) { /* ignore observer failures */ }
+    }
+    this._scheduleDialTextLayout(); // TRIAL MERGE: defer text positioning until the SVG has a measurable radius.
     // Add glass highlights and vignette on top for a realistic dome
     const glass = this._buildGlassOverlays(config.radius);
     if (glass) {
@@ -2118,11 +2202,17 @@ export default class ThermostatUI {
     if (id == 'title') {
       lblTarget[0].textContent = value;
       lblTarget[1].textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: keep dial labels centered after title updates.
+      }
     }
     // Ensure correct glyph and clear fractional in dual edit mode
     if (this.in_control && id == 'target' && this.dual) {
       lblTarget[0].textContent = '·';
       lblTarget[1].textContent = '';
+    }
+    if (typeof this._scheduleDialTextLayout === 'function') {
+      this._scheduleDialTextLayout(); // TRIAL MERGE: realign dial labels after numeric updates.
     }
   }
 
@@ -2392,6 +2482,967 @@ export default class ThermostatUI {
     if (this._modeMenuList) {
       this._modeMenuList.style.display = 'none';
     }
+
+    if (!this._modeCarouselPointerHandlers && this._modeCarouselTrack) {
+      const pointerDown = (event) => {
+        if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+          return;
+        }
+        if (event.button !== undefined && event.button !== 0) {
+          return;
+        }
+        if (!Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+          return;
+        }
+        const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+        const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._resolveDialRadius());
+        const spacing = geometry && Number.isFinite(geometry.spacing) && geometry.spacing !== 0 ? geometry.spacing : 1;
+        const total = this._modeCarouselItems.length;
+        const baseIndex = total ? ((this._modeCarouselActiveIndex % total) + total) % total : 0; // TRIAL MERGE: normalize the starting index for swipe gestures.
+        this._modeCarouselManualOverride = true; // TRIAL MERGE: pause hass-driven snaps while the user is dragging.
+        this._modeCarouselSwipeContext = {
+          pointerId,
+          startX: event.clientX,
+          spacing,
+          baseIndex,
+          lastFractional: 0,
+          lastRawShift: 0 // TRIAL MERGE: remember the total swipe distance so release logic can snap to the nearest card.
+        };
+        if (this._modeCarouselTrack.setPointerCapture && event.pointerId !== undefined) {
+          try { this._modeCarouselTrack.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        }
+        event.preventDefault();
+        this._resetCarouselTimer();
+      };
+      const pointerMove = (event) => {
+        const ctx = this._modeCarouselSwipeContext;
+        const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+        if (!ctx || ctx.pointerId !== pointerId) {
+          return;
+        }
+        if (!Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+          return;
+        }
+        const spacing = ctx.spacing || 1;
+        const total = this._modeCarouselItems.length;
+        const deltaX = event.clientX - ctx.startX;
+        const rawShift = spacing ? deltaX / spacing : 0;
+        const roundedShift = Math.round(rawShift);
+        let nextIndex = ctx.baseIndex - roundedShift;
+        if (total > 0) {
+          nextIndex %= total;
+          if (nextIndex < 0) {
+            nextIndex += total;
+          }
+        }
+        if (this._modeCarouselActiveIndex !== nextIndex) {
+          this._modeCarouselActiveIndex = nextIndex;
+        }
+        const fractional = Math.max(Math.min(rawShift - roundedShift, 0.5), -0.5); // TRIAL MERGE: preserve a smooth drag offset while swiping.
+        ctx.lastFractional = fractional;
+        ctx.lastRawShift = rawShift; // TRIAL MERGE: retain the raw shift so release snapping can consider partial drags.
+        this._updateCarouselClasses(fractional);
+        this._resetCarouselTimer();
+        event.preventDefault();
+      };
+      const pointerUp = (event) => {
+        const ctx = this._modeCarouselSwipeContext;
+        const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+        if (!ctx || ctx.pointerId !== pointerId) {
+          return;
+        }
+        const total = Array.isArray(this._modeCarouselItems) ? this._modeCarouselItems.length : 0;
+        const baseIndex = total ? ((ctx.baseIndex % total) + total) % total : 0;
+        const rawShift = Number.isFinite(ctx.lastRawShift) ? ctx.lastRawShift : 0;
+        const snapThreshold = 0.18; // TRIAL MERGE: treat small drags as intent to change when the card nears the centre.
+        let targetShift = 0;
+        if (rawShift > snapThreshold) {
+          const rounded = Math.round(rawShift);
+          targetShift = Math.max(1, rounded);
+        } else if (rawShift < -snapThreshold) {
+          const rounded = Math.round(rawShift);
+          targetShift = Math.min(-1, rounded);
+        }
+        if (targetShift !== 0 && total > 0) {
+          let nextIndex = baseIndex - targetShift;
+          nextIndex %= total;
+          if (nextIndex < 0) {
+            nextIndex += total;
+          }
+          this._modeCarouselActiveIndex = nextIndex;
+        }
+        this._modeCarouselSwipeContext = null;
+        if (event.pointerId !== undefined && this._modeCarouselTrack.releasePointerCapture) {
+          try { this._modeCarouselTrack.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        }
+        this._updateCarouselClasses();
+        this._resetCarouselTimer();
+        event.preventDefault();
+      };
+      this._modeCarouselPointerHandlers = { pointerDown, pointerMove, pointerUp };
+      this._modeCarouselTrack.addEventListener('pointerdown', pointerDown, { passive: false, capture: true });
+      this._modeCarouselTrack.addEventListener('pointermove', pointerMove, { passive: false });
+      this._modeCarouselTrack.addEventListener('pointerup', pointerUp);
+      this._modeCarouselTrack.addEventListener('pointercancel', pointerUp);
+      this._modeCarouselTrack.addEventListener('mouseleave', pointerUp);
+    }
+
+    return wrapper;
+  }
+
+  // TRIAL MERGE: keep carousel DOM listeners tidy while the elements live inside the SVG hierarchy.
+  _destroyModeCarouselElements() {
+    if (this._modeCarouselPointerHandlers && this._modeCarouselTrack) {
+      const { pointerDown, pointerMove, pointerUp } = this._modeCarouselPointerHandlers;
+      try { this._modeCarouselTrack.removeEventListener('pointerdown', pointerDown, { capture: true }); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('pointermove', pointerMove); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('pointerup', pointerUp); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('pointercancel', pointerUp); } catch (_) { /* ignore */ }
+      try { this._modeCarouselTrack.removeEventListener('mouseleave', pointerUp); } catch (_) { /* ignore */ }
+    }
+    this._modeCarouselPointerHandlers = null;
+    this._modeCarouselSwipeContext = null;
+
+    if (this._modeCarouselTrack) {
+      try {
+        this._modeCarouselTrack.innerHTML = '';
+      } catch (_) {
+        while (this._modeCarouselTrack.firstChild) {
+          this._modeCarouselTrack.removeChild(this._modeCarouselTrack.firstChild);
+        }
+      }
+    }
+
+    if (this._modeCarouselWrapper) {
+      this._modeCarouselWrapper.setAttribute('aria-hidden', 'true');
+      if (this._modeCarouselWrapper.style) {
+        this._modeCarouselWrapper.style.pointerEvents = 'none';
+      }
+    }
+
+    this._modeCarouselItems = [];
+    this._modeCarouselManualOverride = false; // TRIAL MERGE: release manual steering once the carousel has been torn down.
+  }
+
+  _updateCarouselOptions(modes, hass) { // eslint-disable-line no-unused-vars
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    const track = this._modeCarouselTrack;
+    if (!track) {
+      return;
+    }
+    while (track.firstChild) {
+      track.removeChild(track.firstChild);
+    }
+    this._modeCarouselItems = [];
+
+    const hvacModes = Array.isArray(modes) ? modes.slice() : [];
+    const hvacSet = new Set(hvacModes);
+    if (typeof this.hvac_state === 'string' && this.hvac_state.length) {
+      hvacSet.add(this.hvac_state);
+    }
+
+    const baseOrder = [
+      { mode: 'heat', label: 'Heat', type: 'hvac' },
+      { mode: 'cool', label: 'Cool', type: 'hvac' },
+      { mode: 'auto', label: 'Auto', type: 'hvac' },
+      { mode: 'heat_cool', label: 'Heat · Cool', type: 'hvac' },
+      { mode: 'fan_only', label: 'Fan', type: 'hvac' },
+    ];
+
+    const options = [];
+    baseOrder.forEach((entry) => {
+      if (hvacSet.has(entry.mode)) {
+        options.push(entry);
+        hvacSet.delete(entry.mode);
+      }
+    });
+
+    const presetModes = this.entity && this.entity.attributes && Array.isArray(this.entity.attributes.preset_modes)
+      ? this.entity.attributes.preset_modes
+      : [];
+    if (presetModes.length || (typeof this.preset_mode === 'string' && this.preset_mode.length)) {
+      const presetMap = new Map();
+      const presetEntries = [];
+      presetModes.forEach((mode) => {
+        if (typeof mode === 'string' && mode.length) {
+          const key = this._normalizePresetKey(mode); // TRIAL MERGE: collapse duplicate preset spellings like "Preset Hold".
+          if (key && !presetMap.has(key)) {
+            presetMap.set(key, mode);
+          }
+        }
+      });
+      if (typeof this.preset_mode === 'string' && this.preset_mode.length) {
+        const key = this._normalizePresetKey(this.preset_mode); // TRIAL MERGE: normalize the active preset key as well.
+        if (key && !presetMap.has(key)) {
+          presetMap.set(key, this.preset_mode);
+        }
+      }
+      const prettyPreset = this.preset_mode ? this.preset_mode.replace(/_/g, ' ') : null;
+      const addPresetOption = (key, label) => {
+        const raw = presetMap.get(key);
+        if (!raw) {
+          return;
+        }
+        presetEntries.push({ mode: raw, label, type: 'preset-mode' });
+        presetMap.delete(key);
+      };
+      addPresetOption('away', 'Preset Away'); // TRIAL MERGE: surface explicit away/none presets when available.
+      addPresetOption('none', 'Preset None');
+      presetMap.forEach((raw, key) => {
+        const pretty = this._formatCarouselAssetLabel(key);
+        const fallbackLabel = pretty ? `Preset ${pretty}` : 'Preset';
+        presetEntries.push({ mode: raw, label: fallbackLabel, type: 'preset-mode' });
+      });
+      if (presetEntries.length) {
+        presetEntries.forEach((entry) => options.push(entry));
+      } else {
+        options.push({ mode: 'preset', label: prettyPreset ? `Preset (${prettyPreset})` : 'Preset', type: 'preset' });
+      }
+    }
+
+    if (hvacSet.has('off')) {
+      options.push({ mode: 'off', label: 'Off', type: 'hvac' });
+      hvacSet.delete('off');
+    }
+
+    hvacSet.forEach((mode) => {
+      options.push({ mode, label: mode.replace(/_/g, ' '), type: 'hvac' });
+    });
+
+    const fanModesAttr = this.entity && this.entity.attributes && Array.isArray(this.entity.attributes.fan_modes)
+      ? this.entity.attributes.fan_modes
+      : (Array.isArray(this.fan_modes) ? this.fan_modes : []); // TRIAL MERGE: fall back to cached modes when dialog rebuilds mid-drag.
+    if (fanModesAttr.length || (typeof this.fan_mode === 'string' && this.fan_mode.length)) {
+      const fanMap = new Map();
+      fanModesAttr.forEach((mode) => {
+        if (typeof mode === 'string' && mode.length) {
+          const key = mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+          if (!fanMap.has(key)) {
+            fanMap.set(key, mode);
+          }
+        }
+      });
+      if (typeof this.fan_mode === 'string' && this.fan_mode.length) {
+        const key = this.fan_mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        if (!fanMap.has(key)) {
+          fanMap.set(key, this.fan_mode);
+        }
+      }
+      const addFanOption = (key, label) => {
+        const raw = fanMap.get(key);
+        if (!raw) {
+          return;
+        }
+        options.push({ mode: raw, label, type: 'fan-mode' });
+        fanMap.delete(key);
+      };
+      addFanOption('auto', 'Fan Auto'); // TRIAL MERGE: add dedicated fan mode controls to the carousel.
+      addFanOption('on', 'Fan On');
+      addFanOption('diffuse', 'Fan Diffuse');
+      fanMap.forEach((raw, key) => {
+        const pretty = this._formatCarouselAssetLabel(key);
+        const fallbackLabel = pretty ? `Fan ${pretty}` : 'Fan';
+        options.push({ mode: raw, label: fallbackLabel, type: 'fan-mode' });
+      });
+    }
+
+    if (!options.length) {
+      if (this._modeCarouselWrapper) {
+        this._modeCarouselWrapper.setAttribute('aria-hidden', 'true');
+        this._modeCarouselWrapper.classList.remove('mode-carousel-svg--open');
+        if (this._modeMenuToggler) {
+          this._modeMenuToggler.classList.remove('mode-menu__toggler--hidden');
+        }
+        this._destroyModeCarouselElements();
+      }
+      return;
+    }
+
+    const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._resolveDialRadius()); // TRIAL MERGE: reuse fallback-aware radius when laying out carousel items.
+    const obeliskPath = this._carouselObeliskPath(geometry.itemWidth, geometry.itemHeight);
+    const facetPath = this._carouselFacetPath(geometry.itemWidth, geometry.itemHeight);
+    const reflectionPath = this._carouselReflectionPath(geometry.itemWidth, geometry.itemHeight);
+    const highlightPath = this._carouselHighlightPath(geometry.itemWidth, geometry.itemHeight);
+    const sparkPath = this._carouselSparkPath(geometry.itemWidth, geometry.itemHeight);
+    const gradientIds = this._modeCarouselGradientIds || {};
+
+    options.forEach((option, index) => {
+      const group = SvgUtil.createSVGElement('g', {
+        class: 'mode-carousel-svg__item',
+        tabindex: '0',
+        role: 'button',
+        'aria-label': `${option.label} mode`,
+        'data-mode': option.mode,
+        'data-type': option.type
+      });
+
+      const shadow = SvgUtil.createSVGElement('ellipse', {
+        // TRIAL MERGE: anchor each glass obelisk with a soft elliptical shadow.
+        class: 'mode-carousel-svg__shadow',
+        cx: 0,
+        cy: geometry.itemHeight * 0.48,
+        rx: geometry.itemWidth * 0.45,
+        ry: geometry.itemHeight * 0.12
+      });
+      if (gradientIds.shadow) {
+        shadow.setAttribute('fill', `url(#${gradientIds.shadow})`);
+      }
+      const glow = SvgUtil.createSVGElement('ellipse', {
+        class: 'mode-carousel-svg__base-glow',
+        cx: 0,
+        cy: geometry.itemHeight * 0.46,
+        rx: geometry.itemWidth * 0.38,
+        ry: geometry.itemHeight * 0.14
+      }); // TRIAL MERGE: luminous floor that anchors each glass obelisk.
+      if (gradientIds.baseGlow) {
+        glow.setAttribute('fill', `url(#${gradientIds.baseGlow})`);
+      }
+      const panel = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel',
+        d: obeliskPath
+      });
+      if (gradientIds.panelFace) {
+        panel.setAttribute('fill', `url(#${gradientIds.panelFace})`);
+      }
+      if (gradientIds.panelEdge) {
+        panel.setAttribute('stroke', `url(#${gradientIds.panelEdge})`);
+      }
+      panel.setAttribute('stroke-linejoin', 'round');
+      panel.setAttribute('stroke-linecap', 'round');
+      const panelInner = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-inner',
+        d: facetPath
+      });
+      if (gradientIds.panelInner) {
+        panelInner.setAttribute('fill', `url(#${gradientIds.panelInner})`);
+      }
+      panelInner.setAttribute('stroke', 'none');
+      const panelHighlight = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-highlight',
+        d: highlightPath
+      });
+      if (gradientIds.panelHighlight) {
+        panelHighlight.setAttribute('fill', `url(#${gradientIds.panelHighlight})`);
+      }
+      panelHighlight.setAttribute('stroke', 'none');
+      const panelCaustic = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-caustic',
+        d: this._carouselCausticPath(geometry.itemWidth, geometry.itemHeight)
+      });
+      if (gradientIds.panelCaustic) {
+        panelCaustic.setAttribute('fill', `url(#${gradientIds.panelCaustic})`);
+      }
+      panelCaustic.setAttribute('stroke', 'none');
+      const panelSheen = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-sheen',
+        d: sparkPath
+      });
+      if (gradientIds.panelSheen) {
+        panelSheen.setAttribute('fill', `url(#${gradientIds.panelSheen})`);
+      }
+      panelSheen.setAttribute('stroke', 'none');
+      const panelSpark = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-spark',
+        d: sparkPath
+      });
+      if (gradientIds.panelSpark) {
+        panelSpark.setAttribute('fill', `url(#${gradientIds.panelSpark})`);
+      }
+      panelSpark.setAttribute('stroke', 'none');
+      const panelReflection = SvgUtil.createSVGElement('path', {
+        class: 'mode-carousel-svg__panel-reflection',
+        d: reflectionPath
+      });
+      if (gradientIds.panelHighlight) {
+        panelReflection.setAttribute('fill', `url(#${gradientIds.panelHighlight})`);
+      }
+      panelReflection.setAttribute('stroke', 'none');
+      const configuredLabel = typeof option.label === 'string' && option.label.length
+        ? option.label
+        : '';
+      const fallbackLabel = this._formatCarouselAssetLabel(option.mode || '');
+      const defaultLabel = configuredLabel || fallbackLabel;
+      const iconGroup = this._buildCarouselIconGroup(option, geometry, gradientIds);
+      const visualHost = SvgUtil.createSVGElement('g', {
+        class: 'mode-carousel-svg__visual'
+      }); // TRIAL MERGE: container for either PNG artwork or SVG fallback glyphs.
+      if (iconGroup) {
+        iconGroup.classList.add('mode-carousel-svg__icon-fallback');
+        visualHost.appendChild(iconGroup);
+      }
+      const labelText = SvgUtil.createSVGElement('text', {
+        class: 'mode-carousel-svg__label',
+        x: '0',
+        y: String(geometry.itemHeight * 0.36),
+        'text-anchor': 'middle'
+      });
+      labelText.textContent = defaultLabel;
+      labelText.setAttribute('data-default-label', defaultLabel);
+
+      const assetCandidates = this._carouselImageCandidates(option);
+      if (assetCandidates && assetCandidates.length) {
+        // TRIAL MERGE: reuse the facet insets so PNG art hugs the glass window.
+        const facetMetrics = this._carouselFacetInsets(geometry.itemWidth, geometry.itemHeight);
+        const clipId = SvgUtil.uniqueId('mode-carousel-asset-clip'); // TRIAL MERGE: clip PNG assets to the facet outline to erase any border.
+        const clipPath = SvgUtil.createSVGElement('clipPath', {
+          id: clipId,
+          'clipPathUnits': 'userSpaceOnUse'
+        });
+        clipPath.appendChild(SvgUtil.createSVGElement('path', { d: facetPath }));
+        visualHost.appendChild(clipPath);
+        const baseImageWidth = Math.max(10, geometry.itemWidth - facetMetrics.insetX * 2);
+        const baseImageHeight = Math.max(10, geometry.itemHeight - (facetMetrics.insetTop + facetMetrics.insetBottom));
+        const assetScale = 1.3; // TRIAL MERGE: enlarge carousel PNGs by an additional 30% so they fully fill the glass opening.
+        const imageWidth = Math.max(10, baseImageWidth * assetScale);
+        const imageHeight = Math.max(10, baseImageHeight * assetScale);
+        const imageX = -imageWidth / 2;
+        const baseTop = -geometry.itemHeight / 2 + facetMetrics.insetTop;
+        const baseCenterY = baseTop + baseImageHeight / 2;
+        const imageY = baseCenterY - imageHeight / 2;
+        const attemptAsset = (index) => {
+          if (!assetCandidates[index]) {
+            if (iconGroup) {
+              iconGroup.style.display = '';
+            }
+            labelText.textContent = defaultLabel;
+            labelText.classList.remove('mode-carousel-svg__label--asset');
+            return;
+          }
+          const candidate = assetCandidates[index];
+          const image = SvgUtil.createSVGElement('image', {
+            class: 'mode-carousel-svg__image',
+            x: String(imageX),
+            y: String(imageY),
+            width: String(imageWidth),
+            height: String(imageHeight),
+            opacity: '0.7',
+            'clip-path': `url(#${clipId})`,
+            'preserveAspectRatio': 'xMidYMid slice'
+          });
+          try {
+            image.setAttributeNS('http://www.w3.org/1999/xlink', 'href', candidate.url);
+          } catch (_) {
+            // Ignore namespace errors when xlink is unavailable.
+          }
+          image.setAttribute('href', candidate.url);
+          image.addEventListener('load', () => {
+            if (iconGroup) {
+              iconGroup.style.display = 'none';
+            }
+            const assetLabel = this._formatCarouselAssetLabel(candidate.name);
+            const displayLabel = configuredLabel || assetLabel || fallbackLabel || defaultLabel;
+            labelText.textContent = displayLabel;
+            labelText.classList.add('mode-carousel-svg__label--asset');
+          }, { once: true });
+          image.addEventListener('error', () => {
+            if (image.parentNode) {
+              image.parentNode.removeChild(image);
+            }
+            if (iconGroup) {
+              iconGroup.style.display = '';
+            }
+            labelText.textContent = defaultLabel;
+            labelText.classList.remove('mode-carousel-svg__label--asset');
+            attemptAsset(index + 1);
+          }, { once: true });
+          visualHost.appendChild(image);
+        };
+        attemptAsset(0);
+      }
+
+      group.appendChild(shadow);
+      group.appendChild(glow);
+      group.appendChild(panel);
+      group.appendChild(panelInner);
+      group.appendChild(panelHighlight);
+      group.appendChild(panelCaustic);
+      group.appendChild(panelSheen);
+      group.appendChild(panelSpark);
+      group.appendChild(panelReflection);
+      group.appendChild(visualHost);
+      group.appendChild(labelText);
+
+      const activate = (event, fromKey = false) => {
+        event.stopPropagation();
+        this._modeCarouselActiveIndex = index;
+        this._updateCarouselClasses();
+        this._resetCarouselTimer();
+        this._commitCarouselSelection(fromKey ? 'item-key' : 'item', option, event);
+      };
+      group.addEventListener('click', (event) => activate(event, false));
+      group.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          activate(event, true);
+        }
+      });
+      group.addEventListener('pointerdown', (event) => event.stopPropagation());
+
+      track.appendChild(group);
+      this._modeCarouselItems.push({
+        element: group,
+        mode: option.mode,
+        type: option.type
+      });
+    });
+
+    const manualActive = this._modeCarouselManualOverride && this._modeMenuContainer && this._modeMenuContainer.classList.contains('menu-open');
+    if (!manualActive) {
+      this._updateCarouselActiveFromState();
+    } else if (this._modeCarouselItems.length) {
+      const clampedIndex = Math.min(Math.max(this._modeCarouselActiveIndex, 0), this._modeCarouselItems.length - 1);
+      this._modeCarouselActiveIndex = clampedIndex; // TRIAL MERGE: keep manual steering aligned with the rebuilt item list.
+    }
+    let fractional = 0; // TRIAL MERGE: keep swipe or dial drag offsets alive while the carousel options refresh.
+    if (manualActive) {
+      if (this._modeCarouselSwipeContext && Number.isFinite(this._modeCarouselSwipeContext.lastFractional)) {
+        fractional = this._modeCarouselSwipeContext.lastFractional;
+      } else if (this._modeCarouselDialContext && Number.isFinite(this._modeCarouselDialContext.lastFractional)) {
+        fractional = this._modeCarouselDialContext.lastFractional;
+      }
+    }
+    this._updateCarouselClasses(fractional);
+  }
+  // TRIAL MERGE: position and scale the preset/fan readouts so they track the toggle geometry.
+  _updateCarouselStatusLayout() {
+    if (!this._modeCarouselEnabled || !this._modeCarouselStatusGroup) {
+      return;
+    }
+    const geometry = this._ensureModeMenuGeometry();
+    if (!geometry || !Number.isFinite(geometry.centerX) || !Number.isFinite(geometry.centerY)) {
+      return;
+    }
+    const buttonRadius = geometry.buttonRadius || 0;
+    const verticalScale = 0.55; // TRIAL MERGE: raise the status clusters by another 20% so they sit level with the toggle's midline.
+    const baseY = geometry.centerY + buttonRadius * 1.6 * verticalScale;
+    this._modeCarouselStatusGroup.setAttribute('transform', `translate(${geometry.centerX}, ${baseY})`);
+
+    const sizeScale = 0.5; // TRIAL MERGE: shrink the preset/fan badges by 50% per review feedback.
+    const width = Math.max(buttonRadius * 2.6 * sizeScale, 32);
+    const height = Math.max(buttonRadius * 0.9 * sizeScale, 14);
+    const gap = Math.max(buttonRadius * 0.75 * sizeScale, 9);
+    const centerSpacing = width + gap;
+    const spacingScale = 1.56; // TRIAL MERGE: spread the preset/fan badges an additional 30% so they flank the toggle.
+    const labelFont = Math.max(buttonRadius * 0.28 * sizeScale, 5);
+    const valueFont = Math.max(buttonRadius * 0.36 * sizeScale, 6);
+    const labelOffset = height / 2 + Math.max(buttonRadius * 0.3 * sizeScale, 4);
+
+    const apply = (group, rect, label, value, direction) => {
+      if (group) {
+        const offset = direction * centerSpacing * spacingScale / 2;
+        group.setAttribute('transform', `translate(${offset}, 0)`);
+      }
+      if (rect) {
+        rect.setAttribute('x', `${-width / 2}`);
+        rect.setAttribute('y', `${-height / 2}`);
+        rect.setAttribute('width', `${width}`);
+        rect.setAttribute('height', `${height}`);
+        rect.setAttribute('rx', `${height * 0.42}`);
+        rect.setAttribute('ry', `${height * 0.42}`);
+      }
+      if (label) {
+        label.setAttribute('y', `${-labelOffset}`);
+        label.setAttribute('font-size', `${labelFont}`);
+      }
+      if (value) {
+        value.setAttribute('y', '0');
+        value.setAttribute('font-size', `${valueFont}`);
+      }
+    };
+
+    apply(this._modeCarouselPresetGroup, this._modeCarouselPresetBackdropNode, this._modeCarouselPresetLabelNode, this._modeCarouselPresetValueNode, -1);
+    apply(this._modeCarouselFanGroup, this._modeCarouselFanBackdropNode, this._modeCarouselFanLabelNode, this._modeCarouselFanValueNode, 1);
+  }
+  // TRIAL MERGE: refresh the preset/fan captions so they mirror the latest Home Assistant state.
+  _updateCarouselStatusText() {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    const format = (value) => {
+      if (typeof value !== 'string') {
+        return '—';
+      }
+      const trimmed = value.trim();
+      if (!trimmed.length) {
+        return '—';
+      }
+      const key = trimmed.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+      const pretty = this._formatCarouselAssetLabel(key);
+      return pretty.length ? pretty : trimmed;
+    };
+    if (this._modeCarouselPresetValueNode) {
+      this._modeCarouselPresetValueNode.textContent = format(this.preset_mode);
+    }
+    if (this._modeCarouselFanValueNode) {
+      this._modeCarouselFanValueNode.textContent = format(this.fan_mode);
+    }
+  }
+
+  _updateCarouselActiveFromState() {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      this._modeCarouselActiveIndex = 0;
+      return;
+    }
+    const hvacMode = this.hvac_state;
+    let nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'hvac' && item.mode === hvacMode);
+    if (nextIndex === -1 && this.preset_mode) {
+      const presetKey = this.preset_mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const presetSpecific = this._modeCarouselItems.findIndex((item) => item.type === 'preset-mode'
+        && typeof item.mode === 'string'
+        && item.mode.toLowerCase().replace(/[^a-z0-9]+/g, '_') === presetKey);
+      if (presetSpecific !== -1) {
+        nextIndex = presetSpecific;
+      } else {
+        nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'preset');
+      }
+    }
+    if (nextIndex === -1 && this.fan_mode) {
+      const fanKey = this.fan_mode.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'fan-mode'
+        && typeof item.mode === 'string'
+        && item.mode.toLowerCase().replace(/[^a-z0-9]+/g, '_') === fanKey);
+    }
+    if (nextIndex === -1) {
+      nextIndex = Math.min(Math.max(this._modeCarouselActiveIndex, 0), this._modeCarouselItems.length - 1);
+    }
+    this._modeCarouselActiveIndex = nextIndex;
+  }
+
+  _updateCarouselClasses(fractionalShift = 0) {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      return;
+    }
+    const total = this._modeCarouselItems.length;
+    const geometry = this._modeCarouselGeometry || this._computeCarouselGeometry(this._resolveDialRadius()); // TRIAL MERGE: keep carousel spacing stable even if the config radius is zero during updates.
+    const spacing = geometry.spacing;
+    const clampedShift = Number.isFinite(fractionalShift) ? Math.max(Math.min(fractionalShift, 0.5), -0.5) : 0;
+    this._modeCarouselItems.forEach((item, index) => {
+      const element = item.element;
+      if (!element) {
+        return;
+      }
+      element.classList.remove('mode-carousel-svg__item--active', 'mode-carousel-svg__item--prev', 'mode-carousel-svg__item--next', 'mode-carousel-svg__item--away');
+      element.removeAttribute('aria-current');
+      let offset = index - this._modeCarouselActiveIndex;
+      if (offset > total / 2) {
+        offset -= total;
+      } else if (offset < -total / 2) {
+        offset += total;
+      }
+      const renderOffset = offset + clampedShift; // TRIAL MERGE: allow fractional translations during swipe/drag gestures.
+      element.dataset.offset = String(offset);
+      const absOffset = Math.abs(offset);
+      const absRenderOffset = Math.abs(renderOffset);
+      const translateX = renderOffset * spacing;
+      let scale;
+      let opacity;
+      if (absRenderOffset <= 1) {
+        const eased = absRenderOffset; // TRIAL MERGE: interpolate between the centre (0) and adjacent card (1).
+        scale = 1 - 0.5 * eased;
+        opacity = 1 - 0.65 * eased;
+      } else if (absRenderOffset <= 2) {
+        const eased = absRenderOffset - 1; // TRIAL MERGE: continue easing toward the outer carousel positions.
+        scale = 0.5 - 0.2 * eased;
+        opacity = 0.35 - 0.2 * eased;
+      } else {
+        scale = 0.3;
+        opacity = 0.15;
+      }
+      scale = Math.max(Math.min(scale, 1), 0.1); // TRIAL MERGE: avoid degenerate transforms from rounding noise.
+      opacity = Math.max(Math.min(opacity, 1), 0);
+      element.setAttribute('transform', `translate(${translateX}, 0) scale(${scale})`);
+      element.style.opacity = opacity.toString();
+      element.style.pointerEvents = absOffset <= 1 ? 'auto' : 'none';
+      if (offset === 0) {
+        element.classList.add('mode-carousel-svg__item--active');
+        element.setAttribute('aria-current', 'true');
+      } else if (offset === -1 || (total > 2 && offset === total - 1)) {
+        element.classList.add('mode-carousel-svg__item--prev');
+      } else if (offset === 1 || (total > 2 && offset === -(total - 1))) {
+        element.classList.add('mode-carousel-svg__item--next');
+      } else {
+        element.classList.add('mode-carousel-svg__item--away');
+      }
+    });
+  }
+
+  _stepCarousel(direction) {
+    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      return;
+    }
+    this._modeCarouselManualOverride = true; // TRIAL MERGE: mark dial rotations as user-driven carousel steering.
+    const total = this._modeCarouselItems.length;
+    if (direction > 0) {
+      this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex + 1) % total;
+    } else if (direction < 0) {
+      this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex - 1 + total) % total;
+    }
+    this._updateCarouselClasses();
+    this._resetCarouselTimer();
+  }
+
+  _resetCarouselTimer() {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._clearCarouselTimer();
+    if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+      return;
+    }
+    if (!Number.isFinite(this._modeCarouselAutoCloseMs) || this._modeCarouselAutoCloseMs <= 0) {
+      return;
+    }
+    this._modeCarouselTimer = setTimeout(() => {
+      this._modeCarouselTimer = null;
+      this._commitCarouselSelection('timeout');
+    }, this._modeCarouselAutoCloseMs);
+  }
+
+  _clearCarouselTimer() {
+    if (this._modeCarouselTimer) {
+      clearTimeout(this._modeCarouselTimer);
+      this._modeCarouselTimer = null;
+    }
+  }
+
+  _toggleCarouselOpen(expanded) {
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    const wrapper = this._ensureModeCarouselElements();
+    if (!wrapper) {
+      return;
+    }
+    if (expanded) {
+      const renderModes = Array.isArray(this._modeCarouselPendingModes)
+        ? this._modeCarouselPendingModes
+        : (Array.isArray(this.hvac_modes) ? this.hvac_modes.slice() : []);
+      const renderHass = this._modeCarouselPendingHass || this._lastHass;
+      this._updateCarouselOptions(renderModes, renderHass);
+      wrapper.classList.add('mode-carousel-svg--open');
+      wrapper.setAttribute('aria-hidden', 'false');
+      if (wrapper.style) {
+        wrapper.style.pointerEvents = 'auto';
+      }
+      this._updateCarouselActiveFromState();
+      this._updateCarouselClasses();
+      this._resetCarouselTimer();
+      this._attachCarouselDialControls();
+    } else {
+      wrapper.classList.remove('mode-carousel-svg--open');
+      wrapper.setAttribute('aria-hidden', 'true');
+      if (wrapper.style) {
+        wrapper.style.pointerEvents = 'none';
+      }
+      this._clearCarouselTimer();
+      this._detachCarouselDialControls();
+      this._modeCarouselSwipeContext = null;
+      this._destroyModeCarouselElements();
+    }
+    if (expanded && this._modeMenuContainer && this._modeMenuContainer.appendChild) {
+      const toggleNode = this._modeMenuAnchor || this._modeMenuToggler;
+      if (toggleNode) {
+        this._modeMenuContainer.appendChild(toggleNode); // TRIAL MERGE: keep the toggle on top so it can close the carousel.
+      }
+      this._applyModeMenuTogglerTransform(); // TRIAL MERGE: immediately restore the toggle translation after reparenting.
+    }
+  }
+
+  _attachCarouselDialControls() {
+    if (!this._modeCarouselEnabled || this._modeCarouselDialHandlersAttached) {
+      return;
+    }
+    const target = this._root || this._modeCarouselWrapper;
+    if (!target) {
+      return;
+    }
+    const pointerDown = (event) => {
+      if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+        return;
+      }
+      if (event.button !== undefined && event.button !== 0) {
+        return;
+      }
+      const angle = this._pointerNormalizedAngle(event);
+      if (angle === null) {
+        return;
+      }
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      this._modeCarouselManualOverride = true; // TRIAL MERGE: respect dial-driven navigation until a selection commits.
+      const baseRotation = Number.isFinite(this._ringRotation)
+        ? this._ringRotation
+        : this._computeRingRotationFromValue(
+          typeof this._target === 'number'
+            ? this._target
+            : (typeof this.ambient === 'number' ? this.ambient : this.min_value)
+        );
+      this._modeCarouselDialContext = {
+        pointerId,
+        lastAngle: angle,
+        accumulator: 0,
+        lastFractional: 0,
+        baseRotation: Number.isFinite(baseRotation) ? baseRotation : 0,
+        visualRotation: Number.isFinite(baseRotation) ? baseRotation : 0
+      };
+      if (event.pointerId !== undefined && typeof event.currentTarget.setPointerCapture === 'function') {
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+      }
+      event.preventDefault();
+      event.stopPropagation(); // TRIAL MERGE: keep native dial handlers from swallowing carousel rotation gestures.
+      this._resetCarouselTimer();
+    };
+    const pointerMove = (event) => {
+      const ctx = this._modeCarouselDialContext;
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      if (!ctx || ctx.pointerId !== pointerId) {
+        return;
+      }
+      const angle = this._pointerNormalizedAngle(event);
+      if (angle === null) {
+        return;
+      }
+      let delta = angle - ctx.lastAngle;
+      if (delta > 180) {
+        delta -= 360;
+      } else if (delta < -180) {
+        delta += 360;
+      }
+      ctx.accumulator += delta;
+      const inertia = 0.5; // TRIAL MERGE: mirror the dial's rotational sensitivity while swiping through the carousel.
+      const visualBase = Number.isFinite(ctx.visualRotation) ? ctx.visualRotation : ctx.baseRotation || 0;
+      ctx.visualRotation = visualBase + delta * inertia;
+      this._ringRotation = ctx.visualRotation;
+      this._applyRingRotation();
+      ctx.lastAngle = angle;
+      const threshold = 18;
+      while (ctx.accumulator >= threshold) {
+        this._stepCarousel(-1);
+        ctx.accumulator -= threshold;
+      }
+      while (ctx.accumulator <= -threshold) {
+        this._stepCarousel(1);
+        ctx.accumulator += threshold;
+      }
+      const fractional = Math.max(Math.min(ctx.accumulator / threshold, 0.5), -0.5);
+      ctx.lastFractional = fractional;
+      this._updateCarouselClasses(fractional);
+      this._resetCarouselTimer();
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const pointerUp = (event) => {
+      const ctx = this._modeCarouselDialContext;
+      const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+      if (ctx && ctx.pointerId === pointerId) {
+        const restoreRotation = Number.isFinite(ctx.baseRotation)
+          ? ctx.baseRotation
+          : this._computeRingRotationFromValue(
+            typeof this._target === 'number'
+              ? this._target
+              : (typeof this.ambient === 'number' ? this.ambient : this.min_value)
+          );
+        this._ringRotation = Number.isFinite(restoreRotation) ? restoreRotation : (this._ringRotation || 0);
+        this._applyRingRotation();
+        this._modeCarouselDialContext = null;
+        if (event.pointerId !== undefined && typeof event.currentTarget.releasePointerCapture === 'function') {
+          try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+        }
+        this._updateCarouselClasses();
+      }
+      this._resetCarouselTimer();
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    target.addEventListener('pointerdown', pointerDown, { passive: false });
+    target.addEventListener('pointermove', pointerMove, { passive: false });
+    target.addEventListener('pointerup', pointerUp, { passive: false });
+    target.addEventListener('pointercancel', pointerUp, { passive: false });
+    target.addEventListener('lostpointercapture', pointerUp);
+    this._modeCarouselDialHandlersAttached = true;
+    this._modeCarouselDialHandlers = { pointerDown, pointerMove, pointerUp, target };
+  }
+
+  _detachCarouselDialControls() {
+    if (!this._modeCarouselDialHandlersAttached || !this._modeCarouselDialHandlers) {
+      this._modeCarouselDialContext = null;
+      return;
+    }
+    const { pointerDown, pointerMove, pointerUp, target } = this._modeCarouselDialHandlers;
+    if (target) {
+      target.removeEventListener('pointerdown', pointerDown);
+      target.removeEventListener('pointermove', pointerMove);
+      target.removeEventListener('pointerup', pointerUp);
+      target.removeEventListener('pointercancel', pointerUp);
+      target.removeEventListener('lostpointercapture', pointerUp);
+    }
+    this._modeCarouselDialHandlersAttached = false;
+    this._modeCarouselDialHandlers = null;
+    this._modeCarouselDialContext = null;
+  }
+
+  _commitCarouselSelection(source, option, triggerEvent) { // eslint-disable-line no-unused-vars
+    if (!this._modeCarouselEnabled) {
+      return;
+    }
+    this._clearCarouselTimer();
+    this._modeCarouselManualOverride = false; // TRIAL MERGE: hand control back to hass once a selection has been made.
+    if (!option) {
+      if (!Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+        this._setModeMenuOpen(false);
+        return;
+      }
+      option = this._modeCarouselItems[this._modeCarouselActiveIndex] || null;
+    }
+    if (!option) {
+      this._setModeMenuOpen(false);
+      return;
+    }
+    if (option.type === 'preset') {
+      this._handlePresetSelection(triggerEvent);
+      this._setModeMenuOpen(false);
+      return;
+    }
+    if (option.type === 'preset-mode') {
+      this._setPresetMode(triggerEvent, option.mode, this._lastHass);
+      return;
+    }
+    if (option.type === 'fan-mode') {
+      this._setFanMode(triggerEvent, option.mode, this._lastHass);
+      return;
+    }
+    const hass = this._lastHass;
+    if (hass) {
+      const event = triggerEvent || { stopPropagation() {} };
+      if (typeof event.stopPropagation !== 'function') {
+        event.stopPropagation = () => {};
+      }
+      this._setMode(event, option.mode, hass);
+    } else {
+      this._setModeMenuOpen(false);
+    }
+  }
+
+  _handlePresetSelection(triggerEvent) {
+    if (triggerEvent && typeof triggerEvent.stopPropagation === 'function') {
+      triggerEvent.stopPropagation();
+    }
+    if (typeof this._config.propWin === 'function' && this.entity && this.entity.entity_id) {
+      try {
+        this._config.propWin(this.entity.entity_id);
+      } catch (_) { /* ignore */ }
+    }
+  }
+  _buildCore(diameter) {
+
+    const root = SvgUtil.createSVGElement('svg', {
+      width: '100%',
+      height: '100%',
+      viewBox: '0 0 ' + diameter + ' ' + diameter,
+      class: 'dial' // CSS class that applies shadows, colors, and animations to the whole dial.
+    });
+    const defs = SvgUtil.createSVGElement('defs', {});
 
     if (!this._modeCarouselPointerHandlers && this._modeCarouselTrack) {
       const pointerDown = (event) => {
@@ -4350,23 +5401,34 @@ export default class ThermostatUI {
   }
 
   _buildText(radius, name, offset) {
+    const resolvedRadius = Number.isFinite(radius) && radius > 0 ? radius : this._resolveDialRadius(); // TRIAL MERGE: anchor text using the live dial radius so labels stay centered when config.radius is zero.
+    const baseOffset = Number.isFinite(offset) ? offset : 0; // TRIAL MERGE: normalise offsets so they still apply with the fallback radius.
     const target = SvgUtil.createSVGElement('text', {
-      x: radius + offset,
-      y: radius - (name == 'title' ? radius / 2 : 0),
+      x: resolvedRadius + baseOffset,
+      y: resolvedRadius - (name == 'title' ? resolvedRadius / 2 : 0),
       class: `dial__lbl dial__lbl--${name}`,
       id: name
     }); // Create the wrapper text node anchored relative to the dial center.
     const text = SvgUtil.createSVGElement('tspan', {
     }); // First span holds the main number or label.
     // hack
-    if (name == 'target' || name == 'ambient') offset += 20;
+    let superscriptOffset = baseOffset;
+    if (name == 'target' || name == 'ambient') superscriptOffset += 20;
     const superscript = SvgUtil.createSVGElement('tspan', {
-      x: radius + radius / 3.1 + offset,
-      y: radius - radius / 6,
+      x: resolvedRadius + resolvedRadius / 3.1 + superscriptOffset,
+      y: resolvedRadius - resolvedRadius / 6,
       class: `dial__lbl--super--${name}`
     }); // Second span holds the fractional digit so it can be positioned like a superscript.
     target.appendChild(text);
     target.appendChild(superscript);
+    this._dialTextNodes.set(name, { // TRIAL MERGE: remember layout metadata for later re-alignment passes.
+      node: target,
+      superscript,
+      offset: baseOffset,
+      superscriptExtra: superscriptOffset - baseOffset,
+      isTitle: name === 'title'
+    });
+    this._scheduleDialTextLayout(); // TRIAL MERGE: ensure newly created labels get realigned once the dial radius is measurable.
     return target;
   }
 
@@ -4538,6 +5600,9 @@ if (!ThermostatUI.prototype.__textPatchedV2) {
     if (id === 'title') {
       if (main) main.textContent = value != null ? String(value) : '';
       if (sup) sup.textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: keep dial titles centered after updates.
+      }
       return;
     }
     const n = Number(value);
@@ -4556,6 +5621,9 @@ if (!ThermostatUI.prototype.__textPatchedV2) {
     if (this.in_control && id === 'target' && this.dual) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+    }
+    if (typeof this._scheduleDialTextLayout === 'function') {
+      this._scheduleDialTextLayout(); // TRIAL MERGE: realign dial labels after text updates.
     }
   };
   ThermostatUI.prototype._updateText = overrideUpdateText;
@@ -4578,11 +5646,17 @@ if (!ThermostatUI.prototype.__textPatchedV3) {
     if (id === 'title') {
       if (main) main.textContent = value != null ? String(value) : '';
       if (sup) sup.textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: keep dial titles centered after updates.
+      }
       return;
     }
     if (value === null || value === undefined) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+      if (typeof this._scheduleDialTextLayout === 'function') {
+        this._scheduleDialTextLayout(); // TRIAL MERGE: reapply layout when values clear out.
+      }
       return;
     }
     const n = Number(value);
@@ -4601,6 +5675,9 @@ if (!ThermostatUI.prototype.__textPatchedV3) {
     if (this.in_control && id === 'target' && this.dual) {
       if (main) main.textContent = '';
       if (sup) sup.textContent = '';
+    }
+    if (typeof this._scheduleDialTextLayout === 'function') {
+      this._scheduleDialTextLayout(); // TRIAL MERGE: ensure dial text stays centered after updates.
     }
   };
   ThermostatUI.prototype._updateText = overrideUpdateTextV3;
