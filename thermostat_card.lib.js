@@ -238,8 +238,8 @@ export default class ThermostatUI {
     };
     const handleToggle = (event, fromKeyboard = false) => {
       const isOpen = container.classList.contains('menu-open');
-      if (typeof console !== 'undefined' && console.debug) {
-        console.debug('[ThermostatUI] Mode toggler activated', {
+      if (typeof console !== 'undefined' && console.log) {
+        console.log('[ThermostatUI] Mode toggler activated', {
           viaKeyboard: !!fromKeyboard,
           wasOpen: isOpen,
           carouselEnabled: !!this._modeCarouselEnabled,
@@ -1417,6 +1417,14 @@ export default class ThermostatUI {
     this._modeMenuGeometry = null; // Cache geometry for the toggle to support responsive layouts.
     this._modeMenuScale = 0; // Remember the most recent expansion state so transforms can be recomputed quickly.
     this._modeCarouselEnabled = config && config.mode_carousel_ui === true; // Flag for the experimental carousel UI.
+    if (typeof console !== 'undefined' && console.log) {
+      console.log('[ThermostatUI] Mode carousel configuration', {
+        mode_carousel_ui: this._modeCarouselEnabled,
+        mode_carousel_timeout: config && config.mode_carousel_timeout,
+        use_layered_anchors: !!(config && config.use_layered_anchors),
+        debug_layered_anchors: !!(config && config.debug_layered_anchors),
+      });
+    }
     const timeoutSeconds = Number(config && config.mode_carousel_timeout);
     const resolvedSeconds = Number.isFinite(timeoutSeconds) ? Math.max(timeoutSeconds, 0) : 4; // TRIAL MERGE: align the auto-select window with the 4s snap requirement.
     this._modeCarouselAutoCloseMs = resolvedSeconds * 1000; // Milliseconds before the carousel auto-commits.
@@ -1934,8 +1942,8 @@ export default class ThermostatUI {
     }
     const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
     this._modeCarouselManualOverride = true;
-    if (typeof console !== 'undefined' && console.debug) {
-      console.debug('[ThermostatUI] Carousel dial pointerdown', {
+    if (typeof console !== 'undefined' && console.log) {
+      console.log('[ThermostatUI] Carousel dial pointerdown', {
         pointerId,
         carouselActive: true,
         itemCount: Array.isArray(this._modeCarouselItems) ? this._modeCarouselItems.length : 0,
