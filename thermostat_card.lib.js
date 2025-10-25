@@ -238,6 +238,14 @@ export default class ThermostatUI {
     };
     const handleToggle = (event, fromKeyboard = false) => {
       const isOpen = container.classList.contains('menu-open');
+      if (typeof console !== 'undefined' && console.debug) {
+        console.debug('[ThermostatUI] Mode toggler activated', {
+          viaKeyboard: !!fromKeyboard,
+          wasOpen: isOpen,
+          carouselEnabled: !!this._modeCarouselEnabled,
+          unifiedDial: !!this._modeCarouselUseUnifiedDial,
+        });
+      }
       if (this._modeCarouselEnabled && isOpen) {
         this._commitCarouselSelection(fromKeyboard ? 'toggler-key' : 'toggler', null, event);
         return;
@@ -1926,6 +1934,14 @@ export default class ThermostatUI {
     }
     const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
     this._modeCarouselManualOverride = true;
+    if (typeof console !== 'undefined' && console.debug) {
+      console.debug('[ThermostatUI] Carousel dial pointerdown', {
+        pointerId,
+        carouselActive: true,
+        itemCount: Array.isArray(this._modeCarouselItems) ? this._modeCarouselItems.length : 0,
+        unifiedDial: !!this._modeCarouselUseUnifiedDial,
+      });
+    }
     const baseRotation = Number.isFinite(this._ringRotation)
       ? this._ringRotation
       : this._computeRingRotationFromValue(
