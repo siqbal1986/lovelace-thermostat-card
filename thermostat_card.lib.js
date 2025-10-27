@@ -4311,64 +4311,13 @@ export default class ThermostatUI {
         element.classList.add('mode-carousel-svg__item--away');
       }
     });
-
-    this._updateCarouselActiveFromState();
-    this._updateCarouselClasses();
-    this._positionModeCarousel();
-  }
-
-  _updateCarouselActiveFromState() {
-    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
-      this._modeCarouselActiveIndex = 0;
-      return;
-    }
-    const hvacMode = this.hvac_state;
-    let nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'hvac' && item.mode === hvacMode);
-    if (nextIndex === -1 && this.preset_mode) {
-      nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'preset');
-    }
-    if (nextIndex === -1) {
-      nextIndex = Math.min(Math.max(this._modeCarouselActiveIndex, 0), this._modeCarouselItems.length - 1);
-    }
-    this._modeCarouselActiveIndex = nextIndex;
-  }
-
-  _updateCarouselClasses() {
-    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
-      return;
-    }
-    const total = this._modeCarouselItems.length;
-    this._modeCarouselItems.forEach((item, index) => {
-      const element = item.element;
-      if (!element) {
-        return;
-      }
-      element.classList.remove('mode-carousel__item--active', 'mode-carousel__item--prev', 'mode-carousel__item--next', 'mode-carousel__item--away');
-      element.removeAttribute('aria-current');
-      let offset = index - this._modeCarouselActiveIndex;
-      if (offset > total / 2) {
-        offset -= total;
-      } else if (offset < -total / 2) {
-        offset += total;
-      }
-      element.dataset.offset = String(offset);
-      if (offset === 0) {
-        element.classList.add('mode-carousel__item--active');
-        element.setAttribute('aria-current', 'true');
-      } else if (offset === -1 || (total > 2 && offset === total - 1)) {
-        element.classList.add('mode-carousel__item--prev');
-      } else if (offset === 1 || (total > 2 && offset === -(total - 1))) {
-        element.classList.add('mode-carousel__item--next');
-      } else {
-        element.classList.add('mode-carousel__item--away');
-      }
-    });
   }
 
   _stepCarousel(direction) {
     if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
       return;
     }
+    this._modeCarouselManualOverride = true; // TRIAL MERGE: mark dial rotations as user-driven carousel steering.
     const total = this._modeCarouselItems.length;
     if (direction > 0) {
       this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex + 1) % total;
