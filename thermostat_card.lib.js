@@ -238,6 +238,14 @@ export default class ThermostatUI {
     };
     const handleToggle = (event, fromKeyboard = false) => {
       const isOpen = container.classList.contains('menu-open');
+      if (typeof console !== 'undefined' && console.log) {
+        console.log('[ThermostatUI] Mode toggler activated', {
+          viaKeyboard: !!fromKeyboard,
+          wasOpen: isOpen,
+          carouselEnabled: !!this._modeCarouselEnabled,
+          unifiedDial: !!this._modeCarouselUseUnifiedDial,
+        });
+      }
       if (this._modeCarouselEnabled && isOpen) {
         this._commitCarouselSelection(fromKeyboard ? 'toggler-key' : 'toggler', null, event);
         return;
@@ -1409,6 +1417,14 @@ export default class ThermostatUI {
     this._modeMenuGeometry = null; // Cache geometry for the toggle to support responsive layouts.
     this._modeMenuScale = 0; // Remember the most recent expansion state so transforms can be recomputed quickly.
     this._modeCarouselEnabled = config && config.mode_carousel_ui === true; // Flag for the experimental carousel UI.
+    if (typeof console !== 'undefined' && console.log) {
+      console.log('[ThermostatUI] Mode carousel configuration', {
+        mode_carousel_ui: this._modeCarouselEnabled,
+        mode_carousel_timeout: config && config.mode_carousel_timeout,
+        use_layered_anchors: !!(config && config.use_layered_anchors),
+        debug_layered_anchors: !!(config && config.debug_layered_anchors),
+      });
+    }
     const timeoutSeconds = Number(config && config.mode_carousel_timeout);
     const resolvedSeconds = Number.isFinite(timeoutSeconds) ? Math.max(timeoutSeconds, 0) : 4; // TRIAL MERGE: align the auto-select window with the 4s snap requirement.
     this._modeCarouselAutoCloseMs = resolvedSeconds * 1000; // Milliseconds before the carousel auto-commits.
@@ -1460,6 +1476,7 @@ export default class ThermostatUI {
     this._modeCarouselPendingHass = null; // Last Home Assistant reference paired with the pending modes.
     this._modeCarouselActiveIndex = 0; // Index of the option currently centered in the carousel.
     this._modeCarouselTimer = null; // Timeout handle for automatic close-and-commit.
+    this._modeCarouselUseUnifiedDial = true; // TRIAL MERGE: steer carousel gestures through the primary dial handlers.
     this._modeCarouselSwipeContext = null; // Tracks swipe gestures on the carousel itself.
     this._modeCarouselPointerHandlers = null; // Cached pointer handler references for swipe gestures.
     this._modeCarouselDialContext = null; // Tracks dial rotation gestures while the carousel is open.
@@ -1884,8 +1901,159 @@ export default class ThermostatUI {
     }, delay);
   }
 
+  _isCarouselDialActive() {
+    if (!this._modeCarouselEnabled || !this._modeCarouselUseUnifiedDial) {
+      return false;
+    }
+    if (!this._modeMenuContainer || !this._modeMenuContainer.classList.contains('menu-open')) {
+      return false;
+    }
+    const wrapper = this._modeCarouselWrapper;
+    if (!wrapper) {
+      return false;
+    }
+    if (wrapper.getAttribute && wrapper.getAttribute('aria-hidden') === 'true') {
+      return false;
+    }
+    if (wrapper.classList) {
+      if (wrapper.classList.contains('mode-carousel-svg--open') || wrapper.classList.contains('mode-carousel--open')) {
+        return true;
+      }
+    }
+    if (wrapper.style && wrapper.style.pointerEvents === 'none') {
+      return false;
+    }
+    return true;
+  }
+
+  _handleCarouselDialPointerDown(event) {
+    if (!this._isCarouselDialActive()) {
+      return false;
+    }
+    if (event.button !== undefined && event.button !== 0) {
+      return false;
+    }
+    if (!Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
+      return false;
+    }
+    const angle = this._pointerNormalizedAngle(event);
+    if (angle === null) {
+      return false;
+    }
+    const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+    this._modeCarouselManualOverride = true;
+    if (typeof console !== 'undefined' && console.log) {
+      console.log('[ThermostatUI] Carousel dial pointerdown', {
+        pointerId,
+        carouselActive: true,
+        itemCount: Array.isArray(this._modeCarouselItems) ? this._modeCarouselItems.length : 0,
+        unifiedDial: !!this._modeCarouselUseUnifiedDial,
+      });
+    }
+    const baseRotation = Number.isFinite(this._ringRotation)
+      ? this._ringRotation
+      : this._computeRingRotationFromValue(
+        typeof this._target === 'number'
+          ? this._target
+          : (typeof this.ambient === 'number' ? this.ambient : this.min_value)
+      );
+    const captureTarget = this._root || (event.currentTarget && typeof event.currentTarget.setPointerCapture === 'function' ? event.currentTarget : null);
+    if (captureTarget && event.pointerId !== undefined && typeof captureTarget.setPointerCapture === 'function') {
+      try { captureTarget.setPointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+    }
+    this._modeCarouselDialContext = {
+      pointerId,
+      lastAngle: angle,
+      accumulator: 0,
+      lastFractional: 0,
+      baseRotation: Number.isFinite(baseRotation) ? baseRotation : 0,
+      visualRotation: Number.isFinite(baseRotation) ? baseRotation : 0,
+      captureTarget
+    };
+    this._resetCarouselTimer();
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
+  }
+
+  _handleCarouselDialPointerMove(event) {
+    const ctx = this._modeCarouselDialContext;
+    if (!ctx) {
+      return false;
+    }
+    const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+    if (ctx.pointerId !== pointerId) {
+      return false;
+    }
+    const angle = this._pointerNormalizedAngle(event);
+    if (angle === null) {
+      return true;
+    }
+    let delta = angle - ctx.lastAngle;
+    if (delta > 180) {
+      delta -= 360;
+    } else if (delta < -180) {
+      delta += 360;
+    }
+    ctx.accumulator += delta;
+    const inertia = 0.5;
+    const visualBase = Number.isFinite(ctx.visualRotation) ? ctx.visualRotation : ctx.baseRotation || 0;
+    ctx.visualRotation = visualBase + delta * inertia;
+    this._ringRotation = ctx.visualRotation;
+    this._applyRingRotation();
+    ctx.lastAngle = angle;
+    const threshold = 18;
+    while (ctx.accumulator >= threshold) {
+      this._stepCarousel(-1);
+      ctx.accumulator -= threshold;
+    }
+    while (ctx.accumulator <= -threshold) {
+      this._stepCarousel(1);
+      ctx.accumulator += threshold;
+    }
+    const fractional = Math.max(Math.min(ctx.accumulator / threshold, 0.5), -0.5);
+    ctx.lastFractional = fractional;
+    this._updateCarouselClasses(fractional);
+    this._resetCarouselTimer();
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
+  }
+
+  _handleCarouselDialPointerUp(event) {
+    const ctx = this._modeCarouselDialContext;
+    if (!ctx) {
+      return false;
+    }
+    const pointerId = event.pointerId !== undefined ? event.pointerId : 'mouse';
+    if (ctx.pointerId !== pointerId) {
+      return false;
+    }
+    const restoreRotation = Number.isFinite(ctx.baseRotation)
+      ? ctx.baseRotation
+      : this._computeRingRotationFromValue(
+        typeof this._target === 'number'
+          ? this._target
+          : (typeof this.ambient === 'number' ? this.ambient : this.min_value)
+      );
+    this._ringRotation = Number.isFinite(restoreRotation) ? restoreRotation : (this._ringRotation || 0);
+    this._applyRingRotation();
+    if (ctx.captureTarget && event.pointerId !== undefined && typeof ctx.captureTarget.releasePointerCapture === 'function') {
+      try { ctx.captureTarget.releasePointerCapture(event.pointerId); } catch (_) { /* ignore */ }
+    }
+    this._modeCarouselDialContext = null;
+    this._updateCarouselClasses();
+    this._resetCarouselTimer();
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
+  }
+
   _handleDialPointerDown(event) {
     if (event.button !== undefined && event.button !== 0) {
+      return;
+    }
+    if (this._handleCarouselDialPointerDown(event)) {
       return;
     }
     if (this._dragDisabled) {
@@ -1934,6 +2102,9 @@ export default class ThermostatUI {
   }
 
   _handleDialPointerMove(event) {
+    if (this._handleCarouselDialPointerMove(event)) {
+      return;
+    }
     if (!this._dragContext) {
       return;
     }
@@ -1947,6 +2118,9 @@ export default class ThermostatUI {
   }
 
   _handleDialPointerUp(event) {
+    if (this._handleCarouselDialPointerUp(event)) {
+      return;
+    }
     if (!this._dragContext) {
       return;
     }
@@ -3251,6 +3425,11 @@ export default class ThermostatUI {
   }
 
   _attachCarouselDialControls() {
+    if (this._modeCarouselUseUnifiedDial) {
+      this._modeCarouselDialHandlersAttached = true;
+      this._modeCarouselDialContext = null;
+      return;
+    }
     if (!this._modeCarouselEnabled || this._modeCarouselDialHandlersAttached) {
       return;
     }
@@ -3365,6 +3544,11 @@ export default class ThermostatUI {
   }
 
   _detachCarouselDialControls() {
+    if (this._modeCarouselUseUnifiedDial) {
+      this._modeCarouselDialHandlersAttached = false;
+      this._modeCarouselDialContext = null;
+      return;
+    }
     if (!this._modeCarouselDialHandlersAttached || !this._modeCarouselDialHandlers) {
       this._modeCarouselDialContext = null;
       return;
@@ -4127,64 +4311,13 @@ export default class ThermostatUI {
         element.classList.add('mode-carousel-svg__item--away');
       }
     });
-
-    this._updateCarouselActiveFromState();
-    this._updateCarouselClasses();
-    this._positionModeCarousel();
-  }
-
-  _updateCarouselActiveFromState() {
-    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
-      this._modeCarouselActiveIndex = 0;
-      return;
-    }
-    const hvacMode = this.hvac_state;
-    let nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'hvac' && item.mode === hvacMode);
-    if (nextIndex === -1 && this.preset_mode) {
-      nextIndex = this._modeCarouselItems.findIndex((item) => item.type === 'preset');
-    }
-    if (nextIndex === -1) {
-      nextIndex = Math.min(Math.max(this._modeCarouselActiveIndex, 0), this._modeCarouselItems.length - 1);
-    }
-    this._modeCarouselActiveIndex = nextIndex;
-  }
-
-  _updateCarouselClasses() {
-    if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
-      return;
-    }
-    const total = this._modeCarouselItems.length;
-    this._modeCarouselItems.forEach((item, index) => {
-      const element = item.element;
-      if (!element) {
-        return;
-      }
-      element.classList.remove('mode-carousel__item--active', 'mode-carousel__item--prev', 'mode-carousel__item--next', 'mode-carousel__item--away');
-      element.removeAttribute('aria-current');
-      let offset = index - this._modeCarouselActiveIndex;
-      if (offset > total / 2) {
-        offset -= total;
-      } else if (offset < -total / 2) {
-        offset += total;
-      }
-      element.dataset.offset = String(offset);
-      if (offset === 0) {
-        element.classList.add('mode-carousel__item--active');
-        element.setAttribute('aria-current', 'true');
-      } else if (offset === -1 || (total > 2 && offset === total - 1)) {
-        element.classList.add('mode-carousel__item--prev');
-      } else if (offset === 1 || (total > 2 && offset === -(total - 1))) {
-        element.classList.add('mode-carousel__item--next');
-      } else {
-        element.classList.add('mode-carousel__item--away');
-      }
-    });
   }
 
   _stepCarousel(direction) {
     if (!this._modeCarouselEnabled || !Array.isArray(this._modeCarouselItems) || !this._modeCarouselItems.length) {
       return;
     }
+    this._modeCarouselManualOverride = true; // TRIAL MERGE: mark dial rotations as user-driven carousel steering.
     const total = this._modeCarouselItems.length;
     if (direction > 0) {
       this._modeCarouselActiveIndex = (this._modeCarouselActiveIndex + 1) % total;
@@ -4248,6 +4381,11 @@ export default class ThermostatUI {
   }
 
   _attachCarouselDialControls() {
+    if (this._modeCarouselUseUnifiedDial) {
+      this._modeCarouselDialHandlersAttached = true;
+      this._modeCarouselDialContext = null;
+      return;
+    }
     if (!this._modeCarouselEnabled || this._modeCarouselDialHandlersAttached) {
       return;
     }
@@ -4326,6 +4464,11 @@ export default class ThermostatUI {
   }
 
   _detachCarouselDialControls() {
+    if (this._modeCarouselUseUnifiedDial) {
+      this._modeCarouselDialHandlersAttached = false;
+      this._modeCarouselDialContext = null;
+      return;
+    }
     if (!this._modeCarouselDialHandlersAttached || !this._modeCarouselDialHandlers) {
       this._modeCarouselDialContext = null;
       return;
@@ -4470,6 +4613,11 @@ export default class ThermostatUI {
   }
 
   _attachCarouselDialControls() {
+    if (this._modeCarouselUseUnifiedDial) {
+      this._modeCarouselDialHandlersAttached = true;
+      this._modeCarouselDialContext = null;
+      return;
+    }
     if (!this._modeCarouselEnabled || this._modeCarouselDialHandlersAttached) {
       return;
     }
@@ -4584,6 +4732,11 @@ export default class ThermostatUI {
   }
 
   _detachCarouselDialControls() {
+    if (this._modeCarouselUseUnifiedDial) {
+      this._modeCarouselDialHandlersAttached = false;
+      this._modeCarouselDialContext = null;
+      return;
+    }
     if (!this._modeCarouselDialHandlersAttached || !this._modeCarouselDialHandlers) {
       this._modeCarouselDialContext = null;
       return;

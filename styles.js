@@ -857,7 +857,7 @@ export function cssData(user) {
   }
   .mode-carousel-svg__items{
     pointer-events: auto;
-    touch-action: pan-y;
+    touch-action: none;
   }
   .mode-carousel-svg__item{
     cursor: pointer;
