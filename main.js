@@ -75,10 +75,11 @@ class ThermostatCard extends HTMLElement {
     try {
       if (!this._userProvidedStep) {
         const entStep = Number(entity.attributes && entity.attributes.target_temp_step);
-        if (Number.isFinite(entStep) && entStep > 0 && this._config.step !== entStep) {
-          this._config.step = entStep;
+        const nextStep = Number.isFinite(entStep) && entStep > 0 ? Math.max(1, entStep) : 1;
+        if (this._config.step !== nextStep) {
+          this._config.step = nextStep;
           if (this.thermostat && this.thermostat._config) {
-            this.thermostat._config.step = entStep;
+            this.thermostat._config.step = nextStep;
           }
         }
       }
@@ -238,7 +239,7 @@ class ThermostatCard extends HTMLElement {
     // Track whether user explicitly provided common options
     this._userProvidedStep = Object.prototype.hasOwnProperty.call(rawConfig, 'step');
     cardConfig.userTitleProvided = Object.prototype.hasOwnProperty.call(rawConfig, 'title');
-    if (!cardConfig.step) cardConfig.step = 0.5;
+    if (!cardConfig.step) cardConfig.step = 1;
     if (!cardConfig.highlight_tap) cardConfig.highlight_tap = false;
     if (!cardConfig.no_card) cardConfig.no_card = false;
     if (!cardConfig.chevron_size) cardConfig.chevron_size = 34;

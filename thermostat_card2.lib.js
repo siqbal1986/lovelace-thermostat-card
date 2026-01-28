@@ -8,6 +8,25 @@ export default class ThermostatUI {
   get container() {
     return this._container // Expose the main DOM node so the card can insert it into the shadow DOM.
   }
+  _triggerHaptic(type = 'interaction') {
+    const config = this._config || {};
+    if (config.haptic === false) {
+      return;
+    }
+    if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') {
+      return;
+    }
+    const patterns = {
+      tick: [10],
+      interaction: [15]
+    };
+    const pattern = patterns[type] || patterns.interaction;
+    try {
+      navigator.vibrate(pattern);
+    } catch (err) {
+      // ignore vibration errors
+    }
+  }
   _computeModeMenuGeometry(radius) {
     const safeRadius = Number.isFinite(radius) ? radius : 0;
     const diameter = safeRadius * 2;
@@ -98,12 +117,14 @@ export default class ThermostatUI {
     toggler.addEventListener('click', (event) => {
       stopPointer(event);
       const shouldOpen = !container.classList.contains('menu-open');
+      this._triggerHaptic('interaction');
       this._setModeMenuOpen(shouldOpen);
     });
     toggler.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         const shouldOpen = !container.classList.contains('menu-open');
+        this._triggerHaptic('interaction');
         this._setModeMenuOpen(shouldOpen);
       }
     });
@@ -219,7 +240,10 @@ export default class ThermostatUI {
     this._container.appendChild(this._ic) // Attach the menu button wrapper to the main container.
 
     // this._container.appendChild(this._buildTitle(config.title));
-    this._ic.addEventListener('click', () => this.openProp()); // When the kebab button is clicked we request the more-info dialog.
+    this._ic.addEventListener('click', () => {
+      this._triggerHaptic('interaction');
+      this.openProp();
+    }); // When the kebab button is clicked we request the more-info dialog.
     this.c_body = document.createElement('div'); // Wrapper around the SVG dial to provide padding.
     this.c_body.className = 'c_body';
     const root = this._buildCore(config.diameter); // Create the main SVG element with gradients and filters.
@@ -502,6 +526,7 @@ export default class ThermostatUI {
   _temperatureControlClicked(index) {
     const config = this._config; // Readability shortcut.
     let chevron; // Will point at the SVG chevron that should flash.
+    let changed = false;
     this._root.querySelectorAll('path.dial__chevron').forEach(el => SvgUtil.setClass(el, 'pressed', false)); // Clear any previous "pressed" animation before applying a new one.
     if (this.in_control) {
       if (this.dual) {
@@ -511,24 +536,28 @@ export default class ThermostatUI {
             chevron = this._root.querySelectorAll('path.dial__chevron--low')[1];
             this._low = this._low + config.step; // Raise the low setpoint.
             if ((this._low + config.idle_zone) >= this._high) this._low = this._high - config.idle_zone; // Prevent the low setpoint from crossing over the high setpoint.
+            changed = true;
             break;
           case 1:
             // clicked top right
             chevron = this._root.querySelectorAll('path.dial__chevron--high')[1];
             this._high = this._high + config.step; // Raise the high setpoint.
             if (this._high > this.max_value) this._high = this.max_value; // Clamp to the thermostat's maximum temperature.
+            changed = true;
             break;
           case 2:
             // clicked bottom right
             chevron = this._root.querySelectorAll('path.dial__chevron--high')[0];
             this._high = this._high - config.step; // Lower the high setpoint.
             if ((this._high - config.idle_zone) <= this._low) this._high = this._low + config.idle_zone; // Keep a minimum idle zone between the setpoints.
+            changed = true;
             break;
           case 3:
             // clicked bottom left
             chevron = this._root.querySelectorAll('path.dial__chevron--low')[0];
             this._low = this._low - config.step; // Lower the low setpoint.
             if (this._low < this.min_value) this._low = this.min_value; // Do not go below the thermostat's minimum.
+            changed = true;
             break;
         }
         SvgUtil.setClass(chevron, 'pressed', true); // Briefly highlight the chevron that was tapped.
@@ -542,6 +571,7 @@ export default class ThermostatUI {
           chevron = this._root.querySelectorAll('path.dial__chevron--target')[1];
           this._target = this._target + config.step; // Increase the single setpoint.
           if (this._target > this.max_value) this._target = this.max_value; // Cap at thermostat maximum.
+          changed = true;
           if (config.highlight_tap) {
             SvgUtil.setClass(this._controls[0], 'control-visible', true);
             SvgUtil.setClass(this._controls[1], 'control-visible', true);
@@ -551,6 +581,7 @@ export default class ThermostatUI {
           chevron = this._root.querySelectorAll('path.dial__chevron--target')[0];
           this._target = this._target - config.step; // Decrease the single setpoint.
           if (this._target < this.min_value) this._target = this.min_value; // Do not fall below the minimum.
+          changed = true;
           if (config.highlight_tap) {
             SvgUtil.setClass(this._controls[2], 'control-visible', true);
             SvgUtil.setClass(this._controls[3], 'control-visible', true);
@@ -567,6 +598,9 @@ export default class ThermostatUI {
           SvgUtil.setClass(this._controls[3], 'control-visible', false);
         }, 200);
       }
+      if (changed) {
+        this._triggerHaptic('tick');
+      }
     } else {
       this._enableControls(); // If the dial was not yet in edit mode, first enable controls so the next tap adjusts values.
     }
@@ -577,6 +611,9 @@ export default class ThermostatUI {
   }
 
   _enableControls() {
+    if (!this._in_control) {
+      this._triggerHaptic('interaction');
+    }
     this._in_control = true;
     this._updateClass('in_control', this.in_control);
     this._updateEdit(true);
@@ -616,6 +653,7 @@ export default class ThermostatUI {
       return;
     }
 
+    this._triggerHaptic('interaction');
     const normalizedAngle = this._pointerNormalizedAngle(event);
     if (normalizedAngle === null) {
       return;
@@ -812,7 +850,7 @@ export default class ThermostatUI {
     this._applyRingRotation();
 
     const valueRange = Math.max(this.max_value - this.min_value, Number.EPSILON);
-    const step = config.step || 0.5;
+    const step = config.step || 1;
     const sensitivity = 0.7;
     const deltaValue = (delta / arc) * valueRange * sensitivity;
     context.accumulator = (context.accumulator || 0) + deltaValue;
@@ -863,6 +901,7 @@ export default class ThermostatUI {
     }
 
     if (changed) {
+      this._triggerHaptic('tick');
       this._renderDial({
         refreshDialog: false,
         hass: this._lastHass,
@@ -1408,6 +1447,7 @@ export default class ThermostatUI {
   _setMode(e, mode, hass) {
     let config = this._config;
     if (this._timeoutHandlerMode) clearTimeout(this._timeoutHandlerMode);
+    this._triggerHaptic('interaction');
     hass.callService('climate', 'set_hvac_mode', {
       entity_id: this._config.entity,
       hvac_mode: mode,
