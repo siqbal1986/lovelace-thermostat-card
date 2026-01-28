@@ -1,415 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Thermostat Card Sandbox</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        --background: #0f172a;
-        --panel: #111827;
-        --panel-alt: #1f2937;
-        --accent: #38bdf8;
-        --accent-strong: #0ea5e9;
-        --text: #e2e8f0;
-        --text-muted: #94a3b8;
-        --border: rgba(148, 163, 184, 0.25);
-        font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont,
-          'Helvetica Neue', sans-serif;
-      }
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Exact Volume Knob – v3</title>
+<style>
+  :root{
+    /* Tuned against the reference */
+    --bg0:#0b0f13;
+    --bg1:#0a0d11;
 
-      * {
-        box-sizing: border-box;
-      }
+    --plate0:#151a1f;   /* base plate center */
+    --plate1:#0e1319;   /* plate edge */
+    --plate-dot:#1f2530;
 
-      body {
-        margin: 0;
-        min-height: 100vh;
-        background: radial-gradient(circle at top, rgba(56, 189, 248, 0.15), transparent 55%),
-          var(--background);
-        color: var(--text);
-        display: flex;
-        flex-direction: column;
-        padding: 2.5rem 1.5rem 2rem;
-        gap: 2rem;
-      }
+    --rim-edge:#0a0e13; /* outermost edge */
+    --rim-hi:#40505d;   /* cool blue-gray highlight */
+    --rim-mid:#141a1f;  /* main body */
+    --rim-deep:#0b1016; /* deep groove */
 
-      header {
-        max-width: 1100px;
-        margin: 0 auto;
-        text-align: center;
-      }
+    --face-core:#26303a; /* faint internal glow */
+    --face-mid:#1c242d;
+    --face-edge:#11171d; /* very dark edge */
 
-      header h1 {
-        margin: 0 0 0.5rem;
-        font-size: clamp(1.8rem, 3vw, 2.4rem);
-      }
+    --tick:#49ff5a;     /* LED green */
+    --tick-slot:#092012;
 
-      header p {
-        margin: 0 auto;
-        max-width: 680px;
-        font-size: 1rem;
-        line-height: 1.5;
-        color: var(--text-muted);
-      }
+    --gloss1:#96a6b4;   /* bright specular */
+    --gloss2:#6d7b88;   /* secondary */
 
-      main {
-        max-width: 1100px;
-        width: 100%;
-        margin: 0 auto;
-        display: grid;
-        gap: 1.75rem;
-      }
+    --shadow:#000;
+  }
+  html,body{
+    height:100%; margin:0;
+    background:radial-gradient(60% 65% at 50% 40%, var(--bg0) 0%, var(--bg1) 100%);
+    display:grid; place-items:center;
+    color:#cfd6de; font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{ width:min(360px,88vmin); aspect-ratio:1/1; position:relative; }
+  .readout{
+    position:absolute; inset:auto 0 -2.6rem 0; text-align:center;
+    font-variant-numeric:tabular-nums; user-select:none; opacity:.9; font-weight:600;
+  }
+  svg,.wrap{ user-select:none; -webkit-tap-highlight-color:transparent; touch-action:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<svg id="knobSVG" viewBox="0 0 200 200" width="100%" height="100%" aria-label="Rotary volume knob">
+  <defs>
+    <!-- Plate -->
+    <radialGradient id="plateGrad" cx="50%" cy="42%" r="70%">
+      <stop offset="0%"  stop-color="var(--plate0)"/>
+      <stop offset="100%" stop-color="var(--plate1)"/>
+    </radialGradient>
+    <filter id="plateShadow" x="-45%" y="-45%" width="190%" height="190%">
+      <feDropShadow dx="0" dy="7" stdDeviation="9.5" flood-color="#000" flood-opacity=".55"/>
+    </filter>
+    <pattern id="dots" width="10" height="10" patternUnits="userSpaceOnUse">
+      <!-- smaller + fainter -->
+      <circle cx="1.4" cy="1.4" r="0.9" fill="var(--plate-dot)" opacity=".14"/>
+    </pattern>
 
-      @media (min-width: 960px) {
-        main {
-          grid-template-columns: 1fr 1fr;
-          align-items: start;
-        }
-      }
+    <!-- Rim (machined metal look) -->
+    <linearGradient id="rimBand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#0c1116"/>
+      <stop offset="18%"  stop-color="var(--rim-hi)"/>
+      <stop offset="50%"  stop-color="var(--rim-mid)"/>
+      <stop offset="82%"  stop-color="var(--rim-hi)"/>
+      <stop offset="100%" stop-color="var(--rim-edge)"/>
+    </linearGradient>
+    <radialGradient id="rimDepth" cx="48%" cy="40%" r="70%">
+      <stop offset="0%"  stop-color="#121820"/>
+      <stop offset="65%" stop-color="var(--rim-mid)"/>
+      <stop offset="100%" stop-color="var(--rim-deep)"/>
+    </radialGradient>
 
-      section.card-panel,
-      section.control-panel {
-        background: linear-gradient(160deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.9));
-        border: 1px solid var(--border);
-        border-radius: 24px;
-        padding: 1.75rem;
-        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.45);
-      }
+    <!-- Face dome: darker edge, slight cold glow in center -->
+    <radialGradient id="faceGrad" cx="50%" cy="50%" r="70%">
+      <stop offset="0%"  stop-color="var(--face-core)" stop-opacity=".40"/>
+      <stop offset="36%" stop-color="var(--face-mid)"  stop-opacity=".82"/>
+      <stop offset="100%" stop-color="var(--face-edge)" stop-opacity="1"/>
+    </radialGradient>
 
-      section.card-panel h2,
-      section.control-panel h2,
-      section.control-panel h3 {
-        margin: 0 0 1rem;
-        font-size: 1.3rem;
-      }
+    <!-- Inner shadow ring to recess face -->
+    <filter id="innerShadow" x="-70%" y="-70%" width="240%" height="240%">
+      <feOffset dx="0" dy="1"/>
+      <feGaussianBlur stdDeviation="2.3"/>
+      <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1"/>
+      <feColorMatrix type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 .82 0"/>
+      <feBlend in="SourceGraphic"/>
+    </filter>
 
-      .card-wrapper {
-        display: flex;
-        justify-content: center;
-        padding: 1rem 0;
-      }
+    <!-- LED glow -->
+    <filter id="ledGlow" x="-160%" y="-300%" width="420%" height="650%">
+      <feGaussianBlur stdDeviation="0.9" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
 
-      thermostat-card {
-        display: block;
-        max-width: 420px;
-        width: min(100%, 420px);
-      }
+    <!-- Glossy specular blur -->
+    <filter id="specBlur" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1"/>
+    </filter>
 
-      .card-info {
-        margin-top: 1rem;
-        padding: 1rem;
-        border-radius: 16px;
-        background: rgba(148, 163, 184, 0.1);
-        color: var(--text-muted);
-        font-size: 0.95rem;
-        line-height: 1.5;
-      }
+    <!-- Soft oval reflection at bottom of face (masked) -->
+    <radialGradient id="ovalGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0c1116" stop-opacity=".70"/>
+      <stop offset="100%" stop-color="#0c1116" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="ovalMask">
+      <!-- restrict oval within the face -->
+      <rect x="0" y="0" width="200" height="200" fill="black"/>
+      <circle cx="100" cy="100" r="51.7" fill="white"/>
+    </mask>
+  </defs>
 
-      .card-actions {
-        margin-top: 1.5rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        align-items: center;
-        justify-content: space-between;
-      }
+  <!-- Base plate -->
+  <g filter="url(#plateShadow)">
+    <circle cx="100" cy="100" r="93" fill="url(#plateGrad)"/>
+    <circle cx="100" cy="100" r="93" fill="url(#dots)"/>
+  </g>
 
-      .card-actions button {
-        border: none;
-        border-radius: 999px;
-        padding: 0.6rem 1.2rem;
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: var(--background);
-        background: linear-gradient(120deg, var(--accent), var(--accent-strong));
-        cursor: pointer;
-        box-shadow: 0 12px 30px rgba(14, 165, 233, 0.35);
-        transition: transform 160ms ease, box-shadow 160ms ease;
-      }
+  <!-- Rotating group -->
+  <g id="knob" transform="rotate(0 100 100)">
+    <!-- Thick glossy rim -->
+    <circle cx="100" cy="100" r="61" fill="url(#rimBand)"/>
+    <circle cx="100" cy="100" r="61" fill="url(#rimDepth)" opacity=".88"/>
+    <!-- thin dark outer edge -->
+    <circle cx="100" cy="100" r="61" fill="none" stroke="#090d11" stroke-width="1.2" opacity=".9"/>
 
-      .card-actions button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 16px 40px rgba(14, 165, 233, 0.4);
-      }
+    <!-- face bevel separation -->
+    <circle cx="100" cy="100" r="55" fill="none" stroke="#0c1116" stroke-width="2" opacity=".95"/>
 
-      .card-actions span {
-        color: var(--text-muted);
-        font-size: 0.95rem;
-      }
+    <!-- face -->
+    <circle cx="100" cy="100" r="51.7" fill="url(#faceGrad)" filter="url(#innerShadow)"/>
 
-      form {
-        display: grid;
-        gap: 1rem;
-      }
+    <!-- bottom internal oval reflection (darker, softer, lower) -->
+    <g mask="url(#ovalMask)">
+      <ellipse cx="100" cy="132.5" rx="29" ry="9.8" fill="url(#ovalGrad)"/>
+    </g>
 
-      .field {
-        display: grid;
-        gap: 0.35rem;
-      }
+    <!-- top-right tight specular (1–2 o'clock), shorter and brighter at start -->
+    <path d="M132.5 56.2 A61 61 0 0 1 148.8 71.0"
+          fill="none" stroke="var(--gloss1)" stroke-width="2.1" stroke-linecap="round"
+          opacity=".38" filter="url(#specBlur)"/>
+    <path d="M148.8 71.0 A61 61 0 0 1 154.2 83.7"
+          fill="none" stroke="var(--gloss2)" stroke-width="1.3" stroke-linecap="round"
+          opacity=".18" filter="url(#specBlur)"/>
 
-      .field label,
-      .field .label {
-        font-weight: 600;
-        font-size: 0.95rem;
-        color: var(--text);
-      }
+    <!-- LED tick: thinner + recessed slot -->
+    <g filter="url(#ledGlow)">
+      <rect x="99.45" y="41.8" width="1.05" height="5.4" rx="0.7" fill="var(--tick-slot)" opacity=".95"/>
+      <rect x="99.15" y="40.9" width="1.55" height="7.2" rx="0.9" fill="var(--tick)"/>
+    </g>
+  </g>
 
-      .field label span {
-        color: var(--text-muted);
-        font-weight: 400;
-        margin-left: 0.35rem;
-      }
+  <!-- Contact shadow -->
+  <ellipse cx="100" cy="137" rx="35" ry="9.3" fill="var(--shadow)" opacity=".40"/>
+</svg>
 
-      .field input[type='number'],
-      .field select {
-        width: 100%;
-        border-radius: 12px;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        background: rgba(15, 23, 42, 0.6);
-        color: var(--text);
-        padding: 0.65rem 0.75rem;
-        font-size: 1rem;
-        transition: border 160ms ease, box-shadow 160ms ease;
-      }
+<div class="readout">Volume: <span id="val">50</span>%</div>
+</div>
 
-      .field input[type='number']:focus,
-      .field select:focus {
-        outline: none;
-        border-color: var(--accent);
-        box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
-      }
+<script>
+(() => {
+  const svg = document.getElementById('knobSVG');
+  const knob = document.getElementById('knob');
+  const valueEl = document.getElementById('val');
 
-      .field[data-disabled='true'] {
-        opacity: 0.6;
-      }
+  const CX=100, CY=100, MIN=-135, MAX=135;
+  let angle=0, dragging=false, startAngle=0, startKnob=0;
 
-      .field input[type='checkbox'] {
-        width: 18px;
-        height: 18px;
-        margin-right: 0.4rem;
-      }
+  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+  const a2v=a=>Math.round(((clamp(a,MIN,MAX)-MIN)/(MAX-MIN))*100);
+  const v2a=v=>MIN+(clamp(v,0,100)/100)*(MAX-MAX+270); // same span (270deg)
+  function render(){ knob.setAttribute('transform',`rotate(${angle} ${CX} ${CY})`); valueEl.textContent=a2v(angle); }
 
-      .chip-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
+  function clientToAngle(e){
+    const pt = svg.createSVGPoint();
+    pt.x = (e.touches?e.touches[0].clientX:e.clientX);
+    pt.y = (e.touches?e.touches[0].clientY:e.clientY);
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    let deg = Math.atan2(p.y-CY, p.x-CX)*180/Math.PI;
+    deg += 90; deg = ((deg+180)%360)-180; return deg;
+  }
 
-      .chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        padding: 0.4rem 0.75rem;
-        border-radius: 999px;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        background: rgba(15, 23, 42, 0.45);
-        font-size: 0.9rem;
-      }
+  function onDown(e){ e.preventDefault(); dragging=true; startAngle=clientToAngle(e); startKnob=angle; }
+  function onMove(e){
+    if(!dragging) return;
+    e.preventDefault();
+    let d = clientToAngle(e)-startAngle;
+    if(d>180) d-=360; if(d<-180) d+=360;
+    angle = clamp(startKnob+d, MIN, MAX); render();
+  }
+  function onUp(){ dragging=false; }
 
-      .chip input {
-        accent-color: var(--accent-strong);
-      }
+  svg.addEventListener('mousedown', onDown);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  svg.addEventListener('touchstart', onDown, {passive:false});
+  window.addEventListener('touchmove', onMove, {passive:false});
+  window.addEventListener('touchend', onUp);
 
-      #service-log {
-        list-style: none;
-        margin: 1rem 0 0;
-        padding: 0;
-        display: grid;
-        gap: 0.75rem;
-      }
+  window.addEventListener('keydown',e=>{
+    const step=(MAX-MIN)/100;
+    if(e.key==='ArrowLeft'||e.key==='ArrowDown'){ angle=clamp(angle-step*2,MIN,MAX); render(); }
+    else if(e.key==='ArrowRight'||e.key==='ArrowUp'){ angle=clamp(angle+step*2,MIN,MAX); render(); }
+    else if(e.key==='Home'){ angle=MIN; render(); }
+    else if(e.key==='End'){ angle=MAX; render(); }
+  });
 
-      #service-log li {
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        border-radius: 16px;
-        padding: 0.75rem 1rem;
-        background: rgba(15, 23, 42, 0.65);
-      }
+  angle = (MIN+MAX)/2; // 50%
+  render();
 
-      #service-log li .summary {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 0.5rem;
-        margin-bottom: 0.35rem;
-      }
-
-      #service-log li code {
-        font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco,
-          Consolas, 'Liberation Mono', 'Courier New', monospace;
-        font-size: 0.9rem;
-        background: rgba(56, 189, 248, 0.12);
-        padding: 0.15rem 0.4rem;
-        border-radius: 6px;
-        color: var(--accent);
-      }
-
-      #service-log li time {
-        color: var(--text-muted);
-        font-size: 0.85rem;
-      }
-
-      #service-log li pre {
-        margin: 0;
-        font-size: 0.85rem;
-        line-height: 1.45;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      #service-log li.empty {
-        text-align: center;
-        border-style: dashed;
-        color: var(--text-muted);
-      }
-
-      .state-viewer {
-        margin-top: 1.5rem;
-      }
-
-      .state-viewer pre {
-        margin: 0;
-        padding: 1rem;
-        border-radius: 16px;
-        background: rgba(15, 23, 42, 0.7);
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        font-size: 0.85rem;
-        line-height: 1.45;
-        max-height: 260px;
-        overflow: auto;
-      }
-
-      ha-icon,
-      ha-icon-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.1rem;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: rgba(148, 163, 184, 0.15);
-        color: var(--text);
-      }
-
-      ha-icon-button {
-        cursor: pointer;
-        transition: background 160ms ease, transform 160ms ease;
-      }
-
-      ha-icon-button:hover,
-      ha-icon-button:focus {
-        background: rgba(56, 189, 248, 0.2);
-        transform: translateY(-1px);
-        outline: none;
-      }
-
-      footer {
-        text-align: center;
-        color: var(--text-muted);
-        font-size: 0.85rem;
-      }
-    </style>
-  </head>
-  <body>
-    <header>
-      <h1>Thermostat Card Sandbox</h1>
-      <p>
-        Use this offline page to experiment with the Lovelace Thermostat Card. The controls on the
-        right emulate the Home Assistant API and allow you to tweak entity data, call services, and
-        observe how the card reacts in real time.
-      </p>
-    </header>
-    <main>
-      <section class="card-panel">
-        <h2>Card preview</h2>
-        <div class="card-wrapper">
-          <thermostat-card id="thermostat-card"></thermostat-card>
-        </div>
-        <div class="card-info">
-          The mock Home Assistant instance mirrors service calls made by the card, so dragging the
-          dial or choosing a HVAC mode will immediately update the simulated entity and log the
-          request below.
-        </div>
-        <div class="card-actions">
-          <span id="dual-state">Single set-point mode is active.</span>
-          <button type="button" id="reset-state">Reset mock state</button>
-        </div>
-      </section>
-      <section class="control-panel">
-        <h2>Mock climate entity</h2>
-        <form id="climate-form">
-          <div class="field">
-            <label for="hvac-state">HVAC state</label>
-            <select id="hvac-state">
-              <option value="off">off</option>
-              <option value="heat">heat</option>
-              <option value="cool">cool</option>
-              <option value="heat_cool">heat_cool</option>
-              <option value="auto">auto</option>
-              <option value="dry">dry</option>
-              <option value="fan_only">fan_only</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="ambient-temp">Ambient temperature <span>(°C)</span></label>
-            <input id="ambient-temp" type="number" step="0.1" min="-20" max="50" />
-          </div>
-          <div class="field" data-disabled="false">
-            <label for="target-temp">Target temperature <span>(°C)</span></label>
-            <input id="target-temp" type="number" step="0.1" min="-20" max="50" />
-          </div>
-          <div class="field">
-            <label for="target-temp-low">Target low <span>(°C)</span></label>
-            <input id="target-temp-low" type="number" step="0.1" min="-20" max="50" />
-          </div>
-          <div class="field">
-            <label for="target-temp-high">Target high <span>(°C)</span></label>
-            <input id="target-temp-high" type="number" step="0.1" min="-20" max="50" />
-          </div>
-          <div class="field">
-            <label for="min-temp">Minimum temperature <span>(°C)</span></label>
-            <input id="min-temp" type="number" step="0.5" min="-40" max="60" />
-          </div>
-          <div class="field">
-            <label for="max-temp">Maximum temperature <span>(°C)</span></label>
-            <input id="max-temp" type="number" step="0.5" min="-40" max="60" />
-          </div>
-          <div class="field">
-            <label for="preset-mode">Preset mode</label>
-            <select id="preset-mode">
-              <option value="none">none</option>
-              <option value="home">home</option>
-              <option value="away">away</option>
-              <option value="sleep">sleep</option>
-              <option value="eco">eco</option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="label">Available HVAC modes</label>
-            <div id="hvac-modes" class="chip-group"></div>
-          </div>
-          <div class="field">
-            <label class="label" for="away-mode">
-              <input id="away-mode" type="checkbox" />Away mode enabled
-            </label>
-          </div>
-        </form>
-        <div class="log">
-          <h3>Service log</h3>
-          <ul id="service-log"></ul>
-        </div>
-        <div class="state-viewer">
-          <h3>Entity payload</h3>
-          <pre id="state-json"></pre>
-        </div>
-      </section>
-    </main>
-    <footer>
-      Open this file directly in your browser or serve the repository locally. No internet
-      connection is required.
-    </footer>
-    <script type="module" src="./app.js"></script>
-  </body>
+  window.knobAPI={
+    setValue(v){ angle = MIN + (clamp(v,0,100)/100)*(MAX-MIN); render(); },
+    getValue(){ return a2v(angle); },
+    setAngle(a){ angle=clamp(a,MIN,MAX); render(); },
+    getAngle(){ return angle; }
+  };
+})();
+</script>
+</body>
 </html>

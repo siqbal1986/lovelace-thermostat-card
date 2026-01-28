@@ -58,7 +58,7 @@ test('positions HVAC mode toggle between center and lower rim', async ({ page })
 
   const actualOffsetFromDial = layout.dialBottom - layout.togglerBottom;
   expect(actualOffsetFromDial).toBeGreaterThan(0);
-  const expectedOffset = layout.radius * 0.2;
+  const expectedOffset = layout.radius * 0.12; // TRIAL MERGE: reflect the additional 3% downward shift for the carousel toggle.
   expect(Number.isNaN(bottomOffset)).toBe(false);
   expect(Math.abs(actualOffsetFromDial - expectedOffset)).toBeLessThanOrEqual(6);
   expect(Math.abs(bottomOffset - expectedOffset)).toBeLessThanOrEqual(6);
