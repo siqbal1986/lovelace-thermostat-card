@@ -78,3 +78,9 @@ Search for Thermostat Card
 
 ## Credits
 <a href="https://codepen.io/dalhundal">@dalhundal</a>
+
+## Figma Vacuum Carousel Card
+
+A second custom card implementation is available at [`vacuum_ccard/main.js`](./vacuum_ccard/main.js).
+It exposes the Lovelace type `custom:figma-carousel-control-card` and mirrors the Figma-inspired
+vacuum dashboard layout with configurable sensors, actions, button entities, and carousel images.
