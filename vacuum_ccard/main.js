@@ -71,9 +71,9 @@ class FigmaCarouselControlCard extends HTMLElement {
     this._activeButtonIndex = 0;
     this._carouselIndex = 0;
     this._showOptions = false;
-    this._carouselInterval = null;
     this._didFirstRender = false;
-    this._lastStateSignature = "";
+    this._lastSensorSignature = "";
+    this._lastButtonSignature = "";
   }
 
   setConfig(config) {
@@ -85,32 +85,31 @@ class FigmaCarouselControlCard extends HTMLElement {
     this._activeButtonIndex = Math.max(0, Math.min(this._activeButtonIndex, this._config.buttons.length - 1));
     this._carouselIndex = this._activeButtonIndex;
     this._render();
-    this._startCarousel();
   }
 
   set hass(hass) {
     this._hass = hass;
     if (!this._config) return;
 
-    const signature = this._stateSignature();
+    const sensorSignature = this._sensorSignature();
+    const buttonSignature = this._buttonSignature();
     if (!this._didFirstRender) {
       this._render();
       this._didFirstRender = true;
-      this._lastStateSignature = signature;
+      this._lastSensorSignature = sensorSignature;
+      this._lastButtonSignature = buttonSignature;
       return;
     }
 
-    if (signature === this._lastStateSignature) return;
-    this._lastStateSignature = signature;
-    this._updateDynamicState();
-  }
+    if (sensorSignature !== this._lastSensorSignature) {
+      this._lastSensorSignature = sensorSignature;
+      this._updateSensorState();
+    }
 
-  connectedCallback() {
-    this._startCarousel();
-  }
-
-  disconnectedCallback() {
-    this._stopCarousel();
+    if (buttonSignature !== this._lastButtonSignature) {
+      this._lastButtonSignature = buttonSignature;
+      this._updateButtonState();
+    }
   }
 
   getCardSize() {
@@ -132,38 +131,37 @@ class FigmaCarouselControlCard extends HTMLElement {
     this._hass.callService(domain, service, data);
   }
 
-  _startCarousel() {
-    this._stopCarousel();
-    this._carouselInterval = setInterval(() => {
-      const images = this._config?.images || [];
-      if (!images.length || this._showOptions) return;
-      this._carouselIndex = (this._carouselIndex + 1) % images.length;
-      this._activeButtonIndex = Math.min(this._carouselIndex, Math.max(0, (this._config?.buttons || []).length - 1));
-      this._render();
-    }, 3000);
-  }
-
-  _stopCarousel() {
-    if (this._carouselInterval) clearInterval(this._carouselInterval);
-    this._carouselInterval = null;
-  }
-
-
-  _relevantEntityIds() {
+  _relevantEntityIds(keys) {
     const ids = [];
-    (this._config?.sensors || []).forEach((item) => item?.entity && ids.push(item.entity));
-    (this._config?.actions || []).forEach((item) => item?.entity && ids.push(item.entity));
-    (this._config?.buttons || []).forEach((item) => item?.entity && ids.push(item.entity));
+    keys.forEach((key) => {
+      (this._config?.[key] || []).forEach((item) => item?.entity && ids.push(item.entity));
+    });
     return Array.from(new Set(ids));
   }
 
-  _stateSignature() {
+  _entitySignature(entityIds) {
     if (!this._hass || !this._config) return "";
-    return this._relevantEntityIds().map((entityId) => {
+    return entityIds.map((entityId) => {
       const stateObj = this._entityState(entityId);
       if (!stateObj) return `${entityId}:unavailable`;
       return `${entityId}:${stateObj.state}:${JSON.stringify(stateObj.attributes || {})}`;
     }).join("|");
+  }
+
+  _sensorSignature() {
+    return this._entitySignature(this._relevantEntityIds(["sensors"]));
+  }
+
+  _buttonSignature() {
+    return this._entitySignature(this._relevantEntityIds(["buttons"]));
+  }
+
+  _updateSensorState() {
+    if (!this.shadowRoot || !this._config) return;
+    (this._config.sensors || []).forEach((sensor, index) => {
+      const valueNode = this.shadowRoot.querySelector(`[data-sensor-index=\"${index}\"] .status-value`);
+      if (valueNode) valueNode.textContent = this._sensorValueText(sensor);
+    });
   }
 
   _sensorValueText(sensor) {
@@ -172,13 +170,8 @@ class FigmaCarouselControlCard extends HTMLElement {
     return state ? `${state.state}${unit}` : "Unavailable";
   }
 
-  _updateDynamicState() {
+  _updateButtonState() {
     if (!this.shadowRoot || !this._config) return;
-
-    (this._config.sensors || []).forEach((sensor, index) => {
-      const valueNode = this.shadowRoot.querySelector(`[data-sensor-index=\"${index}\"] .status-value`);
-      if (valueNode) valueNode.textContent = this._sensorValueText(sensor);
-    });
 
     (this._config.buttons || []).forEach((btn, index) => {
       const root = this.shadowRoot.querySelector(`[data-button-index=\"${index}\"]`);
@@ -425,7 +418,8 @@ class FigmaCarouselControlCard extends HTMLElement {
       </ha-card>`;
 
     this._didFirstRender = true;
-    this._lastStateSignature = this._stateSignature();
+    this._lastSensorSignature = this._sensorSignature();
+    this._lastButtonSignature = this._buttonSignature();
 
     this.shadowRoot.querySelectorAll("[data-action-key]").forEach((el) => {
       el.addEventListener("click", () => {
