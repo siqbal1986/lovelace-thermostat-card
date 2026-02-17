@@ -72,6 +72,8 @@ class FigmaCarouselControlCard extends HTMLElement {
     this._carouselIndex = 0;
     this._showOptions = false;
     this._carouselInterval = null;
+    this._didFirstRender = false;
+    this._lastStateSignature = "";
   }
 
   setConfig(config) {
@@ -88,7 +90,19 @@ class FigmaCarouselControlCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this._render();
+    if (!this._config) return;
+
+    const signature = this._stateSignature();
+    if (!this._didFirstRender) {
+      this._render();
+      this._didFirstRender = true;
+      this._lastStateSignature = signature;
+      return;
+    }
+
+    if (signature === this._lastStateSignature) return;
+    this._lastStateSignature = signature;
+    this._updateDynamicState();
   }
 
   connectedCallback() {
@@ -134,6 +148,49 @@ class FigmaCarouselControlCard extends HTMLElement {
     this._carouselInterval = null;
   }
 
+
+  _relevantEntityIds() {
+    const ids = [];
+    (this._config?.sensors || []).forEach((item) => item?.entity && ids.push(item.entity));
+    (this._config?.actions || []).forEach((item) => item?.entity && ids.push(item.entity));
+    (this._config?.buttons || []).forEach((item) => item?.entity && ids.push(item.entity));
+    return Array.from(new Set(ids));
+  }
+
+  _stateSignature() {
+    if (!this._hass || !this._config) return "";
+    return this._relevantEntityIds().map((entityId) => {
+      const stateObj = this._entityState(entityId);
+      if (!stateObj) return `${entityId}:unavailable`;
+      return `${entityId}:${stateObj.state}:${JSON.stringify(stateObj.attributes || {})}`;
+    }).join("|");
+  }
+
+  _sensorValueText(sensor) {
+    const state = this._entityState(sensor.entity);
+    const unit = state?.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : "";
+    return state ? `${state.state}${unit}` : "Unavailable";
+  }
+
+  _updateDynamicState() {
+    if (!this.shadowRoot || !this._config) return;
+
+    (this._config.sensors || []).forEach((sensor, index) => {
+      const valueNode = this.shadowRoot.querySelector(`[data-sensor-index=\"${index}\"] .status-value`);
+      if (valueNode) valueNode.textContent = this._sensorValueText(sensor);
+    });
+
+    (this._config.buttons || []).forEach((btn, index) => {
+      const root = this.shadowRoot.querySelector(`[data-button-index=\"${index}\"]`);
+      if (!root || !btn?.entity) return;
+      const stateNode = root.querySelector('.menu-state');
+      const optionsNode = root.querySelector('.menu-sub');
+      const stateText = this._entityState(btn.entity)?.state ?? 'Unavailable';
+      const optionCount = this._buttonOptions(btn.entity).length;
+      if (stateNode) stateNode.textContent = stateText;
+      if (optionsNode) optionsNode.textContent = `${optionCount} options`;
+    });
+  }
   _menuIconForIndex(index) {
     return iconSvg(MENU_ICON_PATHS[index % MENU_ICON_PATHS.length]);
   }
@@ -198,12 +255,10 @@ class FigmaCarouselControlCard extends HTMLElement {
 
   _sensorMarkup() {
     return (this._config.sensors || []).map((sensor, index) => {
-      const state = this._entityState(sensor.entity);
-      const unit = state?.attributes?.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : "";
-      const value = state ? `${state.state}${unit}` : "Unavailable";
+      const value = this._sensorValueText(sensor);
       const label = sensor.name || this._friendlyName(sensor.entity);
       return `
-        <div class="status-pill" style="animation-delay:${index * 0.1}s">
+        <div class="status-pill" data-sensor-index="${index}" style="animation-delay:${index * 0.1}s">
           <span class="glass-a"></span><span class="glass-b"></span><span class="glass-c"></span><span class="glass-shine"></span>
           ${this._statusIcon(index)}
           <span class="status-text">
@@ -368,6 +423,9 @@ class FigmaCarouselControlCard extends HTMLElement {
           </div>
         </div>
       </ha-card>`;
+
+    this._didFirstRender = true;
+    this._lastStateSignature = this._stateSignature();
 
     this.shadowRoot.querySelectorAll("[data-action-key]").forEach((el) => {
       el.addEventListener("click", () => {
