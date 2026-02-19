@@ -323,6 +323,84 @@ class FigmaCarouselControlCard extends HTMLElement {
       </div>`;
   }
 
+  _refreshPanels() {
+    if (!this.shadowRoot) return;
+    const left = this.shadowRoot.querySelector('.left');
+    const right = this.shadowRoot.querySelector('.right');
+    if (left) left.innerHTML = this._imageMarkup();
+    if (right) right.innerHTML = `<div class="menu-grid">${this._menuButtonsMarkup()}</div>`;
+    this._wireInteractiveHandlers();
+  }
+
+  _wireActionHandlers() {
+    if (!this.shadowRoot) return;
+    this.shadowRoot.querySelectorAll("[data-action-key]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const key = el.getAttribute("data-action-key");
+        const found = this._actionButtons().find((action) => action.key === key);
+        found?.onClick();
+      });
+    });
+  }
+
+  _wireInteractiveHandlers() {
+    if (!this.shadowRoot) return;
+
+    this.shadowRoot.querySelectorAll("[data-button-index]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const index = Number(el.getAttribute("data-button-index"));
+        if (Number.isNaN(index)) return;
+        if (this._activeButtonIndex === index && this._showOptions) {
+          this._showOptions = false;
+        } else {
+          this._activeButtonIndex = index;
+          this._carouselIndex = index;
+          this._showOptions = true;
+        }
+        this._refreshPanels();
+      });
+    });
+
+    this.shadowRoot.querySelectorAll("[data-option-index]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const optionIndex = Number(el.getAttribute("data-option-index"));
+        const entityId = this._config.buttons?.[this._activeButtonIndex]?.entity;
+        if (!entityId) return;
+        const option = this._buttonOptions(entityId)[optionIndex];
+        option?.action();
+        this._showOptions = false;
+        this._refreshPanels();
+      });
+    });
+
+    this.shadowRoot.querySelectorAll("[data-dot-index]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const index = Number(el.getAttribute("data-dot-index"));
+        if (Number.isNaN(index)) return;
+        this._activeButtonIndex = Math.min(index, Math.max(0, this._config.buttons.length - 1));
+        this._carouselIndex = index;
+        this._showOptions = false;
+        this._refreshPanels();
+      });
+    });
+
+    this.shadowRoot.querySelectorAll("[data-nav]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const images = this._config.images || [];
+        if (!images.length) return;
+        const dir = el.getAttribute("data-nav");
+        if (dir === "prev") {
+          this._carouselIndex = (this._carouselIndex - 1 + images.length) % images.length;
+        } else {
+          this._carouselIndex = (this._carouselIndex + 1) % images.length;
+        }
+        this._activeButtonIndex = Math.min(this._carouselIndex, Math.max(0, this._config.buttons.length - 1));
+        this._showOptions = false;
+        this._refreshPanels();
+      });
+    });
+  }
+
   _render() {
     if (!this.shadowRoot || !this._config) return;
     this.shadowRoot.innerHTML = `
@@ -421,67 +499,8 @@ class FigmaCarouselControlCard extends HTMLElement {
     this._lastSensorSignature = this._sensorSignature();
     this._lastButtonSignature = this._buttonSignature();
 
-    this.shadowRoot.querySelectorAll("[data-action-key]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const key = el.getAttribute("data-action-key");
-        const found = this._actionButtons().find((action) => action.key === key);
-        found?.onClick();
-      });
-    });
-
-    this.shadowRoot.querySelectorAll("[data-button-index]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const index = Number(el.getAttribute("data-button-index"));
-        if (Number.isNaN(index)) return;
-        if (this._activeButtonIndex === index && this._showOptions) {
-          this._showOptions = false;
-        } else {
-          this._activeButtonIndex = index;
-          this._carouselIndex = index;
-          this._showOptions = true;
-        }
-        this._render();
-      });
-    });
-
-    this.shadowRoot.querySelectorAll("[data-option-index]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const optionIndex = Number(el.getAttribute("data-option-index"));
-        const entityId = this._config.buttons?.[this._activeButtonIndex]?.entity;
-        if (!entityId) return;
-        const option = this._buttonOptions(entityId)[optionIndex];
-        option?.action();
-        this._showOptions = false;
-        this._render();
-      });
-    });
-
-    this.shadowRoot.querySelectorAll("[data-dot-index]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const index = Number(el.getAttribute("data-dot-index"));
-        if (Number.isNaN(index)) return;
-        this._activeButtonIndex = Math.min(index, Math.max(0, this._config.buttons.length - 1));
-        this._carouselIndex = index;
-        this._showOptions = false;
-        this._render();
-      });
-    });
-
-    this.shadowRoot.querySelectorAll("[data-nav]").forEach((el) => {
-      el.addEventListener("click", () => {
-        const images = this._config.images || [];
-        if (!images.length) return;
-        const dir = el.getAttribute("data-nav");
-        if (dir === "prev") {
-          this._carouselIndex = (this._carouselIndex - 1 + images.length) % images.length;
-        } else {
-          this._carouselIndex = (this._carouselIndex + 1) % images.length;
-        }
-        this._activeButtonIndex = Math.min(this._carouselIndex, Math.max(0, this._config.buttons.length - 1));
-        this._showOptions = false;
-        this._render();
-      });
-    });
+    this._wireActionHandlers();
+    this._wireInteractiveHandlers();
   }
 }
 
