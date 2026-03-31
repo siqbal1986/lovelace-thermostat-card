@@ -123,7 +123,10 @@ class FigmaCarouselControlCard extends HTMLElement {
   _applyInteractiveState() {
     if (!this.shadowRoot) return;
     const track = this.shadowRoot.querySelector('.track');
-    if (track) track.style.setProperty('--idx', String(this._activeButtonIndex));
+    if (track) {
+      track.style.setProperty('--idx', String(this._activeButtonIndex));
+      track.classList.toggle('options-open', this._showOptions);
+    }
     this.shadowRoot.querySelectorAll('[data-btn]').forEach((el, i) => el.classList.toggle('active', i === this._activeButtonIndex));
     this.shadowRoot.querySelectorAll('[data-dot]').forEach((el, i) => el.classList.toggle('active', i === this._activeButtonIndex));
     const host = this.shadowRoot.querySelector('.overlay-host');
@@ -178,14 +181,15 @@ class FigmaCarouselControlCard extends HTMLElement {
       .content{display:flex;min-height:340px}.left{width:42%;padding:12px}.right{flex:1;padding:12px}
       .carousel{position:relative;height:100%;border-radius:12px;overflow:hidden;background:rgba(0,0,0,.2)}
       .track{display:flex;height:100%;--idx:${this._activeButtonIndex};transform:translate3d(calc(var(--idx) * -100%),0,0);transition:transform 1.25s cubic-bezier(.22,.61,.36,1)}
-      .slide{min-width:100%;height:100%}.img{width:100%;height:100%;object-fit:cover}
+      .slide{min-width:100%;height:100%}.img{width:100%;height:100%;object-fit:cover;transition:filter .35s ease}
+      .track.options-open .img{filter:blur(1px) brightness(.97)}
       .overlay-host{position:absolute;inset:0}
-      .options-panel{position:absolute;inset:0;background:transparent;padding:14px;display:flex;flex-direction:column;gap:10px;overflow:auto}
-      .option-item{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.92);padding:12px;border-radius:10px;text-align:left}
+      .options-panel{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04));backdrop-filter:blur(1px);padding:14px;display:flex;flex-direction:column;gap:10px;overflow:auto}
+      .option-item{background:rgba(255,255,255,.72);border:1px solid rgba(17,24,39,.5);color:#111827;padding:12px;border-radius:10px;text-align:left;font-weight:600;text-shadow:0 1px 0 rgba(255,255,255,.35)}
       .menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-      .menu-btn{position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(59,130,246,.55),rgba(37,99,235,.55));border:1px solid rgba(255,255,255,.28);color:#fff;padding:14px;border-radius:12px;text-align:left;backdrop-filter:blur(8px)}
-      .menu-btn.active{outline:2px solid rgba(255,255,255,.55)}
-      .menu-btn small{opacity:.9}
+      .menu-btn{position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(255,255,255,.92),rgba(226,232,240,.95));border:1px solid rgba(17,24,39,.45);color:#111827;padding:14px;border-radius:12px;text-align:left;backdrop-filter:blur(8px)}
+      .menu-btn.active{outline:2px solid rgba(17,24,39,.6)}
+      .menu-btn small{opacity:.9;color:#1f2937}
       .shine{position:absolute;inset:0;transform:translateX(-200%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);transition:transform .7s ease}
       .menu-btn:hover .shine,.action-btn:hover .shine{transform:translateX(200%)}
       .dots{position:absolute;left:0;right:0;bottom:10px;display:flex;justify-content:center;gap:8px}.dot{width:8px;height:8px;border:none;border-radius:999px;background:rgba(255,255,255,.5)}.dot.active{width:18px;background:#fff}
