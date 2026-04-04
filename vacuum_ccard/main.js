@@ -15,14 +15,34 @@ class FigmaCarouselControlCard extends HTMLElement {
     this._hass = null;
     this._activeButtonIndex = 0;
     this._showOptions = false;
+    this._showEmbeddedCard = false;
+    this._embeddedCardEl = null;
+    this._embeddedCardConfigKey = "";
     this._rendered = false;
   }
 
   setConfig(config) {
-    this._config = { sensors: [], actions: [], buttons: [], images: [], ...config };
+    this._config = {
+      sensors: [],
+      actions: [],
+      buttons: [],
+      images: [],
+      embedded_card: null,
+      embedded_button: { label: "Open card", icon: "mdi:open-in-new" },
+      ...config,
+    };
     ["sensors", "actions", "buttons", "images"].forEach((k) => {
       if (!Array.isArray(this._config[k])) throw new Error(`${k} must be a list`);
     });
+    if (this._config.embedded_card && typeof this._config.embedded_card !== "object") {
+      throw new Error("embedded_card must be a card configuration object");
+    }
+    if (this._config.embedded_button && typeof this._config.embedded_button !== "object") {
+      throw new Error("embedded_button must be an object");
+    }
+    this._showEmbeddedCard = false;
+    this._embeddedCardEl = null;
+    this._embeddedCardConfigKey = JSON.stringify(this._config.embedded_card || null);
     this._activeButtonIndex = Math.min(this._activeButtonIndex, Math.max(0, this._config.buttons.length - 1));
     this._rendered = false;
     this._render();
@@ -120,6 +140,57 @@ class FigmaCarouselControlCard extends HTMLElement {
     return `<div class="carousel"><div class="track">${slides}</div><div class="overlay-host"></div><div class="dots">${images.map((_, i) => `<button class="dot" data-dot="${i}"></button>`).join("")}</div></div>`;
   }
 
+  _embeddedToggleMarkup() {
+    if (!this._config.embedded_card) return "";
+    const isBack = this._showEmbeddedCard;
+    const icon = isBack
+      ? (this._config.embedded_button?.close_icon || "mdi:arrow-left")
+      : (this._config.embedded_button?.icon || "mdi:open-in-new");
+    const label = isBack
+      ? (this._config.embedded_button?.close_label || "Back")
+      : (this._config.embedded_button?.label || "Open card");
+    return `<button class="embedded-toggle" data-embedded-toggle><ha-icon icon="${escapeHtml(icon)}"></ha-icon><span>${escapeHtml(label)}</span></button>`;
+  }
+
+  _embeddedCardMarkup() {
+    if (!this._showEmbeddedCard) return "";
+    return `<div class="embedded-layer" data-embedded-layer>
+      <div class="embedded-card-host" data-embedded-host></div>
+      <div class="embedded-toolbar">${this._embeddedToggleMarkup()}</div>
+    </div>`;
+  }
+
+  async _ensureEmbeddedCard() {
+    if (!this.shadowRoot || !this._showEmbeddedCard || !this._config.embedded_card) return;
+    const host = this.shadowRoot.querySelector("[data-embedded-host]");
+    if (!host) return;
+    const configKey = JSON.stringify(this._config.embedded_card || null);
+    if (!this._embeddedCardEl || this._embeddedCardConfigKey !== configKey) {
+      this._embeddedCardEl = null;
+      this._embeddedCardConfigKey = configKey;
+      try {
+        const helpers = await window.loadCardHelpers?.();
+        this._embeddedCardEl = helpers?.createCardElement
+          ? helpers.createCardElement(this._config.embedded_card)
+          : null;
+      } catch (err) {
+        this._embeddedCardEl = null;
+      }
+      if (!this._embeddedCardEl) {
+        const fallback = document.createElement("div");
+        fallback.textContent = "Unable to render embedded card.";
+        fallback.classList.add("embedded-error");
+        this._embeddedCardEl = fallback;
+      } else if (this._embeddedCardEl.setConfig) {
+        this._embeddedCardEl.setConfig(this._config.embedded_card);
+      }
+      this._embeddedCardEl.classList.add("embedded-card");
+    }
+    if (this._hass) this._embeddedCardEl.hass = this._hass;
+    host.innerHTML = "";
+    host.appendChild(this._embeddedCardEl);
+  }
+
   _applyInteractiveState() {
     if (!this.shadowRoot) return;
     const track = this.shadowRoot.querySelector('.track');
@@ -141,6 +212,27 @@ class FigmaCarouselControlCard extends HTMLElement {
         this._applyInteractiveState();
       }));
     }
+    const content = this.shadowRoot.querySelector('.content');
+    if (content) content.classList.toggle('embedded-open', this._showEmbeddedCard);
+    const embeddedRoot = this.shadowRoot.querySelector('.embedded-root');
+    if (embeddedRoot) {
+      embeddedRoot.style.pointerEvents = this._showEmbeddedCard ? 'auto' : 'none';
+      embeddedRoot.innerHTML = this._embeddedCardMarkup();
+      embeddedRoot.querySelectorAll('[data-embedded-toggle]').forEach((el) => el.addEventListener('click', () => {
+        this._showEmbeddedCard = !this._showEmbeddedCard;
+        this._applyInteractiveState();
+      }));
+      this._ensureEmbeddedCard();
+    }
+    const embeddedToggleHost = this.shadowRoot.querySelector('.embedded-toggle-host');
+    if (embeddedToggleHost) {
+      embeddedToggleHost.innerHTML = this._showEmbeddedCard ? "" : this._embeddedToggleMarkup();
+      embeddedToggleHost.querySelectorAll('[data-embedded-toggle]').forEach((el)=>el.addEventListener('click',()=>{
+        this._showEmbeddedCard = !this._showEmbeddedCard;
+        this._showOptions = false;
+        this._applyInteractiveState();
+      }));
+    }
   }
 
   _refreshDynamicData() {
@@ -155,6 +247,7 @@ class FigmaCarouselControlCard extends HTMLElement {
       const state = this._entityState(b.entity)?.state || 'Unavailable';
       meta.textContent = `${this._buttonOptions(b.entity).length} options • ${state}`;
     });
+    if (this._embeddedCardEl && this._hass) this._embeddedCardEl.hass = this._hass;
   }
 
   _bindEvents() {
@@ -178,7 +271,15 @@ class FigmaCarouselControlCard extends HTMLElement {
       .actions{padding:12px;display:flex;gap:8px;flex-wrap:wrap;background:rgba(255,255,255,.08);border-top:1px solid rgba(255,255,255,.14)}
       .action-btn{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.3);color:#fff;padding:10px 12px;border-radius:10px;font-weight:600;backdrop-filter:blur(8px)}
       .a1{background:rgba(34,197,94,.65)}.a2{background:rgba(234,179,8,.65)}.a3{background:rgba(239,68,68,.65)}.a4{background:rgba(59,130,246,.65)}.a5{background:rgba(168,85,247,.65)}.a6{background:rgba(6,182,212,.65)}
-      .content{display:flex;min-height:340px}.left{width:42%;padding:12px}.right{flex:1;padding:12px}
+      .content{position:relative;display:flex;min-height:340px}.left{width:42%;padding:12px}.right{flex:1;padding:12px}
+      .content.embedded-open .left,.content.embedded-open .right{visibility:hidden;pointer-events:none}
+      .embedded-root{position:absolute;inset:0;z-index:5}
+      .embedded-layer{position:absolute;inset:0;background:rgba(17,24,39,.8);backdrop-filter:blur(10px);overflow:hidden}
+      .embedded-toolbar{position:absolute;top:12px;right:12px;z-index:2;pointer-events:auto}
+      .embedded-card-host{position:absolute;inset:0;display:flex;min-height:0;pointer-events:auto;touch-action:auto}
+      .embedded-card{width:100%;height:100%;display:block;pointer-events:auto;touch-action:auto}
+      .embedded-card > *{width:100%;height:100%;pointer-events:auto;touch-action:auto}
+      .embedded-error{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:12px;color:#fff}
       .carousel{position:relative;height:100%;border-radius:12px;overflow:hidden;background:rgba(0,0,0,.2)}
       .track{display:flex;height:100%;--idx:${this._activeButtonIndex};transform:translate3d(calc(var(--idx) * -100%),0,0);transition:transform 1.25s cubic-bezier(.22,.61,.36,1)}
       .slide{min-width:100%;height:100%}.img{width:100%;height:100%;object-fit:cover;transition:filter .35s ease}
@@ -190,6 +291,8 @@ class FigmaCarouselControlCard extends HTMLElement {
       .menu-btn{position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(255,255,255,.92),rgba(226,232,240,.95));border:1px solid rgba(17,24,39,.45);color:#111827;padding:14px;border-radius:12px;text-align:left;backdrop-filter:blur(8px)}
       .menu-btn.active{outline:2px solid rgba(17,24,39,.6)}
       .menu-btn small{opacity:.9;color:#1f2937}
+      .embedded-toggle{display:flex;align-items:center;gap:8px;margin-top:10px;width:100%;justify-content:center;padding:11px 12px;border-radius:12px;font-weight:600;color:#fff;background:rgba(59,130,246,.72);border:1px solid rgba(255,255,255,.32)}
+      .embedded-toolbar .embedded-toggle{margin-top:0;width:auto;min-width:120px}
       .shine{position:absolute;inset:0;transform:translateX(-200%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);transition:transform .7s ease}
       .menu-btn:hover .shine,.action-btn:hover .shine{transform:translateX(200%)}
       .dots{position:absolute;left:0;right:0;bottom:10px;display:flex;justify-content:center;gap:8px}.dot{width:8px;height:8px;border:none;border-radius:999px;background:rgba(255,255,255,.5)}.dot.active{width:18px;background:#fff}
@@ -198,7 +301,11 @@ class FigmaCarouselControlCard extends HTMLElement {
     <ha-card>
       <div class="status">${this._sensorMarkup()}</div>
       <div class="actions">${this._actionsMarkup()}</div>
-      <div class="content"><div class="left">${this._carouselMarkup()}</div><div class="right"><div class="menu">${this._menuMarkup()}</div></div></div>
+      <div class="content">
+        <div class="left">${this._carouselMarkup()}</div>
+        <div class="right"><div class="menu">${this._menuMarkup()}</div><div class="embedded-toggle-host"></div></div>
+        <div class="embedded-root"></div>
+      </div>
     </ha-card>`;
 
     this._bindEvents();
