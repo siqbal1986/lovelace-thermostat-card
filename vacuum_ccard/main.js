@@ -7,6 +7,8 @@ const escapeHtml = (v) => String(v ?? "")
   .replace(/\"/g, "&quot;")
   .replace(/'/g, "&#39;");
 
+const isMobileLayout = () => window.matchMedia?.("(max-width: 900px)")?.matches;
+
 class FigmaCarouselControlCard extends HTMLElement {
   constructor() {
     super();
