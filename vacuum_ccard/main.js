@@ -22,6 +22,7 @@ class FigmaCarouselControlCard extends HTMLElement {
     this._embeddedCardEl = null;
     this._embeddedCardConfigKey = "";
     this._embeddedSource = null;
+    this._rendered = false;
   }
 
   setConfig(config) {
@@ -42,14 +43,19 @@ class FigmaCarouselControlCard extends HTMLElement {
     this._embeddedCardEl = null;
     this._embeddedCardConfigKey = "";
     this._expandedRowKey = "";
+    this._rendered = false;
     this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
     if (!this._config) return;
+    if (!this._rendered) {
+      this._render();
+      return;
+    }
+    this._refreshDynamicData();
     if (this._embeddedCardEl) this._embeddedCardEl.hass = hass;
-    this._render();
   }
 
   getCardSize() { return 10; }
@@ -253,7 +259,7 @@ class FigmaCarouselControlCard extends HTMLElement {
             <div class="row-title">${escapeHtml(button.name || this._friendlyName(button.entity))}</div>
             <div class="row-subtitle">${escapeHtml(button.description || "")}</div>
           </div>
-          <div class="row-value">${escapeHtml(value || "")}</div>
+          <div class="row-value" data-row-value="${escapeHtml(key)}">${escapeHtml(value || "")}</div>
           <div class="row-chevron">${kind === "detail" ? "▾" : kind === "toggle" ? "⏻" : "▶"}</div>
         </button>
         ${expanded ? this._optionListMarkup(button, key) : ""}
@@ -353,19 +359,23 @@ class FigmaCarouselControlCard extends HTMLElement {
       option?.run?.();
       this._render();
     }));
+  }
 
-    const closeEmbedded = this.shadowRoot.querySelector("[data-close-embedded]");
-    if (closeEmbedded) {
-      closeEmbedded.addEventListener("click", () => {
-        this._showEmbeddedCard = false;
-        this._render();
+  _refreshDynamicData() {
+    if (!this.shadowRoot) return;
+    this._statusLines().forEach((line, lineIndex) => {
+      const values = line.values || line.items || [];
+      values.forEach((value, idx) => {
+        const text = value.value ?? (value.entity ? this._valueFromEntity(value.entity) : "");
+        const el = this.shadowRoot.querySelector(`[data-status-item="${lineIndex}-${idx}"] .status-value`);
+        if (el) el.textContent = text;
       });
-    }
+    });
 
-    const openGlobalEmbedded = this.shadowRoot.querySelector("[data-open-global-embedded]");
-    if (openGlobalEmbedded) {
-      openGlobalEmbedded.addEventListener("click", () => this._openEmbedded());
-    }
+    (this._config.buttons || []).forEach((button, index) => {
+      const el = this.shadowRoot.querySelector(`[data-row-value="row-${index}"]`);
+      if (el) el.textContent = button.value_label || (button.entity ? this._entityState(button.entity)?.state || "" : "");
+    });
   }
 
   _render() {
@@ -433,6 +443,7 @@ class FigmaCarouselControlCard extends HTMLElement {
 
     this._bindEvents();
     this._ensureEmbeddedCard();
+    this._rendered = true;
   }
 }
 
