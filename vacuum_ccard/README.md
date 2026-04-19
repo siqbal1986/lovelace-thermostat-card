@@ -5,8 +5,8 @@
 A map-first vacuum dashboard card with a modern app-style layout:
 
 - visual/map area is always present
-- grouped settings list with inline toggles
-- detail panel (desktop side panel / mobile bottom sheet)
+- grouped settings list (1-column mobile, 2-column desktop when space allows)
+- inline expanding option panels (accordion style)
 - nested setting navigation with breadcrumb + back
 - embedded card support in the visual area
 
@@ -29,6 +29,15 @@ sensors:
 actions:
   - entity: vacuum.robot
 
+status_lines:
+  - values:
+      - entity: sensor.robot_battery
+        label: Battery
+      - entity: sensor.robot_area
+        label: Area
+      - entity: sensor.robot_runtime
+        label: Runtime
+
 embedded_button:
   label: Open live map
   icon: mdi:map-search
@@ -49,6 +58,11 @@ buttons:
     panel_image: /local/vacuum/modes_panel.jpg
     badges: [AI Assist, Smart]
     message: Choose a mode based on room traffic.
+    options_background: /local/vacuum/water_bg.jpg
+    option_media:
+      Quiet: /local/vacuum/quiet.gif
+      Standard: /local/vacuum/standard.gif
+      Turbo: /local/vacuum/turbo.gif
 
   - entity: switch.robot_mop_boost
     name: Mop Boost
@@ -93,6 +107,9 @@ Each item in `buttons:` can use these fields:
 - `panel_image`
 - `value_label`
 - `behavior` (`toggle`, `detail`, `action`, `embedded`)
+- `options` (custom option list with per-option `image` / `service` support)
+- `option_media` (map option label -> media/image URL shown directly below that option)
+- `options_background` (background image for the whole inline options area)
 - `badges` (array)
 - `message`
 - `actions` (array of actions/service calls)
@@ -102,14 +119,14 @@ Each item in `buttons:` can use these fields:
 ### Interaction behavior
 
 - **2 options** (switch/input_boolean/select with 2 options) -> inline toggle
-- **Multi-option** -> opens detail panel
+- **Multi-option** -> expands inline in the same row area
 - **Action** -> executes immediately
-- **Embedded** -> opens configured embedded card in visual area
+- **Embedded** -> embedded map/card shown in the top visual area
 
 ## Responsive behavior
 
-- **Desktop:** top stats, left visual, right grouped settings + inline detail panel, bottom actions.
-- **Mobile:** stacked layout, visual still dominant, detail appears as in-card bottom sheet.
+- **Desktop:** top-to-bottom order is status lines -> action buttons -> map/visual -> options menu (options can still use 2 columns if space allows).
+- **Mobile:** same top-to-bottom order in a single column, no clipping/overflow, with inline expansion staying in-card.
 
 ## Notes
 
@@ -117,3 +134,17 @@ Each item in `buttons:` can use these fields:
 - `thumb`/`image` can be used for setting row thumbnails.
 - `panel_image` is shown inside detail views.
 - Embedded cards receive `hass` updates and stay interactive.
+
+## Quick preview (local)
+
+If you want to quickly render the card outside Home Assistant, run a local Playwright screenshot script against `vacuum_ccard/main.js` using mock `hass` state.
+
+1. Install browser runtime (first time only):
+   - `npx playwright install chromium`
+2. Generate screenshots (desktop + mobile) with a small Node script that:
+   - registers `ha-card`/`ha-icon` test stubs
+   - injects `figma-carousel-control-card`
+   - sets `card.setConfig(...)` and `card.hass = ...`
+   - captures screenshots for validation
+
+This is useful when iterating on layout, row hierarchy, and responsive behavior before deploying to Lovelace.
