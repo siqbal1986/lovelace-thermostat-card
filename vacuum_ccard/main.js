@@ -7,6 +7,8 @@ const escapeHtml = (v) => String(v ?? "")
   .replace(/\"/g, "&quot;")
   .replace(/'/g, "&#39;");
 
+const isMobileLayout = () => window.matchMedia?.("(max-width: 900px)")?.matches;
+
 class FigmaCarouselControlCard extends HTMLElement {
   constructor() {
     super();
@@ -351,6 +353,19 @@ class FigmaCarouselControlCard extends HTMLElement {
       option?.run?.();
       this._render();
     }));
+
+    const closeEmbedded = this.shadowRoot.querySelector("[data-close-embedded]");
+    if (closeEmbedded) {
+      closeEmbedded.addEventListener("click", () => {
+        this._showEmbeddedCard = false;
+        this._render();
+      });
+    }
+
+    const openGlobalEmbedded = this.shadowRoot.querySelector("[data-open-global-embedded]");
+    if (openGlobalEmbedded) {
+      openGlobalEmbedded.addEventListener("click", () => this._openEmbedded());
+    }
   }
 
   _render() {
