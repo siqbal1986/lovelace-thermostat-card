@@ -1,57 +1,133 @@
-# Figma Carousel Control Card
+# Figma Carousel Control Card (Vacuum Dashboard)
 
 `custom:figma-carousel-control-card`
 
-## Config
+A map-first vacuum dashboard card with a modern app-style layout:
+
+- visual/map area is always present
+- grouped settings list with inline toggles
+- detail panel (desktop side panel / mobile bottom sheet)
+- nested setting navigation with breadcrumb + back
+- embedded card support in the visual area
+
+## Base configuration
 
 ```yaml
 type: custom:figma-carousel-control-card
-sensors:
-  - entity: sensor.vacuum_battery
-    name: Battery
-actions:
-  - entity: vacuum.my_vacuum
-buttons:
-  - entity: select.vacuum_mode
-  - entity: switch.vacuum_boost
 images:
-  - /local/vacuum/mode.gif
-  - /local/vacuum/boost.gif
+  - /local/vacuum/main_map.jpg
+  - /local/vacuum/rooms.jpg
+
+sensors:
+  - entity: sensor.robot_battery
+    name: Battery
+    icon: mdi:battery
+  - entity: sensor.robot_main_brush_left
+    name: Main Brush
+    icon: mdi:brush
+
+actions:
+  - entity: vacuum.robot
+
 embedded_button:
-  label: Open map
+  label: Open live map
   icon: mdi:map-search
+  close_label: Back to dashboard
   close_icon: mdi:arrow-left
-  close_label: Back to controls
 embedded_card:
   type: map
   entities:
-    - device_tracker.robot_vacuum
+    - device_tracker.robot
   hours_to_show: 6
-```
 
-
-### Example: embed dreame-vacuum card
-
-```yaml
-type: custom:figma-carousel-control-card
 buttons:
-  - entity: select.dreame_cleaning_mode
-images:
-  - /local/vacuum/idle.png
-embedded_button:
-  label: Open Dreame map
-  icon: mdi:map
-  close_label: Back
-  close_icon: mdi:arrow-left
-embedded_card:
-  type: custom:dreame-vacuum-card
-  entity: vacuum.dreame_l10s_ultra
-  map_key: map
+  - entity: select.robot_cleaning_mode
+    name: Cleaning Mode
+    description: Select suction preset
+    group: Cleaning
+    thumb: /local/vacuum/modes_thumb.jpg
+    panel_image: /local/vacuum/modes_panel.jpg
+    badges: [AI Assist, Smart]
+    message: Choose a mode based on room traffic.
+
+  - entity: switch.robot_mop_boost
+    name: Mop Boost
+    description: Increase water pressure
+    group: Cleaning
+    thumb: /local/vacuum/mop.jpg
+
+  - name: Camera View
+    description: Open camera/map card
+    group: Camera
+    behavior: embedded
+    thumb: /local/vacuum/camera.jpg
+    embedded_card:
+      type: picture-entity
+      entity: camera.robot_map
+      camera_view: live
+
+  - name: Maintenance
+    description: Service reminders and reset tools
+    group: Maintenance
+    panel_image: /local/vacuum/maintenance.jpg
+    children:
+      - entity: switch.robot_child_lock
+        name: Child Lock
+        description: Prevent accidental button presses
+      - entity: select.robot_voice_volume
+        name: Voice Volume
+        description: Set robot speaker volume
+        panel_image: /local/vacuum/volume.jpg
 ```
+
+## Button schema
+
+Each item in `buttons:` can use these fields:
+
+- `entity`
+- `name`
+- `description`
+- `group`
+- `thumb`
+- `image`
+- `panel_image`
+- `value_label`
+- `behavior` (`toggle`, `detail`, `action`, `embedded`)
+- `badges` (array)
+- `message`
+- `actions` (array of actions/service calls)
+- `children` (nested settings)
+- `embedded_card`
+
+### Interaction behavior
+
+- **2 options** (switch/input_boolean/select with 2 options) -> inline toggle
+- **Multi-option** -> opens detail panel
+- **Action** -> executes immediately
+- **Embedded** -> opens configured embedded card in visual area
+
+## Responsive behavior
+
+- **Desktop:** top stats, left visual, right grouped settings + inline detail panel, bottom actions.
+- **Mobile:** stacked layout, visual still dominant, detail appears as in-card bottom sheet.
 
 ## Notes
-- No carousel auto-advance.
-- Image slide transition is left-to-right style with ~1.2s duration.
-- Options overlay is transparent and option buttons are subtle/outlined.
-- `embedded_button` is optional; when configured with `embedded_card`, clicking it replaces the preview/menu area with a full-size Lovelace card container.
-- Embedded card area now captures click/touch input directly so interactive cards (like `custom:dreame-vacuum-card`) remain fully usable.
+
+- `images` drives the main visual carousel.
+- `thumb`/`image` can be used for setting row thumbnails.
+- `panel_image` is shown inside detail views.
+- Embedded cards receive `hass` updates and stay interactive.
+
+## Quick preview (local)
+
+If you want to quickly render the card outside Home Assistant, run a local Playwright screenshot script against `vacuum_ccard/main.js` using mock `hass` state.
+
+1. Install browser runtime (first time only):
+   - `npx playwright install chromium`
+2. Generate screenshots (desktop + mobile) with a small Node script that:
+   - registers `ha-card`/`ha-icon` test stubs
+   - injects `figma-carousel-control-card`
+   - sets `card.setConfig(...)` and `card.hass = ...`
+   - captures screenshots for validation
+
+This is useful when iterating on layout, row hierarchy, and responsive behavior before deploying to Lovelace.
